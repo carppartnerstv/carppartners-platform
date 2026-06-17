@@ -1,0 +1,33 @@
+{
+  "name": "@carp-partners/backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API REST de Carp Partners TV — Node.js + Express + PostgreSQL + Redis",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "migrate": "node db/migrate.js up",
+    "migrate:status": "node db/migrate.js status",
+    "migrate:stripe": "node ../scripts/migrate-stripe.js",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "pg": "^8.13.1",
+    "redis": "^4.7.0",
+    "stripe": "^17.4.0",
+    "zod": "^3.24.1"
+  }
+}

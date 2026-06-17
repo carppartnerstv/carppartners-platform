@@ -1,0 +1,54 @@
+# =====================================================================
+# Deploy automático a VPS Hetzner al hacer push a main.  (Briefing 7.3)
+# Todo el proceso tarda 2–4 min sin intervención manual.
+#
+# Secrets necesarios en GitHub (Settings -> Secrets -> Actions):
+#   VPS_HOST        IP o dominio del servidor
+#   VPS_USER        usuario SSH (p.ej. "deploy")
+#   VPS_SSH_KEY     clave privada SSH del usuario de deploy
+# =====================================================================
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Conectar por SSH y desplegar
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            cd /var/www/carp-partners-tv
+
+            echo "==> git pull"
+            git pull origin main
+
+            echo "==> backend deps"
+            cd backend && npm ci --omit=dev && cd ..
+
+            echo "==> web deps + build"
+            cd apps/web && npm ci && npm run build && cd ../..
+
+            echo "==> migraciones de base de datos"
+            cd backend && npm run migrate && cd ..
+
+            echo "==> reload pm2 (zero-downtime)"
+            pm2 reload ecosystem.config.cjs
+
+            echo "==> healthcheck"
+            sleep 3
+            curl -fsS http://127.0.0.1:3001/health
+            echo "\nDeploy OK"

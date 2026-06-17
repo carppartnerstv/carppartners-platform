@@ -1,0 +1,14 @@
+{
+  "name": "@carp-partners/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Componentes de UI compartidos para Carp Partners TV",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tailwind": "./tailwind.preset.js"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  }
+}

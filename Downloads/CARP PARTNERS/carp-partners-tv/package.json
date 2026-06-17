@@ -1,0 +1,21 @@
+{
+  "name": "carp-partners-tv",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataforma de vídeo tipo Netflix para carpfishing — monorepo (web + iOS + Android + backend + admin)",
+  "workspaces": [
+    "backend",
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm --workspace @carp-partners/backend run dev",
+    "dev:web": "npm --workspace @carp-partners/web run dev",
+    "build:web": "npm --workspace @carp-partners/web run build",
+    "migrate": "npm --workspace @carp-partners/backend run migrate",
+    "migrate:stripe": "npm --workspace @carp-partners/backend run migrate:stripe"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
