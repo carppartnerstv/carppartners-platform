@@ -8,6 +8,16 @@ import { Logo } from '@carp-partners/ui';
 
 const NAV = [
   {
+    href: '/admin/dashboard',
+    label: 'Dashboard',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 14a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1v-2zM14 12a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1h-4a1 1 0 01-1-1v-6z" />
+      </svg>
+    ),
+  },
+  {
     href: '/admin/videos',
     label: 'Vídeos',
     icon: (
@@ -50,7 +60,6 @@ const NAV = [
   {
     href: '/admin/suscriptores',
     label: 'Suscriptores',
-    soon: true,
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -61,7 +70,6 @@ const NAV = [
   {
     href: '/admin/pagos',
     label: 'Pagos',
-    soon: true,
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -114,29 +122,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Nav */}
         <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
-          {NAV.map(({ href, label, icon, soon }) => {
+          {NAV.map(({ href, label, icon }) => {
             const active = pathname.startsWith(href);
             return (
               <Link
                 key={href}
-                href={soon ? '#' : href}
+                href={href}
                 className={[
                   'flex items-center gap-2.5 px-3 py-2 rounded-md text-[13.5px] font-medium transition-all',
                   active
                     ? 'bg-brand/15 text-white border-l-2 border-brand-bright pl-[10px]'
-                    : soon
-                    ? 'text-white/25 cursor-default pointer-events-none'
                     : 'text-white/60 hover:text-white hover:bg-white/6',
                 ].join(' ')}
-                onClick={soon ? (e) => e.preventDefault() : undefined}
               >
                 <span className={active ? 'text-brand-bright' : 'text-current'}>{icon}</span>
                 {label}
-                {soon && (
-                  <span className="ml-auto text-[10px] bg-white/8 text-white/40 px-1.5 py-0.5 rounded">
-                    Pronto
-                  </span>
-                )}
               </Link>
             );
           })}
