@@ -11,6 +11,11 @@ import type {
   AdminUser,
   Payment,
   AdminVideoInput,
+  AdminVideo,
+  CategoryInput,
+  SeriesInput,
+  CrewMember,
+  CrewMemberInput,
 } from './types.js';
 
 // ─── Error tipado ────────────────────────────────────────────────────────────
@@ -328,6 +333,73 @@ export class ApiClient {
 
   async deleteAdminVideo(id: string): Promise<void> {
     return this.request('DELETE', `/admin/videos/${id}`);
+  }
+
+  async getAdminVideos(params?: {
+    published?: boolean;
+    category?: string;
+    series?: string;
+    q?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ videos: AdminVideo[]; limit: number; offset: number }> {
+    return this.request('GET', '/admin/videos', { query: params as Record<string, string | number | boolean | undefined> });
+  }
+
+  // ── Admin: categorías ──────────────────────────────────────────────────────
+
+  async createAdminCategory(data: CategoryInput): Promise<{ category: Category }> {
+    return this.request('POST', '/admin/categories', { body: data });
+  }
+
+  async updateAdminCategory(id: string, data: Partial<CategoryInput>): Promise<{ category: Category }> {
+    return this.request('PUT', `/admin/categories/${id}`, { body: data });
+  }
+
+  async deleteAdminCategory(id: string): Promise<void> {
+    return this.request('DELETE', `/admin/categories/${id}`);
+  }
+
+  // ── Admin: series ──────────────────────────────────────────────────────────
+
+  async createAdminSeries(data: SeriesInput): Promise<{ series: Series }> {
+    return this.request('POST', '/admin/series', { body: data });
+  }
+
+  async updateAdminSeries(id: string, data: Partial<SeriesInput>): Promise<{ series: Series }> {
+    return this.request('PUT', `/admin/series/${id}`, { body: data });
+  }
+
+  async deleteAdminSeries(id: string): Promise<void> {
+    return this.request('DELETE', `/admin/series/${id}`);
+  }
+
+  async getCrew(): Promise<{ crew: CrewMember[] }> {
+    return this.request('GET', '/crew');
+  }
+
+  async getAdminCrew(): Promise<{ crew: CrewMember[] }> {
+    return this.request('GET', '/admin/crew');
+  }
+
+  async createAdminCrewMember(data: CrewMemberInput): Promise<{ member: CrewMember }> {
+    return this.request('POST', '/admin/crew', { body: data });
+  }
+
+  async updateAdminCrewMember(id: string, data: Partial<CrewMemberInput>): Promise<{ member: CrewMember }> {
+    return this.request('PUT', `/admin/crew/${id}`, { body: data });
+  }
+
+  async deleteAdminCrewMember(id: string): Promise<void> {
+    return this.request('DELETE', `/admin/crew/${id}`);
+  }
+
+  async getVimeoMetadata(vimeoId: string): Promise<{
+    title: string;
+    durationSec: number;
+    thumbnailUrl: string | null;
+  }> {
+    return this.request('GET', `/admin/vimeo/${encodeURIComponent(vimeoId)}/metadata`);
   }
 }
 

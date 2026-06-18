@@ -13,4 +13,9 @@ export type {
   AdminUser,
   Payment,
   AdminVideoInput,
+  AdminVideo,
+  CategoryInput,
+  SeriesInput,
+  CrewMember,
+  CrewMemberInput,
 } from './types';

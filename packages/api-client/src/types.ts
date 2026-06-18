@@ -114,4 +114,56 @@ export interface AdminVideoInput {
   seriesId?: string;
   episodeNum?: number;
   published?: boolean;
+  publishedAt?: string | null;
+  crewMemberIds?: string[];
+}
+
+// GET /admin/videos devuelve campos extra respecto al Video público
+export interface AdminVideo extends Video {
+  vimeo_id: string;
+  published: boolean;
+  published_at: string | null;
+  status: 'borrador' | 'programado' | 'publicado';
+  updated_at: string;
+  category_name: string | null;
+  series_title: string | null;
+  crew: Pick<CrewMember, 'id' | 'name' | 'slug' | 'role'>[];
+}
+
+export interface CrewMember {
+  id: string;
+  name: string;
+  slug: string;
+  role: 'socio' | 'crew';
+  bio: string | null;
+  avatar_url: string | null;
+  order_index: number;
+  created_at?: string;
+}
+
+export interface CrewMemberInput {
+  name: string;
+  slug: string;
+  role?: 'socio' | 'crew';
+  bio?: string;
+  avatarUrl?: string;
+  orderIndex?: number;
+}
+
+export interface CategoryInput {
+  name: string;
+  slug: string;
+  description?: string;
+  coverUrl?: string;
+  orderIndex?: number;
+}
+
+export interface SeriesInput {
+  title: string;
+  slug: string;
+  description?: string;
+  categoryId?: string;
+  seasonNum?: number;
+  coverUrl?: string;
+  orderIndex?: number;
 }

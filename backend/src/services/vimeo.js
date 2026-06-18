@@ -101,6 +101,43 @@ export async function getPlaybackUrl(vimeoId) {
 }
 
 /**
+ * Obtiene metadatos básicos de un vídeo de Vimeo para el autorelleno del panel admin.
+ * @param {string} vimeoId  ID numérico del vídeo
+ * @returns {Promise<{ title: string, durationSec: number, thumbnailUrl: string|null }>}
+ */
+export async function getVideoMetadata(vimeoId) {
+  const res = await fetch(`${VIMEO_API}/videos/${encodeURIComponent(vimeoId)}`, {
+    headers: await vimeoHeaders(),
+  });
+
+  if (res.status === 404) {
+    const err = new Error('Vídeo no encontrado en Vimeo');
+    err.status = 404;
+    err.code = 'VIMEO_NOT_FOUND';
+    throw err;
+  }
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`Vimeo respondió ${res.status}: ${detail.slice(0, 200)}`);
+  }
+
+  const data = await res.json();
+
+  // Thumbnail: la imagen más grande de la lista de sizes (si existe)
+  const sizes = data.pictures?.sizes ?? [];
+  const thumbnailUrl = sizes.length > 0
+    ? sizes[sizes.length - 1].link
+    : (data.pictures?.base_link ?? null);
+
+  return {
+    title: data.name ?? '',
+    durationSec: typeof data.duration === 'number' ? data.duration : 0,
+    thumbnailUrl,
+  };
+}
+
+/**
  * Sube/crea un vídeo en Vimeo mediante la API (usado por el panel admin).
  * Devuelve un upload link tus para subida resumible desde el navegador.
  * (Implementación de subida completa en Fase 1 — semana 6.)

@@ -90,6 +90,30 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | GET | `/admin/users?status&q&limit&offset` | JWT + admin | `{users}` |
 | GET | `/admin/payments` | JWT + admin | `{payments}` |
 | POST/PUT/DELETE | `/admin/videos[/:id]` | JWT + admin | vídeo / 204 |
+| GET | `/admin/videos?published&category&series&q&limit&offset` | JWT + admin | `{videos,limit,offset}` — incluye borradores |
+| POST | `/admin/categories` `{name,slug,description?,coverUrl?,orderIndex?}` | JWT + admin | `{category}` 201 |
+| PUT | `/admin/categories/:id` | JWT + admin | `{category}` |
+| DELETE | `/admin/categories/:id` | JWT + admin | 204 |
+| POST | `/admin/series` `{title,slug,description?,categoryId?,seasonNum?,coverUrl?,orderIndex?}` | JWT + admin | `{series}` 201 |
+| PUT | `/admin/series/:id` | JWT + admin | `{series}` |
+| DELETE | `/admin/series/:id` | JWT + admin | 204 |
+| GET | `/admin/vimeo/:vimeoId/metadata` | JWT + admin | `{title,durationSec,thumbnailUrl}` — autorelleno formulario |
+| GET | `/admin/crew` | JWT + admin | `{crew}` |
+| POST | `/admin/crew` `{name,slug,role?,bio?,avatarUrl?,orderIndex?}` | JWT + admin | `{member}` 201 |
+| PUT | `/admin/crew/:id` | JWT + admin | `{member}` |
+| DELETE | `/admin/crew/:id` | JWT + admin | 204 |
+| GET | `/crew` | JWT | `{crew}` — lista para filtros en web/móvil |
+| GET | `/videos?crew=<slug>` | JWT + suscripción | filtra por miembro de la crew |
+
+**Regla de visibilidad pública (desde migración 004):**
+Un vídeo es accesible para suscriptores si y solo si:
+`published = true AND (published_at IS NULL OR published_at <= now())`
+Los vídeos con `published_at` en el futuro están **programados** y no se sirven al cliente aunque `published = true`.
+Los endpoints de admin devuelven todos los vídeos y añaden el campo `status: 'borrador' | 'programado' | 'publicado'`.
+El campo `publishedAt` (camelCase en la API, `published_at` en BD) es opcional en POST/PUT:
+- Si se omite y `published = true` → se asigna `now()` (visible de inmediato).
+- Si se proporciona una fecha futura → el vídeo queda programado.
+- Si se proporciona `null` o cadena vacía → se borra la fecha programada.
 
 **Regla de acceso clave:** un 403 con `code: "SUBSCRIPTION_REQUIRED"` significa
 que el usuario no tiene suscripción activa → la UI debe redirigir a la pantalla

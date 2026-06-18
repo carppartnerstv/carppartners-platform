@@ -10,7 +10,7 @@ import { ApiError } from '@carp-partners/api-client';
 type Mode = 'login' | 'register';
 
 function LoginContent() {
-  const { status, hasSubscription, login, register } = useSession();
+  const { user, status, hasSubscription, login, register } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -21,12 +21,14 @@ function LoginContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Si ya tiene sesión y suscripción, redirige al home
   useEffect(() => {
-    if (status === 'authenticated' && hasSubscription) {
+    if (status !== 'authenticated') return;
+    if (user?.role === 'admin') {
+      router.replace('/admin');
+    } else if (hasSubscription) {
       router.replace('/home');
     }
-  }, [status, hasSubscription, router]);
+  }, [status, user, hasSubscription, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

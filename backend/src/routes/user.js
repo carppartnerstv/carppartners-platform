@@ -54,7 +54,9 @@ userRouter.get(
       `SELECT v.id, v.title, v.slug, v.thumbnail_url, v.duration_sec,
               h.progress_sec, h.last_watched_at
          FROM watch_history h
-         JOIN videos v ON v.id = h.video_id AND v.published = true
+         JOIN videos v ON v.id = h.video_id
+            AND v.published = true
+            AND (v.published_at IS NULL OR v.published_at <= now())
         WHERE h.user_id = $1 AND h.completed = false AND h.progress_sec > 0
         ORDER BY h.last_watched_at DESC
         LIMIT 20`,
@@ -72,7 +74,9 @@ userRouter.get(
     const { rows } = await query(
       `SELECT v.id, v.title, v.slug, v.thumbnail_url, v.duration_sec, w.added_at
          FROM watchlist w
-         JOIN videos v ON v.id = w.video_id AND v.published = true
+         JOIN videos v ON v.id = w.video_id
+            AND v.published = true
+            AND (v.published_at IS NULL OR v.published_at <= now())
         WHERE w.user_id = $1
         ORDER BY w.added_at DESC`,
       [req.user.id],

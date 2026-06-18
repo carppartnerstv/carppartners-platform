@@ -10,10 +10,11 @@
 // =====================================================================
 import { Router } from 'express';
 import { z } from 'zod';
-import { query, queryOne } from '../config/db.js';
+import { query, queryOne, withTransaction } from '../config/db.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
-import { asyncHandler, badRequest, notFound } from '../utils/errors.js';
+import { asyncHandler, badRequest, notFound, HttpError } from '../utils/errors.js';
 import { stripe } from '../services/stripe.js';
+import { getVideoMetadata } from '../services/vimeo.js';
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAdmin);
@@ -106,6 +107,30 @@ adminRouter.get(
 );
 
 // --- Crear vídeo ------------------------------------------------------
+
+// Sincroniza video_crew: borra las relaciones actuales e inserta las nuevas.
+// Llamar dentro de una transacción.
+async function syncVideoCrew(client, videoId, crewMemberIds) {
+  await client.query('DELETE FROM video_crew WHERE video_id = $1', [videoId]);
+  if (crewMemberIds.length > 0) {
+    const placeholders = crewMemberIds.map((_, i) => `($1, $${i + 2})`).join(', ');
+    await client.query(
+      `INSERT INTO video_crew (video_id, crew_member_id) VALUES ${placeholders}`,
+      [videoId, ...crewMemberIds],
+    );
+  }
+}
+
+// Subquery reutilizable para obtener la crew de un vídeo como array JSON
+const CREW_SUBQUERY = `
+  COALESCE(
+    (SELECT json_agg(json_build_object('id', cm.id, 'name', cm.name, 'slug', cm.slug, 'role', cm.role)
+            ORDER BY cm.order_index, cm.name)
+       FROM video_crew vc JOIN crew_members cm ON cm.id = vc.crew_member_id
+      WHERE vc.video_id = v.id),
+    '[]'::json
+  ) AS crew`;
+
 const videoSchema = z.object({
   title: z.string().min(1),
   slug: z.string().min(1),
@@ -117,6 +142,11 @@ const videoSchema = z.object({
   seriesId: z.string().uuid().optional(),
   episodeNum: z.number().int().optional(),
   published: z.boolean().optional(),
+  publishedAt: z.string().optional().refine(
+    s => !s || !isNaN(Date.parse(s)),
+    'publishedAt debe ser una fecha ISO 8601 válida',
+  ),
+  crewMemberIds: z.array(z.string().uuid()).optional(),
 });
 
 adminRouter.post(
@@ -126,18 +156,34 @@ adminRouter.post(
     if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
     const v = parsed.data;
 
-    const video = await queryOne(
-      `INSERT INTO videos
-        (title, slug, description, vimeo_id, duration_sec, thumbnail_url,
-         category_id, series_id, episode_num, published)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       RETURNING *`,
-      [
-        v.title, v.slug, v.description ?? null, v.vimeoId, v.durationSec ?? 0,
-        v.thumbnailUrl ?? null, v.categoryId ?? null, v.seriesId ?? null,
-        v.episodeNum ?? null, v.published ?? false,
-      ],
-    );
+    // Determina published_at:
+    // - Si se envía explícitamente, úsalo.
+    // - Si published=true sin fecha, visible de inmediato → now().
+    // - Si published=false, null (se asignará cuando se publique).
+    const publishedAt = v.publishedAt
+      ? new Date(v.publishedAt)
+      : (v.published ? new Date() : null);
+
+    const video = await withTransaction(async (client) => {
+      const { rows } = await client.query(
+        `INSERT INTO videos
+          (title, slug, description, vimeo_id, duration_sec, thumbnail_url,
+           category_id, series_id, episode_num, published, published_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         RETURNING *`,
+        [
+          v.title, v.slug, v.description ?? null, v.vimeoId, v.durationSec ?? 0,
+          v.thumbnailUrl ?? null, v.categoryId ?? null, v.seriesId ?? null,
+          v.episodeNum ?? null, v.published ?? false, publishedAt,
+        ],
+      );
+      const created = rows[0];
+      if (v.crewMemberIds?.length) {
+        await syncVideoCrew(client, created.id, v.crewMemberIds);
+      }
+      return created;
+    });
+
     res.status(201).json({ video });
   }),
 );
@@ -149,7 +195,6 @@ adminRouter.put(
     const parsed = videoSchema.partial().safeParse(req.body);
     if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
 
-    // Mapea camelCase -> snake_case y construye SET dinámico.
     const map = {
       title: 'title', slug: 'slug', description: 'description', vimeoId: 'vimeo_id',
       durationSec: 'duration_sec', thumbnailUrl: 'thumbnail_url', categoryId: 'category_id',
@@ -163,14 +208,45 @@ adminRouter.put(
         sets.push(`${col} = $${params.length}`);
       }
     }
-    if (sets.length === 0) throw badRequest('Nada que actualizar', 'EMPTY_UPDATE');
 
-    params.push(req.params.id);
-    const video = await queryOne(
-      `UPDATE videos SET ${sets.join(', ')} WHERE id = $${params.length} RETURNING *`,
-      params,
-    );
-    if (!video) throw notFound('Vídeo no encontrado', 'VIDEO_NOT_FOUND');
+    // publishedAt: valor explícito → úsalo; published=true sin fecha → auto-asigna now() si aún es null
+    const { publishedAt, crewMemberIds } = parsed.data;
+    if (publishedAt !== undefined) {
+      params.push(publishedAt ? new Date(publishedAt) : null);
+      sets.push(`published_at = $${params.length}`);
+    } else if (parsed.data.published === true) {
+      sets.push(`published_at = COALESCE(published_at, now())`);
+    }
+
+    const hasMetaChanges = sets.length > 0;
+    if (!hasMetaChanges && crewMemberIds === undefined) {
+      throw badRequest('Nada que actualizar', 'EMPTY_UPDATE');
+    }
+
+    const video = await withTransaction(async (client) => {
+      let updated;
+      if (hasMetaChanges) {
+        params.push(req.params.id);
+        const { rows } = await client.query(
+          `UPDATE videos SET ${sets.join(', ')} WHERE id = $${params.length} RETURNING *`,
+          params,
+        );
+        updated = rows[0];
+        if (!updated) throw notFound('Vídeo no encontrado', 'VIDEO_NOT_FOUND');
+      } else {
+        const { rows } = await client.query(
+          'SELECT * FROM videos WHERE id = $1',
+          [req.params.id],
+        );
+        updated = rows[0];
+        if (!updated) throw notFound('Vídeo no encontrado', 'VIDEO_NOT_FOUND');
+      }
+      if (crewMemberIds !== undefined) {
+        await syncVideoCrew(client, updated.id, crewMemberIds);
+      }
+      return updated;
+    });
+
     res.json({ video });
   }),
 );
@@ -185,5 +261,321 @@ adminRouter.delete(
     );
     if (!video) throw notFound('Vídeo no encontrado', 'VIDEO_NOT_FOUND');
     res.status(204).end();
+  }),
+);
+
+// =====================================================================
+// GET /admin/videos — lista TODOS los vídeos (incluye borradores).
+// El GET /videos público exige suscripción y solo devuelve publicados;
+// el panel admin necesita ver el catálogo completo.
+// Filtros opcionales: published (true/false), category, series, q.
+// =====================================================================
+adminRouter.get(
+  '/videos',
+  asyncHandler(async (req, res) => {
+    const limit  = Math.min(parseInt(req.query.limit  ?? '50', 10), 200);
+    const offset = Math.max(parseInt(req.query.offset ?? '0',  10), 0);
+    const { published, category, series, q } = req.query;
+
+    const filters = [];
+    const params  = [];
+
+    if (published !== undefined) {
+      params.push(published === 'true');
+      filters.push(`v.published = $${params.length}`);
+    }
+    if (category) {
+      params.push(category);
+      filters.push(`v.category_id = $${params.length}`);
+    }
+    if (series) {
+      params.push(series);
+      filters.push(`v.series_id = $${params.length}`);
+    }
+    if (q) {
+      params.push(`%${q}%`);
+      filters.push(`(v.title ILIKE $${params.length} OR v.description ILIKE $${params.length})`);
+    }
+
+    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+    params.push(limit, offset);
+
+    const { rows } = await query(
+      `SELECT v.id, v.title, v.slug, v.description, v.vimeo_id,
+              v.duration_sec, v.thumbnail_url, v.category_id,
+              v.series_id, v.episode_num, v.published, v.published_at,
+              v.created_at, v.updated_at,
+              c.name AS category_name,
+              s.title AS series_title,
+              CASE
+                WHEN v.published = false                                       THEN 'borrador'
+                WHEN v.published = true AND v.published_at IS NOT NULL
+                     AND v.published_at > now()                                THEN 'programado'
+                ELSE 'publicado'
+              END AS status,
+              ${CREW_SUBQUERY}
+         FROM videos v
+         LEFT JOIN categories c ON c.id = v.category_id
+         LEFT JOIN series s     ON s.id = v.series_id
+        ${where}
+        ORDER BY v.created_at DESC
+        LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params,
+    );
+
+    res.json({ videos: rows, limit, offset });
+  }),
+);
+
+// =====================================================================
+// CRUD de categorías
+// =====================================================================
+const categorySchema = z.object({
+  name:        z.string().min(1),
+  slug:        z.string().min(1).regex(/^[a-z0-9-]+$/, 'slug solo puede contener a-z, 0-9 y guiones'),
+  description: z.string().optional(),
+  coverUrl:    z.string().url().optional(),
+  orderIndex:  z.number().int().min(0).optional(),
+});
+
+adminRouter.post(
+  '/categories',
+  asyncHandler(async (req, res) => {
+    const parsed = categorySchema.safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+    const d = parsed.data;
+
+    const category = await queryOne(
+      `INSERT INTO categories (name, slug, description, cover_url, order_index)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [d.name, d.slug, d.description ?? null, d.coverUrl ?? null, d.orderIndex ?? 0],
+    );
+    res.status(201).json({ category });
+  }),
+);
+
+adminRouter.put(
+  '/categories/:id',
+  asyncHandler(async (req, res) => {
+    const parsed = categorySchema.partial().safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+
+    const map = {
+      name: 'name', slug: 'slug', description: 'description',
+      coverUrl: 'cover_url', orderIndex: 'order_index',
+    };
+    const sets   = [];
+    const params = [];
+    for (const [key, col] of Object.entries(map)) {
+      if (parsed.data[key] !== undefined) {
+        params.push(parsed.data[key]);
+        sets.push(`${col} = $${params.length}`);
+      }
+    }
+    if (sets.length === 0) throw badRequest('Nada que actualizar', 'EMPTY_UPDATE');
+
+    params.push(req.params.id);
+    const category = await queryOne(
+      `UPDATE categories SET ${sets.join(', ')} WHERE id = $${params.length} RETURNING *`,
+      params,
+    );
+    if (!category) throw notFound('Categoría no encontrada', 'CATEGORY_NOT_FOUND');
+    res.json({ category });
+  }),
+);
+
+adminRouter.delete(
+  '/categories/:id',
+  asyncHandler(async (req, res) => {
+    const category = await queryOne(
+      `DELETE FROM categories WHERE id = $1 RETURNING id`,
+      [req.params.id],
+    );
+    if (!category) throw notFound('Categoría no encontrada', 'CATEGORY_NOT_FOUND');
+    res.status(204).end();
+  }),
+);
+
+// =====================================================================
+// CRUD de series
+// =====================================================================
+const seriesSchema = z.object({
+  title:       z.string().min(1),
+  slug:        z.string().min(1).regex(/^[a-z0-9-]+$/, 'slug solo puede contener a-z, 0-9 y guiones'),
+  description: z.string().optional(),
+  categoryId:  z.string().uuid().optional(),
+  seasonNum:   z.number().int().min(1).optional(),
+  coverUrl:    z.string().url().optional(),
+  orderIndex:  z.number().int().min(0).optional(),
+});
+
+adminRouter.post(
+  '/series',
+  asyncHandler(async (req, res) => {
+    const parsed = seriesSchema.safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+    const d = parsed.data;
+
+    const series = await queryOne(
+      `INSERT INTO series (title, slug, description, category_id, season_num, cover_url, order_index)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [
+        d.title, d.slug, d.description ?? null, d.categoryId ?? null,
+        d.seasonNum ?? 1, d.coverUrl ?? null, d.orderIndex ?? 0,
+      ],
+    );
+    res.status(201).json({ series });
+  }),
+);
+
+adminRouter.put(
+  '/series/:id',
+  asyncHandler(async (req, res) => {
+    const parsed = seriesSchema.partial().safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+
+    const map = {
+      title: 'title', slug: 'slug', description: 'description',
+      categoryId: 'category_id', seasonNum: 'season_num',
+      coverUrl: 'cover_url', orderIndex: 'order_index',
+    };
+    const sets   = [];
+    const params = [];
+    for (const [key, col] of Object.entries(map)) {
+      if (parsed.data[key] !== undefined) {
+        params.push(parsed.data[key]);
+        sets.push(`${col} = $${params.length}`);
+      }
+    }
+    if (sets.length === 0) throw badRequest('Nada que actualizar', 'EMPTY_UPDATE');
+
+    params.push(req.params.id);
+    const series = await queryOne(
+      `UPDATE series SET ${sets.join(', ')} WHERE id = $${params.length} RETURNING *`,
+      params,
+    );
+    if (!series) throw notFound('Serie no encontrada', 'SERIES_NOT_FOUND');
+    res.json({ series });
+  }),
+);
+
+adminRouter.delete(
+  '/series/:id',
+  asyncHandler(async (req, res) => {
+    const series = await queryOne(
+      `DELETE FROM series WHERE id = $1 RETURNING id`,
+      [req.params.id],
+    );
+    if (!series) throw notFound('Serie no encontrada', 'SERIES_NOT_FOUND');
+    res.status(204).end();
+  }),
+);
+
+// =====================================================================
+// CRUD de crew_members
+// =====================================================================
+const crewSchema = z.object({
+  name:       z.string().min(1),
+  slug:       z.string().min(1).regex(/^[a-z0-9-]+$/, 'slug solo puede contener a-z, 0-9 y guiones'),
+  role:       z.enum(['socio', 'crew']).default('crew'),
+  bio:        z.string().optional(),
+  avatarUrl:  z.string().url().optional(),
+  orderIndex: z.number().int().min(0).optional(),
+});
+
+adminRouter.get(
+  '/crew',
+  asyncHandler(async (_req, res) => {
+    const { rows } = await query(
+      `SELECT id, name, slug, role, bio, avatar_url, order_index, created_at
+         FROM crew_members ORDER BY order_index, name`,
+    );
+    res.json({ crew: rows });
+  }),
+);
+
+adminRouter.post(
+  '/crew',
+  asyncHandler(async (req, res) => {
+    const parsed = crewSchema.safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+    const d = parsed.data;
+    const member = await queryOne(
+      `INSERT INTO crew_members (name, slug, role, bio, avatar_url, order_index)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [d.name, d.slug, d.role, d.bio ?? null, d.avatarUrl ?? null, d.orderIndex ?? 0],
+    );
+    res.status(201).json({ member });
+  }),
+);
+
+adminRouter.put(
+  '/crew/:id',
+  asyncHandler(async (req, res) => {
+    const parsed = crewSchema.partial().safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+
+    const map = {
+      name: 'name', slug: 'slug', role: 'role', bio: 'bio',
+      avatarUrl: 'avatar_url', orderIndex: 'order_index',
+    };
+    const sets = [];
+    const params = [];
+    for (const [key, col] of Object.entries(map)) {
+      if (parsed.data[key] !== undefined) {
+        params.push(parsed.data[key]);
+        sets.push(`${col} = $${params.length}`);
+      }
+    }
+    if (sets.length === 0) throw badRequest('Nada que actualizar', 'EMPTY_UPDATE');
+
+    params.push(req.params.id);
+    const member = await queryOne(
+      `UPDATE crew_members SET ${sets.join(', ')} WHERE id = $${params.length} RETURNING *`,
+      params,
+    );
+    if (!member) throw notFound('Miembro no encontrado', 'CREW_NOT_FOUND');
+    res.json({ member });
+  }),
+);
+
+adminRouter.delete(
+  '/crew/:id',
+  asyncHandler(async (req, res) => {
+    const member = await queryOne(
+      `DELETE FROM crew_members WHERE id = $1 RETURNING id`,
+      [req.params.id],
+    );
+    if (!member) throw notFound('Miembro no encontrado', 'CREW_NOT_FOUND');
+    res.status(204).end();
+  }),
+);
+
+// =====================================================================
+// GET /admin/vimeo/:vimeoId/metadata — Autorelleno de metadatos desde Vimeo.
+// Llama a la API de Vimeo (con el token ya configurado) y devuelve título,
+// duración y thumbnail para pre-rellenar el formulario del panel sin exponer
+// las credenciales al cliente.
+// =====================================================================
+adminRouter.get(
+  '/vimeo/:vimeoId/metadata',
+  asyncHandler(async (req, res) => {
+    const { vimeoId } = req.params;
+    if (!/^\d+$/.test(vimeoId)) {
+      throw badRequest('El ID de Vimeo debe ser numérico', 'INVALID_VIMEO_ID');
+    }
+    try {
+      const metadata = await getVideoMetadata(vimeoId);
+      res.json(metadata);
+    } catch (err) {
+      // Re-lanzamos HttpError propios (404 de VIMEO_NOT_FOUND); el resto los
+      // convertimos en un error legible sin exponer el detalle interno de Vimeo.
+      if (err instanceof HttpError) throw err;
+      if (err.status === 404) throw notFound('Vídeo no encontrado en Vimeo', 'VIMEO_NOT_FOUND');
+      throw badRequest(
+        `No se pudieron obtener los metadatos de Vimeo: ${err.message}`,
+        'VIMEO_ERROR',
+      );
+    }
   }),
 );

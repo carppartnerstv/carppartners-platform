@@ -70,16 +70,19 @@ const FEATURES = [
 ];
 
 function LandingContent() {
-  const { status, hasSubscription } = useSession();
+  const { user, status, hasSubscription } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const showPlans = searchParams.get('planes') === '1';
 
   useEffect(() => {
-    if (status === 'authenticated' && hasSubscription) {
+    if (status !== 'authenticated') return;
+    if (user?.role === 'admin') {
+      router.replace('/admin');
+    } else if (hasSubscription) {
       router.replace('/home');
     }
-  }, [status, hasSubscription, router]);
+  }, [status, user, hasSubscription, router]);
 
   return (
     <div className="min-h-screen bg-surface text-white">
