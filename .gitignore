@@ -1,6 +1,7 @@
 node_modules/
 .env
 .env.local
+backend/uploads/
 *.log
 /var/log/
 .DS_Store

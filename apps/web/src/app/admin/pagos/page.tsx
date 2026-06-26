@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import type { Payment } from '@carp-partners/api-client';
+import { Pagination } from '@carp-partners/ui';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -161,10 +162,16 @@ export default function AdminPagosPage() {
         </table>
       </div>
 
+      <Pagination
+        total={payments.length}
+        page={0}
+        pageSize={Math.max(payments.length, 1)}
+        onPageChange={() => {}}
+        loading={loading}
+      />
       {!loading && !error && (
         <p className="text-white/25 text-xs">
-          Mostrando los últimos pagos. Para el historial completo y herramientas avanzadas, accede al
-          dashboard de Stripe directamente.
+          Mostrando los últimos pagos. Para el historial completo, accede al dashboard de Stripe.
         </p>
       )}
     </div>

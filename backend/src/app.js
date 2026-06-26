@@ -7,6 +7,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 import { config } from './config/index.js';
 import { authRouter } from './routes/auth.js';
@@ -23,6 +27,18 @@ export function createApp() {
   app.use(helmet());
   app.use(cors({ origin: config.corsOrigins, credentials: true }));
   app.use(morgan(config.isProd ? 'combined' : 'dev'));
+
+  // Ficheros subidos — solo expone backend/uploads/, no otras rutas del sistema.
+  // Helmet pone Cross-Origin-Resource-Policy: same-origin globalmente; lo
+  // sobreescribimos a "cross-origin" solo para /uploads para que los <img>
+  // cargados desde la web (puerto 3000) no sean bloqueados por el navegador.
+  app.use('/uploads', (_req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  }, express.static(path.join(__dirname, '../uploads'), {
+    index: false,
+    dotfiles: 'deny',
+  }));
 
   // --- Webhook de Stripe: ANTES de express.json (necesita raw body) ---
   app.use('/stripe', stripeWebhookRouter);

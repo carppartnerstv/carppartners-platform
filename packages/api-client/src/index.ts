@@ -11,6 +11,7 @@ export type {
   AuthResponse,
   DashboardStats,
   AdminUser,
+  UserStatusCounts,
   Payment,
   AdminVideoInput,
   AdminVideo,

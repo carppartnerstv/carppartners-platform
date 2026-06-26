@@ -9,6 +9,7 @@ import type {
   AuthResponse,
   DashboardStats,
   AdminUser,
+  UserStatusCounts,
   Payment,
   AdminVideoInput,
   AdminVideo,
@@ -126,6 +127,43 @@ export class ApiClient {
   }
 
   // ── Petición base ──────────────────────────────────────────────────────────
+
+  // Envía FormData (sin Content-Type manual; el browser pone el boundary)
+  private async requestMultipart<T>(
+    method: string,
+    path: string,
+    formData: FormData,
+  ): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
+
+    const makeHeaders = (): Record<string, string> => {
+      const h: Record<string, string> = {};
+      if (this.accessToken) h['Authorization'] = `Bearer ${this.accessToken}`;
+      return h;
+    };
+
+    let res = await fetch(url, { method, headers: makeHeaders(), body: formData });
+
+    if (res.status === 401) {
+      if (!this.refreshPromise) {
+        this.refreshPromise = this.doRefresh().finally(() => { this.refreshPromise = null; });
+      }
+      await this.refreshPromise;
+      res = await fetch(url, { method, headers: makeHeaders(), body: formData });
+    }
+
+    if (res.status === 204) return undefined as T;
+
+    const responseData = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new ApiError(
+        responseData?.error?.code ?? 'API_ERROR',
+        responseData?.error?.message ?? `Error ${res.status}`,
+        res.status,
+      );
+    }
+    return responseData as T;
+  }
 
   private async request<T>(
     method: string,
@@ -307,12 +345,16 @@ export class ApiClient {
     return this.request('GET', '/admin/dashboard');
   }
 
+  async getAdminUserStats(): Promise<{ counts: UserStatusCounts }> {
+    return this.request('GET', '/admin/users/stats');
+  }
+
   async getAdminUsers(params?: {
     status?: string;
     q?: string;
     limit?: number;
     offset?: number;
-  }): Promise<{ users: AdminUser[]; limit: number; offset: number }> {
+  }): Promise<{ users: AdminUser[]; limit: number; offset: number; total: number }> {
     return this.request('GET', '/admin/users', { query: params });
   }
 
@@ -342,7 +384,7 @@ export class ApiClient {
     q?: string;
     limit?: number;
     offset?: number;
-  }): Promise<{ videos: AdminVideo[]; limit: number; offset: number }> {
+  }): Promise<{ videos: AdminVideo[]; limit: number; offset: number; total: number }> {
     return this.request('GET', '/admin/videos', { query: params as Record<string, string | number | boolean | undefined> });
   }
 
@@ -392,6 +434,16 @@ export class ApiClient {
 
   async deleteAdminCrewMember(id: string): Promise<void> {
     return this.request('DELETE', `/admin/crew/${id}`);
+  }
+
+  async uploadCrewAvatar(id: string, file: File): Promise<{ member: CrewMember }> {
+    const fd = new FormData();
+    fd.append('avatar', file);
+    return this.requestMultipart('POST', `/admin/crew/${id}/avatar`, fd);
+  }
+
+  async deleteCrewAvatar(id: string): Promise<void> {
+    return this.request('DELETE', `/admin/crew/${id}/avatar`);
   }
 
   async getVimeoMetadata(vimeoId: string): Promise<{

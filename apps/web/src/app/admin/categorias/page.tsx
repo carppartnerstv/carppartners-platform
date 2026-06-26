@@ -3,15 +3,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import type { Category, CategoryInput } from '@carp-partners/api-client';
-import { Button } from '@carp-partners/ui';
+import { Button, Pagination } from '@carp-partners/ui';
 import { AdminModal } from '@/components/admin/AdminModal';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
+import { useToast } from '@/context/ToastContext';
 
 function toSlug(s: string) {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
+const PAGE_SIZE = 25;
 const EMPTY: CategoryInput = { name: '', slug: '', description: '', coverUrl: '', orderIndex: 0 };
 
 function Field({ label, hint, error, children }: {
@@ -52,9 +54,11 @@ function Textarea({ value, onChange, placeholder }: {
 }
 
 export default function AdminCategoriasPage() {
+  const { toast } = useToast();
   const [items, setItems]       = useState<Category[]>([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState('');
+  const [page, setPage]         = useState(0);
 
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing]   = useState<Category | null>(null);
@@ -98,13 +102,17 @@ export default function AdminCategoriasPage() {
     try {
       if (editing) {
         await apiClient.updateAdminCategory(editing.id, payload);
+        toast('success', 'Categoría actualizada');
       } else {
         await apiClient.createAdminCategory(payload);
+        toast('success', 'Categoría creada');
       }
       setShowForm(false);
       await load();
     } catch (e) {
-      setFormError(e instanceof ApiError ? e.message : 'Error al guardar');
+      const msg = e instanceof ApiError ? e.message : 'Error al guardar';
+      setFormError(msg);
+      toast('error', msg);
     } finally { setSaving(false); }
   };
 
@@ -113,9 +121,12 @@ export default function AdminCategoriasPage() {
     setDeleting(true);
     try {
       await apiClient.deleteAdminCategory(pendingDelete.id);
+      toast('success', `"${pendingDelete.name}" eliminada`);
       setPendingDelete(null);
       await load();
-    } catch { } finally { setDeleting(false); }
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'No se pudo eliminar');
+    } finally { setDeleting(false); }
   };
 
   return (
@@ -155,7 +166,7 @@ export default function AdminCategoriasPage() {
               <tr><td colSpan={5} className="px-4 py-10 text-center text-white/40">Cargando…</td></tr>
             ) : items.length === 0 ? (
               <tr><td colSpan={5} className="px-4 py-10 text-center text-white/40">No hay categorías</td></tr>
-            ) : items.map(c => (
+            ) : items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(c => (
               <tr key={c.id} className="hover:bg-white/3 transition-colors">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
@@ -204,6 +215,11 @@ export default function AdminCategoriasPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        total={items.length} page={page} pageSize={PAGE_SIZE}
+        onPageChange={setPage} loading={loading}
+      />
 
       {/* Modal */}
       <AdminModal title={editing ? 'Editar categoría' : 'Nueva categoría'} open={showForm} onClose={() => setShowForm(false)}>

@@ -101,7 +101,9 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | GET | `/admin/crew` | JWT + admin | `{crew}` |
 | POST | `/admin/crew` `{name,slug,role?,bio?,avatarUrl?,orderIndex?}` | JWT + admin | `{member}` 201 |
 | PUT | `/admin/crew/:id` | JWT + admin | `{member}` |
-| DELETE | `/admin/crew/:id` | JWT + admin | 204 |
+| DELETE | `/admin/crew/:id` | JWT + admin | 204 — borra también el archivo de disco si era local |
+| POST | `/admin/crew/:id/avatar` `multipart/form-data; field=avatar` | JWT + admin | `{member}` — sube/reemplaza imagen (JPG/PNG/WebP, máx 5 MB); la URL pública se guarda en `crew_members.avatar_url` |
+| DELETE | `/admin/crew/:id/avatar` | JWT + admin | 204 — borra el archivo de disco y pone `avatar_url = NULL` |
 | GET | `/crew` | JWT | `{crew}` — lista para filtros en web/móvil |
 | GET | `/videos?crew=<slug>` | JWT + suscripción | filtra por miembro de la crew |
 
@@ -156,6 +158,24 @@ de planes, no mostrar un error genérico.
   (web: cookie httpOnly si se añade endpoint, o storage; móvil: SecureStore).
 - Tailwind con tokens de color centralizados; nada de estilos mágicos repetidos.
 - Componentes de UI reutilizables en `/packages/ui`; las apps solo componen.
+
+## Subida de archivos (avatars de crew)
+
+- Las imágenes se guardan en **`backend/uploads/crew/`** con nombre único
+  (`<timestamp>-<random>.<ext>`).
+- La carpeta **`backend/uploads/`** está en `.gitignore** y **debe incluirse en
+  las copias de seguridad del servidor** (no está en el repositorio).
+- El backend las sirve de forma estática en la ruta `/uploads/*` mediante
+  `express.static` (solo esa carpeta, `index: false, dotfiles: 'deny'`).
+- La URL pública almacenada en `crew_members.avatar_url` usa el host del
+  request (`req.protocol + '://' + req.get('host')`):
+  - Dev: `http://localhost:3001/uploads/crew/<filename>`
+  - Producción: requiere que Nginx tenga un `location /uploads/ { proxy_pass http://localhost:3001; }`.
+- Al reemplazar o eliminar un avatar, el endpoint borra el archivo anterior del
+  disco. Al eliminar un miembro (DELETE `/admin/crew/:id`), también se borra su
+  avatar del disco.
+- `multer` gestiona la subida; validación: solo `image/jpeg`, `image/png`,
+  `image/webp`; máximo **5 MB**. Errores devueltos con formato estándar.
 
 ## Reglas para el agente
 

@@ -3,9 +3,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import type { CrewMember, CrewMemberInput } from '@carp-partners/api-client';
-import { Button } from '@carp-partners/ui';
+import { Button, Pagination } from '@carp-partners/ui';
 import { AdminModal } from '@/components/admin/AdminModal';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
+import { RichTextEditor } from '@/components/admin/RichTextEditor';
+import { AvatarUploader } from '@/components/admin/AvatarUploader';
+import { useToast } from '@/context/ToastContext';
 
 function toSlug(s: string) {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -49,6 +52,7 @@ function Textarea({ value, onChange, placeholder }: {
 }
 
 export default function AdminCrewPage() {
+  const { toast } = useToast();
   const [members, setMembers]   = useState<CrewMember[]>([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState('');
@@ -62,6 +66,11 @@ export default function AdminCrewPage() {
   const [pendingDelete, setPendingDelete] = useState<CrewMember | null>(null);
   const [deleting, setDeleting]           = useState(false);
 
+  // Avatar: archivo pendiente de subir + preview local + estado de subida/borrado
+  const [pendingAvatarFile, setPendingAvatarFile]   = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview]           = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading]       = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
@@ -74,12 +83,40 @@ export default function AdminCrewPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY); setFormError(''); setShowForm(true); };
+  const resetAvatarState = () => {
+    setPendingAvatarFile(null);
+    setAvatarPreview(null);
+  };
+
+  const openCreate = () => {
+    setEditing(null); setForm(EMPTY); setFormError(''); resetAvatarState(); setShowForm(true);
+  };
 
   const openEdit = (m: CrewMember) => {
     setEditing(m);
     setForm({ name: m.name, slug: m.slug, role: m.role, bio: m.bio ?? '', avatarUrl: m.avatar_url ?? '', orderIndex: m.order_index });
-    setFormError(''); setShowForm(true);
+    setFormError(''); resetAvatarState(); setShowForm(true);
+  };
+
+  const handleFileSelect = (file: File) => {
+    setPendingAvatarFile(file);
+    // Genera preview local con URL de objeto (se libera al cerrar el modal)
+    const url = URL.createObjectURL(file);
+    setAvatarPreview(url);
+  };
+
+  const handleDeleteAvatar = async () => {
+    if (!editing) return;
+    setAvatarUploading(true);
+    try {
+      await apiClient.deleteCrewAvatar(editing.id);
+      toast('success', 'Foto eliminada');
+      setForm(f => ({ ...f, avatarUrl: '' }));
+      resetAvatarState();
+      await load();
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'No se pudo eliminar la foto');
+    } finally { setAvatarUploading(false); }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -91,15 +128,34 @@ export default function AdminCrewPage() {
       avatarUrl: form.avatarUrl || undefined,
     };
     try {
+      let savedId: string;
       if (editing) {
         await apiClient.updateAdminCrewMember(editing.id, payload);
+        savedId = editing.id;
       } else {
-        await apiClient.createAdminCrewMember(payload);
+        const { member } = await apiClient.createAdminCrewMember(payload);
+        savedId = member.id;
       }
+
+      // Si el usuario seleccionó un archivo, lo subimos ahora que tenemos el ID
+      if (pendingAvatarFile) {
+        setAvatarUploading(true);
+        try {
+          await apiClient.uploadCrewAvatar(savedId, pendingAvatarFile);
+        } catch (uploadErr) {
+          const msg = uploadErr instanceof ApiError ? uploadErr.message : 'Error al subir la imagen';
+          toast('error', msg);
+        } finally { setAvatarUploading(false); }
+      }
+
+      toast('success', editing ? 'Miembro actualizado' : 'Miembro creado');
       setShowForm(false);
+      resetAvatarState();
       await load();
     } catch (e) {
-      setFormError(e instanceof ApiError ? e.message : 'Error al guardar');
+      const msg = e instanceof ApiError ? e.message : 'Error al guardar';
+      setFormError(msg);
+      toast('error', msg);
     } finally { setSaving(false); }
   };
 
@@ -108,9 +164,12 @@ export default function AdminCrewPage() {
     setDeleting(true);
     try {
       await apiClient.deleteAdminCrewMember(pendingDelete.id);
+      toast('success', `"${pendingDelete.name}" eliminado`);
       setPendingDelete(null);
       await load();
-    } catch { } finally { setDeleting(false); }
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'No se pudo eliminar');
+    } finally { setDeleting(false); }
   };
 
   // Agrupa: socios primero, crew debajo
@@ -151,6 +210,15 @@ export default function AdminCrewPage() {
         <CrewTable members={crew} loading={loading && socios.length === 0} onEdit={openEdit} onDelete={setPendingDelete} />
       </section>
 
+      {/* Contador total — sin navegación (el layout de dos secciones no es paginable) */}
+      <Pagination
+        total={members.length}
+        page={0}
+        pageSize={Math.max(members.length, 1)}
+        onPageChange={() => {}}
+        loading={loading}
+      />
+
       {/* Modal */}
       <AdminModal title={editing ? 'Editar miembro' : 'Nuevo miembro'} open={showForm} onClose={() => setShowForm(false)}>
         <form onSubmit={handleSave} className="space-y-4">
@@ -172,10 +240,17 @@ export default function AdminCrewPage() {
             </select>
           </Field>
           <Field label="Bio">
-            <Textarea value={form.bio ?? ''} onChange={v => setForm(f => ({ ...f, bio: v }))} placeholder="Descripción breve…" />
+            <RichTextEditor value={form.bio ?? ''} onChange={v => setForm(f => ({ ...f, bio: v }))} placeholder="Descripción breve…" />
           </Field>
-          <Field label="URL Avatar">
-            <Input value={form.avatarUrl ?? ''} onChange={v => setForm(f => ({ ...f, avatarUrl: v }))} placeholder="https://…" />
+          <Field label="Foto de perfil">
+            <AvatarUploader
+              currentUrl={form.avatarUrl || null}
+              pendingPreview={avatarPreview}
+              initials={(form.name || '?').charAt(0).toUpperCase()}
+              uploading={avatarUploading}
+              onFileSelect={handleFileSelect}
+              onDelete={editing ? handleDeleteAvatar : undefined}
+            />
           </Field>
           <Field label="Orden" hint="Menor número = aparece antes.">
             <Input type="number" value={form.orderIndex ?? 0} onChange={v => setForm(f => ({ ...f, orderIndex: parseInt(v) || 0 }))} placeholder="0" />

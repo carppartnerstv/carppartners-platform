@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from '@/context/SessionContext';
 import { Logo } from '@carp-partners/ui';
+import { ToastProvider } from '@/context/ToastContext';
 
 const NAV = [
   {
@@ -107,6 +108,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const handleLogout = async () => { await logout(); router.push('/'); };
 
   return (
+    <ToastProvider>
     <div className="flex h-screen bg-surface overflow-hidden">
       {/* ── Sidebar ── */}
       <aside className="w-56 shrink-0 flex flex-col bg-surface-raised border-r border-white/8">
@@ -172,5 +174,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {children}
       </main>
     </div>
+    </ToastProvider>
   );
 }

@@ -83,6 +83,15 @@ export interface DashboardStats {
   mrr: number;
 }
 
+export interface UserStatusCounts {
+  active: number;
+  trialing: number;
+  past_due: number;
+  cancelled: number;
+  with_subscription: number;
+  total: number;
+}
+
 export interface AdminUser {
   id: string;
   email: string;

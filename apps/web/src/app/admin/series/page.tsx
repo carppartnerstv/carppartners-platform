@@ -3,15 +3,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import type { Series, SeriesInput, Category } from '@carp-partners/api-client';
-import { Button } from '@carp-partners/ui';
+import { Button, Pagination } from '@carp-partners/ui';
 import { AdminModal } from '@/components/admin/AdminModal';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
+import { useToast } from '@/context/ToastContext';
 
 function toSlug(s: string) {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
+const PAGE_SIZE = 25;
 const EMPTY: SeriesInput = { title: '', slug: '', description: '', categoryId: '', seasonNum: 1, coverUrl: '', orderIndex: 0 };
 
 function Field({ label, hint, error, children }: {
@@ -66,7 +68,9 @@ function Select({ value, onChange, children }: {
 }
 
 export default function AdminSeriesPage() {
+  const { toast } = useToast();
   const [items, setItems]         = useState<Series[]>([]);
+  const [page, setPage]           = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState('');
@@ -125,13 +129,17 @@ export default function AdminSeriesPage() {
     try {
       if (editing) {
         await apiClient.updateAdminSeries(editing.id, payload);
+        toast('success', 'Serie actualizada');
       } else {
         await apiClient.createAdminSeries(payload);
+        toast('success', 'Serie creada');
       }
       setShowForm(false);
       await load();
     } catch (e) {
-      setFormError(e instanceof ApiError ? e.message : 'Error al guardar');
+      const msg = e instanceof ApiError ? e.message : 'Error al guardar';
+      setFormError(msg);
+      toast('error', msg);
     } finally { setSaving(false); }
   };
 
@@ -140,9 +148,12 @@ export default function AdminSeriesPage() {
     setDeleting(true);
     try {
       await apiClient.deleteAdminSeries(pendingDelete.id);
+      toast('success', `"${pendingDelete.title}" eliminada`);
       setPendingDelete(null);
       await load();
-    } catch { } finally { setDeleting(false); }
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'No se pudo eliminar');
+    } finally { setDeleting(false); }
   };
 
   const catName = (id: string | null) =>
@@ -167,7 +178,7 @@ export default function AdminSeriesPage() {
       {/* Filtro por categoría */}
       <div>
         <select
-          value={filterCat} onChange={e => setFilterCat(e.target.value)}
+          value={filterCat} onChange={e => { setFilterCat(e.target.value); setPage(0); }}
           className="bg-surface-raised border border-white/12 rounded-md px-3 py-2 text-white text-sm
                      focus:outline-none focus:border-brand-bright [&>option]:bg-surface-raised"
         >
@@ -198,7 +209,7 @@ export default function AdminSeriesPage() {
               <tr><td colSpan={6} className="px-4 py-10 text-center text-white/40">Cargando…</td></tr>
             ) : items.length === 0 ? (
               <tr><td colSpan={6} className="px-4 py-10 text-center text-white/40">No hay series</td></tr>
-            ) : items.map(s => (
+            ) : items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(s => (
               <tr key={s.id} className="hover:bg-white/3 transition-colors">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
@@ -255,6 +266,11 @@ export default function AdminSeriesPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        total={items.length} page={page} pageSize={PAGE_SIZE}
+        onPageChange={setPage} loading={loading}
+      />
 
       {/* Modal */}
       <AdminModal title={editing ? 'Editar serie' : 'Nueva serie'} open={showForm} onClose={() => setShowForm(false)}>

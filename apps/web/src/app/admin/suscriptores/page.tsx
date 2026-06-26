@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { AdminUser } from '@carp-partners/api-client';
+import { Pagination } from '@carp-partners/ui';
+import type { AdminUser, UserStatusCounts } from '@carp-partners/api-client';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,27 @@ function StatusBadge({ status }: { status: string | null }) {
   );
 }
 
+// ─── Pestañas ─────────────────────────────────────────────────────────────────
+
+// 'with_subscription' = usuarios con cualquier suscripción (default)
+// ''                  = todos sin filtro (incluye usuarios sin suscripción)
+type TabKey = 'with_subscription' | 'active' | 'trialing' | 'past_due' | 'cancelled' | '';
+
+interface Tab {
+  key: TabKey;
+  label: string;
+  countKey: keyof UserStatusCounts | 'with_subscription';
+}
+
+const TABS: Tab[] = [
+  { key: 'with_subscription', label: 'Con suscripción', countKey: 'with_subscription' },
+  { key: 'active',            label: 'Activos',         countKey: 'active' },
+  { key: 'trialing',          label: 'En prueba',       countKey: 'trialing' },
+  { key: 'past_due',          label: 'Vencidos',        countKey: 'past_due' },
+  { key: 'cancelled',         label: 'Cancelados',      countKey: 'cancelled' },
+  { key: '',                  label: 'Todos',           countKey: 'total' },
+];
+
 const PAGE_SIZE = 25;
 
 // ─── Página ───────────────────────────────────────────────────────────────────
@@ -52,34 +74,43 @@ export default function AdminSuscriptoresPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
 
-  const [q, setQ]             = useState('');
-  const [status, setStatus]   = useState('');
+  // Contadores de pestañas — se cargan una vez y no cambian con la búsqueda
+  const [counts, setCounts]         = useState<UserStatusCounts | null>(null);
+  const [countsLoading, setCountsLoading] = useState(true);
 
-  const load = useCallback(async (p: number, currentQ: string, currentStatus: string) => {
+  // Filtros
+  const [tab, setTab] = useState<TabKey>('with_subscription'); // default: solo con suscripción
+  const [q, setQ]     = useState('');
+
+  // Carga contadores al montar
+  useEffect(() => {
+    apiClient.getAdminUserStats()
+      .then(res => setCounts(res.counts))
+      .catch(() => {/* los contadores son UI extra, no bloquean */})
+      .finally(() => setCountsLoading(false));
+  }, []);
+
+  const load = useCallback(async (p: number, currentTab: TabKey, currentQ: string) => {
     setLoading(true); setError('');
     try {
       const res = await apiClient.getAdminUsers({
-        q: currentQ || undefined,
-        status: currentStatus || undefined,
-        limit: PAGE_SIZE,
-        offset: p * PAGE_SIZE,
+        status:  currentTab || undefined,   // '' → sin parámetro → todos
+        q:       currentQ   || undefined,
+        limit:   PAGE_SIZE,
+        offset:  p * PAGE_SIZE,
       });
       setUsers(res.users);
-      // El endpoint devuelve limit y offset pero no total; estimamos si hay más
-      setTotal(p * PAGE_SIZE + res.users.length + (res.users.length === PAGE_SIZE ? 1 : 0));
+      setTotal(res.total);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Error al cargar suscriptores');
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { load(page, q, status); }, [load, page, q, status]);
+  useEffect(() => { load(page, tab, q); }, [load, page, tab, q]);
 
-  // Resetea a página 0 cuando cambian los filtros
-  const handleQ = (v: string)      => { setQ(v);      setPage(0); };
-  const handleStatus = (v: string) => { setStatus(v); setPage(0); };
+  const handleTab = (t: TabKey) => { setTab(t); setPage(0); };
+  const handleQ   = (v: string)  => { setQ(v);  setPage(0); };
 
-  const hasPrev = page > 0;
-  const hasNext = users.length === PAGE_SIZE;
 
   return (
     <div className="p-6 space-y-5">
@@ -89,26 +120,44 @@ export default function AdminSuscriptoresPage() {
         <p className="text-white/45 text-sm mt-0.5">Usuarios registrados y estado de su suscripción</p>
       </div>
 
-      {/* Filtros */}
-      <div className="flex gap-3 flex-wrap">
+      {/* Pestañas de estado */}
+      <div className="flex gap-1 flex-wrap border-b border-white/8 pb-0">
+        {TABS.map(t => {
+          const active = tab === t.key;
+          const count = counts ? counts[t.countKey as keyof UserStatusCounts] : null;
+          return (
+            <button
+              key={t.key}
+              onClick={() => handleTab(t.key)}
+              className={[
+                'px-3.5 py-2 text-[13px] font-medium rounded-t-md transition-all border-b-2 -mb-px',
+                active
+                  ? 'text-white border-brand-bright bg-white/4'
+                  : 'text-white/50 border-transparent hover:text-white/80 hover:bg-white/3',
+              ].join(' ')}
+            >
+              {t.label}
+              {' '}
+              <span className={[
+                'text-[11px] font-semibold',
+                active ? 'text-brand-bright' : 'text-white/30',
+              ].join(' ')}>
+                {countsLoading ? '…' : count != null ? `(${count.toLocaleString('es-ES')})` : ''}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Barra de búsqueda + contador */}
+      <div className="flex items-center gap-3 flex-wrap">
         <input
           type="text" value={q} onChange={e => handleQ(e.target.value)}
           placeholder="Buscar por email o nombre…"
           className="bg-surface-raised border border-white/12 rounded-md px-3 py-2 text-white text-sm
                      placeholder-white/30 focus:outline-none focus:border-brand-bright w-64 transition-colors"
         />
-        <select
-          value={status} onChange={e => handleStatus(e.target.value)}
-          className="bg-surface-raised border border-white/12 rounded-md px-3 py-2 text-white text-sm
-                     focus:outline-none focus:border-brand-bright [&>option]:bg-surface-raised"
-        >
-          <option value="">Todos los estados</option>
-          <option value="active">Activo</option>
-          <option value="trialing">Prueba</option>
-          <option value="past_due">Vencido</option>
-          <option value="cancelled">Cancelado</option>
-        </select>
-      </div>
+        </div>
 
       {error && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-md px-4 py-3 text-red-400 text-sm">{error}</div>
@@ -128,10 +177,18 @@ export default function AdminSuscriptoresPage() {
           </thead>
           <tbody className="divide-y divide-white/6">
             {loading ? (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-white/40">Cargando…</td></tr>
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i} className="animate-pulse">
+                  <td className="px-4 py-3"><div className="h-4 w-48 rounded bg-white/8" /></td>
+                  <td className="px-4 py-3 hidden md:table-cell"><div className="h-3 w-16 rounded bg-white/6" /></td>
+                  <td className="px-4 py-3"><div className="h-5 w-14 rounded bg-white/8" /></td>
+                  <td className="px-4 py-3 hidden lg:table-cell"><div className="h-3 w-24 rounded bg-white/6" /></td>
+                  <td className="px-4 py-3 hidden xl:table-cell"><div className="h-3 w-20 rounded bg-white/6" /></td>
+                </tr>
+              ))
             ) : users.length === 0 ? (
               <tr><td colSpan={5} className="px-4 py-10 text-center text-white/40">
-                {q || status ? 'Sin resultados para estos filtros.' : 'No hay usuarios todavía.'}
+                {q ? 'Sin resultados para esta búsqueda.' : 'Sin usuarios en esta categoría.'}
               </td></tr>
             ) : users.map(u => (
               <tr key={u.id} className="hover:bg-white/3 transition-colors">
@@ -161,36 +218,10 @@ export default function AdminSuscriptoresPage() {
         </table>
       </div>
 
-      {/* Paginación */}
-      {!loading && (hasPrev || hasNext) && (
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setPage(p => p - 1)}
-            disabled={!hasPrev}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold
-                       bg-white/8 border border-white/12 text-white/70 hover:text-white hover:bg-white/14
-                       disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Anterior
-          </button>
-          <span className="text-white/40 text-xs">Página {page + 1}</span>
-          <button
-            onClick={() => setPage(p => p + 1)}
-            disabled={!hasNext}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold
-                       bg-white/8 border border-white/12 text-white/70 hover:text-white hover:bg-white/14
-                       disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            Siguiente
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-      )}
+      <Pagination
+        total={total} page={page} pageSize={PAGE_SIZE}
+        onPageChange={setPage} loading={loading}
+      />
     </div>
   );
 }

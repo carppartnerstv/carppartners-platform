@@ -10,11 +10,72 @@
 // =====================================================================
 import { Router } from 'express';
 import { z } from 'zod';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import multer from 'multer';
 import { query, queryOne, withTransaction } from '../config/db.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { asyncHandler, badRequest, notFound, HttpError } from '../utils/errors.js';
 import { stripe } from '../services/stripe.js';
 import { getVideoMetadata } from '../services/vimeo.js';
+import sanitizeHtml from 'sanitize-html';
+
+// ─── Configuración de subida de imágenes de avatar ───────────────────────────
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CREW_UPLOADS_DIR = path.resolve(__dirname, '../../uploads/crew');
+fs.mkdirSync(CREW_UPLOADS_DIR, { recursive: true });
+
+const ALLOWED_AVATAR_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const AVATAR_MAX_BYTES    = 5 * 1024 * 1024;
+
+const multerStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, CREW_UPLOADS_DIR),
+  filename:    (_req,  file, cb) => {
+    const ext    = path.extname(file.originalname).toLowerCase() || '.jpg';
+    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}${ext}`;
+    cb(null, unique);
+  },
+});
+
+const multerInstance = multer({
+  storage: multerStorage,
+  limits:  { fileSize: AVATAR_MAX_BYTES },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_AVATAR_MIME.has(file.mimetype)) return cb(null, true);
+    cb(new HttpError(400, 'Tipo no válido. Usa JPG, PNG o WebP.', 'INVALID_TYPE'));
+  },
+});
+
+// Convierte errores de multer al formato estándar de la API
+function avatarUpload(req, res, next) {
+  multerInstance.single('avatar')(req, res, (err) => {
+    if (!err) return next();
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return next(new HttpError(413, 'Imagen demasiado grande. Máximo 5 MB.', 'FILE_TOO_LARGE'));
+    }
+    return next(err instanceof HttpError ? err : new HttpError(400, err.message ?? 'Error de subida', 'UPLOAD_ERROR'));
+  });
+}
+
+function deleteFileIfExists(filePath) {
+  fs.unlink(filePath, () => {}); // fire-and-forget; si no existe, sin error
+}
+
+// Etiquetas y atributos permitidos en el campo bio (HTML enriquecido)
+const BIO_SANITIZE_OPTIONS = {
+  allowedTags: ['p', 'br', 'strong', 'b', 'em', 'i', 's', 'u', 'a', 'ul', 'ol', 'li'],
+  allowedAttributes: { a: ['href', 'target', 'rel'] },
+  allowedSchemes: ['http', 'https', 'mailto'],
+  transformTags: {
+    // Fuerza rel="noopener noreferrer" en todos los enlaces externos
+    a: (_tagName, attribs) => ({
+      tagName: 'a',
+      attribs: { ...attribs, rel: 'noopener noreferrer' },
+    }),
+  },
+};
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAdmin);
@@ -50,6 +111,34 @@ adminRouter.get(
 );
 
 // --- Suscriptores -----------------------------------------------------
+
+// Lateral reutilizable para la última suscripción de cada usuario
+const SUB_LATERAL = `LEFT JOIN LATERAL (
+  SELECT plan, status, period_end FROM subscriptions
+   WHERE user_id = u.id ORDER BY period_end DESC NULLS LAST LIMIT 1
+) s ON true`;
+
+// Contadores por estado (para las pestañas del panel)
+adminRouter.get(
+  '/users/stats',
+  asyncHandler(async (_req, res) => {
+    const { rows } = await query(
+      `SELECT COALESCE(s.status, '__none__') AS status, COUNT(*)::int AS count
+         FROM users u ${SUB_LATERAL}
+        GROUP BY s.status`,
+    );
+    const counts = { active: 0, trialing: 0, past_due: 0, cancelled: 0, with_subscription: 0, total: 0 };
+    for (const r of rows) {
+      counts.total += r.count;
+      if (r.status !== '__none__') {
+        counts[r.status] = r.count;
+        counts.with_subscription += r.count;
+      }
+    }
+    res.json({ counts });
+  }),
+);
+
 adminRouter.get(
   '/users',
   asyncHandler(async (req, res) => {
@@ -59,7 +148,11 @@ adminRouter.get(
 
     const filters = [];
     const params = [];
-    if (status) {
+
+    // 'with_subscription' es un valor especial: cualquier suscripción activa/pasada
+    if (status === 'with_subscription') {
+      filters.push(`s.status IS NOT NULL`);
+    } else if (status) {
       params.push(status);
       filters.push(`s.status = $${params.length}`);
     }
@@ -69,21 +162,23 @@ adminRouter.get(
     }
     const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
 
+    // Total de coincidencias (sin paginar)
+    const countRow = await queryOne(
+      `SELECT COUNT(*)::int AS total FROM users u ${SUB_LATERAL} ${where}`,
+      params,
+    );
+
     params.push(limit, offset);
     const { rows } = await query(
       `SELECT u.id, u.email, u.name, u.created_at,
               s.plan, s.status, s.period_end
-         FROM users u
-         LEFT JOIN LATERAL (
-            SELECT plan, status, period_end FROM subscriptions
-             WHERE user_id = u.id ORDER BY period_end DESC NULLS LAST LIMIT 1
-         ) s ON true
+         FROM users u ${SUB_LATERAL}
         ${where}
         ORDER BY u.created_at DESC
         LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params,
     );
-    res.json({ users: rows, limit, offset });
+    res.json({ users: rows, limit, offset, total: countRow.total });
   }),
 );
 
@@ -298,6 +393,15 @@ adminRouter.get(
     }
 
     const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
+    const countRow = await queryOne(
+      `SELECT COUNT(*)::int AS total FROM videos v
+         LEFT JOIN categories c ON c.id = v.category_id
+         LEFT JOIN series s     ON s.id = v.series_id
+        ${where}`,
+      params,
+    );
+
     params.push(limit, offset);
 
     const { rows } = await query(
@@ -323,7 +427,7 @@ adminRouter.get(
       params,
     );
 
-    res.json({ videos: rows, limit, offset });
+    res.json({ videos: rows, limit, offset, total: countRow.total });
   }),
 );
 
@@ -500,10 +604,11 @@ adminRouter.post(
     const parsed = crewSchema.safeParse(req.body);
     if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
     const d = parsed.data;
+    const safeBio = d.bio ? sanitizeHtml(d.bio, BIO_SANITIZE_OPTIONS) : null;
     const member = await queryOne(
       `INSERT INTO crew_members (name, slug, role, bio, avatar_url, order_index)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [d.name, d.slug, d.role, d.bio ?? null, d.avatarUrl ?? null, d.orderIndex ?? 0],
+      [d.name, d.slug, d.role, safeBio, d.avatarUrl ?? null, d.orderIndex ?? 0],
     );
     res.status(201).json({ member });
   }),
@@ -514,6 +619,13 @@ adminRouter.put(
   asyncHandler(async (req, res) => {
     const parsed = crewSchema.partial().safeParse(req.body);
     if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+
+    // Sanitiza el HTML de bio antes de mapear los campos
+    if (parsed.data.bio !== undefined) {
+      parsed.data.bio = parsed.data.bio
+        ? sanitizeHtml(parsed.data.bio, BIO_SANITIZE_OPTIONS)
+        : '';
+    }
 
     const map = {
       name: 'name', slug: 'slug', role: 'role', bio: 'bio',
@@ -543,10 +655,68 @@ adminRouter.delete(
   '/crew/:id',
   asyncHandler(async (req, res) => {
     const member = await queryOne(
-      `DELETE FROM crew_members WHERE id = $1 RETURNING id`,
+      `DELETE FROM crew_members WHERE id = $1 RETURNING id, avatar_url`,
       [req.params.id],
     );
     if (!member) throw notFound('Miembro no encontrado', 'CREW_NOT_FOUND');
+    // Borra el archivo del disco si era una imagen local
+    if (member.avatar_url) {
+      const filename = path.basename(member.avatar_url);
+      deleteFileIfExists(path.join(CREW_UPLOADS_DIR, filename));
+    }
+    res.status(204).end();
+  }),
+);
+
+// POST /admin/crew/:id/avatar — sube o reemplaza la imagen de perfil
+adminRouter.post(
+  '/crew/:id/avatar',
+  avatarUpload,
+  asyncHandler(async (req, res) => {
+    if (!req.file) throw badRequest('No se recibió ninguna imagen', 'NO_FILE');
+
+    const current = await queryOne(
+      'SELECT id, avatar_url FROM crew_members WHERE id = $1',
+      [req.params.id],
+    );
+    if (!current) {
+      deleteFileIfExists(req.file.path); // limpia el archivo recién subido
+      throw notFound('Miembro no encontrado', 'CREW_NOT_FOUND');
+    }
+
+    // Borra el archivo anterior si era una imagen local
+    if (current.avatar_url) {
+      const oldFilename = path.basename(current.avatar_url);
+      deleteFileIfExists(path.join(CREW_UPLOADS_DIR, oldFilename));
+    }
+
+    const avatarUrl = `${req.protocol}://${req.get('host')}/uploads/crew/${req.file.filename}`;
+    const member = await queryOne(
+      'UPDATE crew_members SET avatar_url = $1 WHERE id = $2 RETURNING *',
+      [avatarUrl, req.params.id],
+    );
+    res.json({ member });
+  }),
+);
+
+// DELETE /admin/crew/:id/avatar — elimina la imagen de perfil
+adminRouter.delete(
+  '/crew/:id/avatar',
+  asyncHandler(async (req, res) => {
+    const current = await queryOne(
+      'SELECT id, avatar_url FROM crew_members WHERE id = $1',
+      [req.params.id],
+    );
+    if (!current) throw notFound('Miembro no encontrado', 'CREW_NOT_FOUND');
+
+    if (current.avatar_url) {
+      const filename = path.basename(current.avatar_url);
+      deleteFileIfExists(path.join(CREW_UPLOADS_DIR, filename));
+    }
+    await queryOne(
+      'UPDATE crew_members SET avatar_url = NULL WHERE id = $1 RETURNING id',
+      [req.params.id],
+    );
     res.status(204).end();
   }),
 );

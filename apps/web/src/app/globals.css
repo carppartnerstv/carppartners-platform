@@ -34,6 +34,45 @@
   }
 }
 
+/* ── Toast notifications ── */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(1.25rem); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.toast-enter {
+  animation: toast-in 0.18s ease-out forwards;
+}
+
+/* ── Rich-text editor (Tiptap / ProseMirror) ── */
+.rich-editor .ProseMirror {
+  outline: none;
+  min-height: 80px;
+  line-height: 1.6;
+  color: #eef3f0;
+}
+.rich-editor .ProseMirror p { margin: 0 0 0.4em; }
+.rich-editor .ProseMirror p:last-child { margin-bottom: 0; }
+.rich-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: rgba(255,255,255,0.3);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+.rich-editor .ProseMirror ul,
+.rich-editor .ProseMirror ol { padding-left: 1.4em; margin: 0.25em 0; }
+.rich-editor .ProseMirror li { margin-bottom: 0.15em; }
+.rich-editor .ProseMirror ul { list-style-type: disc; }
+.rich-editor .ProseMirror ol { list-style-type: decimal; }
+.rich-editor .ProseMirror a {
+  color: #cf4a35;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.rich-editor .ProseMirror strong { font-weight: 700; }
+.rich-editor .ProseMirror em     { font-style: italic; }
+.rich-editor .ProseMirror s      { text-decoration: line-through; opacity: 0.6; }
+
 @layer utilities {
   .scrollbar-hide {
     -ms-overflow-style: none;

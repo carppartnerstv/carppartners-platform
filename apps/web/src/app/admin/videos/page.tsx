@@ -3,9 +3,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import type { AdminVideo, AdminVideoInput, Category, Series, CrewMember } from '@carp-partners/api-client';
-import { Button } from '@carp-partners/ui';
+import { Button, Pagination } from '@carp-partners/ui';
 import { AdminModal } from '@/components/admin/AdminModal';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
+import { useToast } from '@/context/ToastContext';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,8 @@ function fmtDuration(s: number) {
 }
 
 // ─── Form vacío ───────────────────────────────────────────────────────────────
+
+const PAGE_SIZE = 25;
 
 const EMPTY: AdminVideoInput = {
   title: '', slug: '', vimeoId: '', description: '',
@@ -144,12 +147,15 @@ function Select({ value, onChange, children, disabled }: { value: string; onChan
 // ─── Página principal ────────────────────────────────────────────────────────
 
 export default function AdminVideosPage() {
+  const { toast } = useToast();
   const [videos, setVideos]         = useState<AdminVideo[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [seriesList, setSeriesList] = useState<Series[]>([]);
   const [crewList, setCrewList]     = useState<CrewMember[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
+  const [total, setTotal]           = useState(0);
+  const [page, setPage]             = useState(0);
 
   // Filtros
   const [q, setQ]                   = useState('');
@@ -167,25 +173,37 @@ export default function AdminVideosPage() {
   const [deleting, setDeleting]           = useState(false);
   const [fetchingVimeo, setFetchingVimeo] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true); setError('');
-    try {
-      const [vRes, cRes, sRes, crewRes] = await Promise.all([
-        apiClient.getAdminVideos({ q: q || undefined, published: filterPub ? filterPub === 'true' : undefined, limit: 200 }),
-        apiClient.getCategories(),
-        apiClient.getSeries(),
-        apiClient.getAdminCrew(),
-      ]);
-      setVideos(vRes.videos);
+  // Carga los desplegables del formulario una sola vez
+  useEffect(() => {
+    Promise.all([
+      apiClient.getCategories(),
+      apiClient.getSeries(),
+      apiClient.getAdminCrew(),
+    ]).then(([cRes, sRes, crewRes]) => {
       setCategories(cRes.categories);
       setSeriesList(sRes.series);
       setCrewList(crewRes.crew);
+    }).catch(() => {/* no bloquea la tabla */});
+  }, []);
+
+  // Carga la página de vídeos (re-ejecuta cuando cambian filtros o página)
+  const load = useCallback(async () => {
+    setLoading(true); setError('');
+    try {
+      const vRes = await apiClient.getAdminVideos({
+        q: q || undefined,
+        published: filterPub ? filterPub === 'true' : undefined,
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
+      });
+      setVideos(vRes.videos);
+      setTotal(vRes.total);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Error al cargar vídeos');
     } finally {
       setLoading(false);
     }
-  }, [q, filterPub]);
+  }, [q, filterPub, page]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -233,13 +251,17 @@ export default function AdminVideosPage() {
     try {
       if (editing) {
         await apiClient.updateAdminVideo(editing.id, payload);
+        toast('success', 'Vídeo actualizado');
       } else {
         await apiClient.createAdminVideo(payload);
+        toast('success', 'Vídeo creado');
       }
       setShowForm(false);
       await load();
     } catch (e) {
-      setFormError(e instanceof ApiError ? e.message : 'Error al guardar');
+      const msg = e instanceof ApiError ? e.message : 'Error al guardar';
+      setFormError(msg);
+      toast('error', msg);
     } finally {
       setSaving(false);
     }
@@ -270,11 +292,13 @@ export default function AdminVideosPage() {
 
   const togglePublished = async (v: AdminVideo) => {
     try {
-      // No enviamos publishedAt para que el backend aplique COALESCE(published_at, now())
-      // si se está publicando, o deje la fecha intacta si se despublica.
       await apiClient.updateAdminVideo(v.id, { published: !v.published });
-      await load(); // recarga para reflejar status y published_at actualizados
-    } catch { await load(); }
+      await load();
+      toast('success', v.published ? 'Vídeo despublicado' : 'Vídeo publicado');
+    } catch (e) {
+      await load();
+      toast('error', e instanceof ApiError ? e.message : 'No se pudo cambiar el estado');
+    }
   };
 
   // ── Eliminar ────────────────────────────────────────────────────────────────
@@ -284,9 +308,12 @@ export default function AdminVideosPage() {
     setDeleting(true);
     try {
       await apiClient.deleteAdminVideo(pendingDelete.id);
+      toast('success', `"${pendingDelete.title}" eliminado`);
       setPendingDelete(null);
       await load();
-    } catch { /* noop */ } finally { setDeleting(false); }
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'No se pudo eliminar');
+    } finally { setDeleting(false); }
   };
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -310,13 +337,15 @@ export default function AdminVideosPage() {
       {/* Filtros */}
       <div className="flex gap-3 flex-wrap">
         <input
-          type="text" value={q} onChange={e => setQ(e.target.value)}
+          type="text" value={q}
+          onChange={e => { setQ(e.target.value); setPage(0); }}
           placeholder="Buscar por título…"
           className="bg-surface-raised border border-white/12 rounded-md px-3 py-2 text-white text-sm
                      placeholder-white/30 focus:outline-none focus:border-brand-bright w-64 transition-colors"
         />
         <select
-          value={filterPub} onChange={e => setFilterPub(e.target.value as '' | 'true' | 'false')}
+          value={filterPub}
+          onChange={e => { setFilterPub(e.target.value as '' | 'true' | 'false'); setPage(0); }}
           className="bg-surface-raised border border-white/12 rounded-md px-3 py-2 text-white text-sm
                      focus:outline-none focus:border-brand-bright [&>option]:bg-surface-raised"
         >
@@ -418,6 +447,11 @@ export default function AdminVideosPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        total={total} page={page} pageSize={PAGE_SIZE}
+        onPageChange={setPage} loading={loading}
+      />
 
       {/* ── Modal formulario ── */}
       <AdminModal

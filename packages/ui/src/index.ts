@@ -11,3 +11,6 @@ export { HeroBanner } from './HeroBanner';
 export type { HeroBannerProps } from './HeroBanner';
 
 export { Logo } from './Logo';
+
+export { Pagination } from './Pagination';
+export type { PaginationProps } from './Pagination';
