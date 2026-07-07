@@ -1,72 +1,82 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { Video } from '@carp-partners/api-client';
-import { VideoCard } from '@carp-partners/ui';
+import type { Video, Category, Series } from '@carp-partners/api-client';
+import { VideoCard, RatingDialog, RATING_META, RATING_LABELS } from '@carp-partners/ui';
+import type { RatingValue } from '@carp-partners/ui';
+import { ToastProvider, useToast } from '@/context/ToastContext';
 
-const PROGRESS_INTERVAL_MS = 15_000;
+function formatDuration(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.round((sec % 3600) / 60);
+  return h > 0 ? `${h}h ${m}min` : `${m} min`;
+}
 
-export default function WatchPage() {
+const RATING_TO_VALUE: Record<number, RatingValue> = { [-1]: 'down', 1: 'like', 2: 'love' };
+const VALUE_TO_RATING: Record<RatingValue, -1 | 1 | 2> = { down: -1, like: 1, love: 2 };
+
+export default function DetailPage() {
+  return (
+    <ToastProvider>
+      <DetailContent />
+    </ToastProvider>
+  );
+}
+
+function DetailContent() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<import('hls.js').default | null>(null);
-  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { toast } = useToast();
 
   const [video, setVideo] = useState<Video | null>(null);
   const [related, setRelated] = useState<Video[]>([]);
-  const [loadingMeta, setLoadingMeta] = useState(true);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [series, setSeries] = useState<Series[]>([]);
+  const [inList, setInList] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // La URL HLS y el punto de inicio se guardan en estado
-  // para que el segundo useEffect los reciba una vez el <video> ya está en el DOM
-  const [streamUrl, setStreamUrl] = useState<string | null>(null);
-  const [startAt, setStartAt] = useState(0);
-  const [playerReady, setPlayerReady] = useState(false);
+  const [rating, setRating] = useState<RatingValue | null>(null);
+  const [ratingOpen, setRatingOpen] = useState(false);
+  const [ratingSaving, setRatingSaving] = useState(false);
 
-  // ── Guarda progreso ──────────────────────────────────────────────────────────
-  const saveProgress = useCallback((videoId: string, completed = false) => {
-    const el = videoRef.current;
-    if (!el || isNaN(el.currentTime)) return;
-    apiClient.saveProgress(videoId, Math.floor(el.currentTime), completed).catch(() => null);
-  }, []);
-
-  // ── Efecto 1: carga metadatos + obtiene URL HLS ──────────────────────────────
-  // No toca el <video> — solo actualiza estado para que React renderice el elemento
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
+    setLoading(true);
+    setError('');
 
     async function load() {
       try {
-        const [{ video, related }, { items: history }, { hlsUrl }] = await Promise.all([
-          apiClient.getVideo(id),
-          apiClient.getContinueWatching(),
-          apiClient.getVideoStream(id),
-        ]);
+        const [{ video, related }, { categories }, { series: allSeries }, { items: watchlist }, { rating: myRating }] =
+          await Promise.all([
+            apiClient.getVideo(id),
+            apiClient.getCategories(),
+            apiClient.getSeries(),
+            apiClient.getWatchlist(),
+            apiClient.getVideoRating(id),
+          ]);
 
         if (cancelled) return;
-
-        const resume = history.find((i) => i.id === id)?.progress_sec ?? 0;
-
         setVideo(video);
         setRelated(related);
-        setStartAt(resume);
-        setStreamUrl(hlsUrl); // ← esto dispara el Efecto 2
+        setCategories(categories);
+        setSeries(allSeries);
+        setInList(watchlist.some((i) => i.id === id));
+        setRating(myRating != null ? RATING_TO_VALUE[myRating] : null);
       } catch (err) {
         if (cancelled) return;
         if (err instanceof ApiError) {
-          if (err.code === 'SUBSCRIPTION_REQUIRED') { router.replace('/?planes=1'); return; }
+          if (err.code === 'SUBSCRIPTION_REQUIRED') { router.replace('/planes'); return; }
           setError(err.message);
         } else {
           setError('No se pudo cargar el vídeo.');
         }
       } finally {
-        if (!cancelled) setLoadingMeta(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -74,77 +84,66 @@ export default function WatchPage() {
     return () => { cancelled = true; };
   }, [id, router]);
 
-  // ── Efecto 2: inicializa HLS.js cuando <video> ya está en el DOM ─────────────
-  // Se dispara tras el render que sigue al setStreamUrl del Efecto 1
-  useEffect(() => {
-    if (!streamUrl) return;
-    const url = streamUrl;
-    const el = videoRef.current;
-    if (!el) return;
-    const videoEl = el; // variable no-nullable para el closure async
-
-    let destroyed = false;
-
-    async function initHls() {
-      const Hls = (await import('hls.js')).default;
-
-      if (Hls.isSupported()) {
-        const hls = new Hls({ enableWorker: true });
-        hlsRef.current = hls;
-
-        hls.on(Hls.Events.ERROR, (_e, data) => {
-          if (data.fatal) setError('Error al cargar el vídeo. Inténtalo de nuevo.');
-        });
-
-        hls.loadSource(url);
-        hls.attachMedia(videoEl);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          if (destroyed) return;
-          videoEl.currentTime = startAt;
-          videoEl.play().catch(() => null);
-          setPlayerReady(true);
-        });
-      } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-        // Safari: HLS nativo
-        videoEl.src = url;
-        videoEl.currentTime = startAt;
-        videoEl.play().catch(() => null);
-        setPlayerReady(true);
+  const toggleList = async () => {
+    if (!video || listLoading) return;
+    setListLoading(true);
+    try {
+      if (inList) {
+        await apiClient.removeFromWatchlist(video.id);
+        setInList(false);
       } else {
-        setError('Tu navegador no soporta reproducción HLS.');
+        await apiClient.addToWatchlist(video.id);
+        setInList(true);
       }
+    } catch {
+      toast('error', 'No se pudo actualizar tu lista. Inténtalo de nuevo.');
+    } finally {
+      setListLoading(false);
     }
+  };
 
-    initHls();
+  const handleRatingChange = async (value: RatingValue | null) => {
+    if (!video || ratingSaving) return;
+    const previous = rating;
+    setRatingSaving(true);
+    setRating(value); // optimista — se revierte si falla la llamada
+    try {
+      if (value === null) {
+        await apiClient.deleteVideoRating(video.id);
+        toast('success', 'Valoración eliminada.');
+      } else {
+        await apiClient.rateVideo(video.id, VALUE_TO_RATING[value]);
+        toast('success', 'Gracias por tu valoración.');
+      }
+    } catch {
+      setRating(previous);
+      toast('error', 'No se pudo guardar tu valoración. Inténtalo de nuevo.');
+    } finally {
+      setRatingSaving(false);
+    }
+  };
 
-    return () => {
-      destroyed = true;
-      hlsRef.current?.destroy();
-      hlsRef.current = null;
-    };
-  }, [streamUrl, startAt]);
+  const handleShare = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: video?.title, url });
+      } catch {
+        /* el usuario canceló el diálogo de compartir */
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('success', 'Enlace copiado al portapapeles.');
+    } catch {
+      toast('error', 'No se pudo copiar el enlace.');
+    }
+  };
 
-  // ── Timer de progreso cada 15 s ──────────────────────────────────────────────
-  useEffect(() => {
-    if (!playerReady || !video) return;
-    progressTimerRef.current = setInterval(() => saveProgress(video.id), PROGRESS_INTERVAL_MS);
-    return () => { if (progressTimerRef.current) clearInterval(progressTimerRef.current); };
-  }, [playerReady, video, saveProgress]);
-
-  // ── Al desmontar: guarda progreso ────────────────────────────────────────────
-  useEffect(() => {
-    return () => {
-      if (video) saveProgress(video.id);
-      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
-    };
-  }, [video, saveProgress]);
-
-  const handleEnded = () => { if (video) saveProgress(video.id, true); };
-
-  // ── UI ───────────────────────────────────────────────────────────────────────
   if (error) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4 px-6 text-center">
+      <div className="min-h-screen bg-surface flex flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-red-400 text-lg">{error}</p>
         <button onClick={() => router.back()} className="text-white/60 hover:text-white text-sm underline">
           ← Volver
@@ -153,66 +152,201 @@ export default function WatchPage() {
     );
   }
 
+  if (loading || !video) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <svg className="animate-spin w-10 h-10 text-brand" viewBox="0 0 24 24" fill="none">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+      </div>
+    );
+  }
+
+  const videoCategory = categories.find((c) => c.id === video.category_id);
+  const videoSeries = series.find((s) => s.id === video.series_id);
+  const year = new Date(video.created_at).getFullYear();
+  const kicker = videoSeries
+    ? `${videoSeries.title}${video.episode_num != null ? ` · Ep ${video.episode_num}` : ''}`
+    : videoCategory?.name ?? '';
+  const chips = [videoCategory?.name, videoSeries?.title].filter(Boolean) as string[];
+  const presenta = video.crew && video.crew.length > 0
+    ? video.crew.map((c) => c.name).join(', ')
+    : 'Carp Partners';
+
   return (
-    <div className="min-h-screen bg-black">
-      {/* ── Reproductor — siempre en el DOM para que videoRef esté disponible ── */}
-      <div className="relative w-full bg-black" style={{ aspectRatio: '16/9', maxHeight: '90vh' }}>
-
-        {/* Spinner encima del video mientras carga */}
-        {(loadingMeta || (!playerReady && !error)) && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
-            <svg className="animate-spin w-10 h-10 text-brand" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          </div>
+    <div className="min-h-screen bg-surface">
+      {/* ── Cabecera ── */}
+      <section className="relative w-full" style={{ height: '66vh', minHeight: 460 }}>
+        {video.thumbnail_url ? (
+          <img src={video.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden />
+        ) : (
+          <div className="absolute inset-0 bg-surface-raised" />
         )}
-
-        <video
-          ref={videoRef}
-          className="w-full h-full"
-          controls
-          playsInline
-          onEnded={handleEnded}
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(90deg, rgba(6,9,12,0.9) 0%, rgba(6,9,12,0.4) 45%, rgba(6,9,12,0) 75%)' }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(0deg, #06090c 1%, rgba(6,9,12,0.1) 40%, rgba(6,9,12,0) 60%)' }}
         />
 
-        <Link
-          href="/home"
-          className="absolute top-4 left-4 bg-black/60 hover:bg-black/80 text-white rounded-full p-2 transition-colors z-20"
-          aria-label="Volver al inicio"
+        <button
+          onClick={() => router.back()}
+          className="absolute top-6 left-6 md:left-12 inline-flex items-center gap-2 px-4 py-[9px] rounded-[9px] text-[13.5px] font-medium z-10"
+          style={{ background: 'rgba(6,9,12,0.55)', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(6px)', color: '#e9efeb' }}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </Link>
-      </div>
+          <i className="ti ti-arrow-left text-[18px]" />
+          Volver
+        </button>
 
-      {/* ── Info ── */}
-      {!loadingMeta && video && (
-        <div className="px-6 md:px-12 py-8 max-w-4xl">
-          {video.episode_num != null && (
-            <p className="text-brand text-xs font-semibold uppercase tracking-widest mb-1">
-              Episodio {video.episode_num}
-            </p>
+        <div className="absolute left-6 md:left-12 z-10" style={{ bottom: '7vh', maxWidth: 620 }}>
+          {kicker && (
+            <div className="text-[12.5px] font-semibold uppercase tracking-[0.1em] mb-3 text-brand-bright">
+              {kicker}
+            </div>
           )}
-          <h1 className="text-white text-2xl md:text-3xl font-bold mb-3">{video.title}</h1>
+          <h1 className="font-display font-extrabold text-white text-[32px] md:text-[50px] leading-[1.05] tracking-[-0.02em] mb-4">
+            {video.title}
+          </h1>
+          <div className="flex items-center gap-[10px] flex-wrap text-[13px]" style={{ color: '#c4d0cb' }}>
+            <span>{year}</span>
+            {videoCategory && (
+              <>
+                <Dot />
+                <span>{videoCategory.name}</span>
+              </>
+            )}
+            <Dot />
+            <span>{formatDuration(video.duration_sec)}</span>
+            <span className="px-[6px] py-[1px] rounded border border-white/28 text-[11px]">4K UHD</span>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Contenido ── */}
+      <div className="px-6 md:px-12 pt-2 pb-14 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8 lg:gap-12 max-w-[1180px]">
+        <div>
+          <div className="flex items-center gap-3.5 flex-wrap mb-7">
+            <button
+              onClick={() => router.push(`/watch/${video.id}/play`)}
+              className="inline-flex items-center gap-[9px] px-[30px] py-[13px] rounded-[9px] bg-brand text-white font-bold text-[15px] transition-transform hover:scale-[1.03]"
+              style={{ boxShadow: '0 6px 22px rgba(104,20,11,0.55)' }}
+            >
+              <i className="ti ti-player-play-filled text-[19px]" />
+              Reproducir
+            </button>
+            <button
+              onClick={toggleList}
+              disabled={listLoading}
+              className="inline-flex items-center gap-[9px] px-[22px] py-[13px] rounded-[9px] font-semibold text-[14.5px] transition-colors disabled:opacity-60"
+              style={{ border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.07)', color: '#fff' }}
+            >
+              <i className={`ti ti-${inList ? 'check' : 'plus'} text-[19px]`} style={{ color: inList ? '#cf4a35' : '#fff' }} />
+              {inList ? 'En tu lista' : 'Mi Lista'}
+            </button>
+            <button
+              onClick={() => setRatingOpen(true)}
+              aria-label={rating ? `Tu valoración: ${RATING_LABELS[rating]}. Pulsa para cambiarla.` : 'Valorar'}
+              className="w-[46px] h-[46px] rounded-full flex items-center justify-center relative transition-colors hover:bg-white/8"
+              style={{
+                border: `1px solid ${rating ? RATING_META[rating].color : 'rgba(255,255,255,0.2)'}`,
+                background: rating ? RATING_META[rating].bgColor : 'transparent',
+                color: rating ? RATING_META[rating].color : '#cdd6d2',
+              }}
+            >
+              {rating && RATING_META[rating].double ? (
+                <>
+                  <i
+                    className={`ti ti-${RATING_META[rating].icon}-filled text-[14px]`}
+                    style={{ position: 'absolute', left: 13, top: 15, transform: 'rotate(-8deg)' }}
+                  />
+                  <i
+                    className={`ti ti-${RATING_META[rating].icon}-filled text-[14px]`}
+                    style={{ position: 'absolute', right: 13, top: 15, transform: 'rotate(8deg)' }}
+                  />
+                </>
+              ) : (
+                <i className={`ti ti-${rating ? RATING_META[rating].icon : 'thumb-up'}${rating ? '-filled' : ''} text-[20px]`} />
+              )}
+            </button>
+            <IconButton icon="share-2" ariaLabel="Compartir" onClick={handleShare} />
+          </div>
+
           {video.description && (
-            <p className="text-white/60 text-sm leading-relaxed max-w-2xl">{video.description}</p>
+            <p className="text-[16px] leading-[1.7] mb-6" style={{ color: '#cdd6d2' }}>{video.description}</p>
+          )}
+
+          {chips.length > 0 && (
+            <div className="flex gap-2.5 flex-wrap">
+              {chips.map((c) => (
+                <span
+                  key={c}
+                  className="px-3 py-[6px] rounded-[7px] text-[12.5px]"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#a9b8b1' }}
+                >
+                  {c}
+                </span>
+              ))}
+            </div>
           )}
         </div>
-      )}
 
-      {/* ── Relacionados ── */}
-      {!loadingMeta && related.length > 0 && (
+        <div className="text-[13px] leading-[1.9]" style={{ color: '#85958e' }}>
+          <MetaRow label="Serie" value={videoSeries?.title ?? '—'} />
+          <MetaRow label="Categoría" value={videoCategory?.name ?? '—'} />
+          <MetaRow label="Duración" value={formatDuration(video.duration_sec)} />
+          <MetaRow label="Presenta" value={presenta} last />
+        </div>
+      </div>
+
+      {/* ── Más como esto ── */}
+      {related.length > 0 && (
         <div className="px-6 md:px-12 pb-16">
-          <h2 className="text-white text-xl font-bold mb-4">Relacionados</h2>
-          <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
+          <h2 className="font-display text-[19px] font-semibold text-white mb-4">Más como esto</h2>
+          <div className="grid gap-[22px_18px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(252px, 1fr))' }}>
             {related.map((v) => (
               <VideoCard key={v.id} video={v} onClick={(v) => router.push(`/watch/${v.id}`)} />
             ))}
           </div>
         </div>
       )}
+
+      {ratingOpen && (
+        <RatingDialog
+          videoTitle={video.title}
+          value={rating}
+          onChange={handleRatingChange}
+          onClose={() => setRatingOpen(false)}
+        />
+      )}
     </div>
+  );
+}
+
+function Dot() {
+  return <span className="w-[3px] h-[3px] rounded-full" style={{ background: '#5f6f69' }} />;
+}
+
+function MetaRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
+  return (
+    <div style={{ marginBottom: last ? 0 : 14 }}>
+      <span style={{ color: '#5f6f69' }}>{label}: </span>
+      <span style={{ color: '#cdd6d2' }}>{value}</span>
+    </div>
+  );
+}
+
+function IconButton({ icon, ariaLabel, onClick }: { icon: string; ariaLabel: string; onClick?: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="w-[46px] h-[46px] rounded-full flex items-center justify-center transition-colors hover:bg-white/8"
+      style={{ border: '1px solid rgba(255,255,255,0.2)', color: '#cdd6d2' }}
+    >
+      <i className={`ti ti-${icon} text-[20px]`} />
+    </button>
   );
 }

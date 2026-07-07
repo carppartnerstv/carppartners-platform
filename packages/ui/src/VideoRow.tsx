@@ -52,12 +52,13 @@ export function VideoRow({ title, videos, progressMap, onVideoClick, showSeeAll,
           className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-1"
         >
           {videos.map((v) => (
-            <VideoCard
-              key={v.id}
-              video={v}
-              progress={progressMap?.[v.id]}
-              onClick={onVideoClick}
-            />
+            <div key={v.id} className="flex-shrink-0 w-[300px]">
+              <VideoCard
+                video={v}
+                progress={progressMap?.[v.id]}
+                onClick={onVideoClick}
+              />
+            </div>
           ))}
           <div className="flex-shrink-0 w-2" />
         </div>

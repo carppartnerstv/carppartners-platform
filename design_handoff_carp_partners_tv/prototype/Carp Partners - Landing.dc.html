@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.7.0/dist/tabler-icons.min.css">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#06090c}
+  ::selection{background:#68140b;color:#fff}
+  input::placeholder{color:#6a7a73}
+  @keyframes cpfade{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes cpdrift{0%{transform:translateY(0)}50%{transform:translateY(-10px)}100%{transform:translateY(0)}}
+</style>
+</helmet>
+<div style="min-height:100vh;background:#06090c;font-family:Inter,sans-serif;color:#e9efeb;position:relative;overflow-x:hidden">
+
+  <!-- ===================== LANDING ===================== -->
+  <sc-if value="{{ isLanding }}" hint-placeholder-val="{{ true }}">
+  <div>
+    <header style="position:fixed;top:0;left:0;right:0;z-index:60;display:flex;align-items:center;padding:18px 56px;background:{{ navBg }};backdrop-filter:blur(10px);border-bottom:1px solid {{ navBorder }};transition:all .3s">
+      <img src="assets/carp-partners-logo.png" alt="Carp Partners TV" style="height:26px;width:auto;display:block;cursor:pointer" onClick="{{ toTop }}" />
+      <div style="flex:1"></div>
+      <nav style="display:flex;align-items:center;gap:30px;margin-right:32px">
+        <span onClick="{{ scrollCat }}" style="font-size:13.5px;font-weight:500;color:#b3c0ba;cursor:pointer" style-hover="color:#fff">Catálogo</span>
+        <span onClick="{{ scrollPlans }}" style="font-size:13.5px;font-weight:500;color:#b3c0ba;cursor:pointer" style-hover="color:#fff">Planes</span>
+        <span onClick="{{ scrollFaq }}" style="font-size:13.5px;font-weight:500;color:#b3c0ba;cursor:pointer" style-hover="color:#fff">Preguntas</span>
+      </nav>
+      <button onClick="{{ goLogin }}" style="padding:9px 18px;border:1px solid rgba(255,255,255,0.2);border-radius:8px;background:transparent;color:#fff;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;cursor:pointer;margin-right:10px;transition:background .2s" style-hover="background:rgba(255,255,255,0.08)">Iniciar sesión</button>
+      <button onClick="{{ goRegister }}" style="padding:9px 20px;border:none;border-radius:8px;background:{{ accent }};color:#fff;font-family:Inter,sans-serif;font-size:13.5px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(104,20,11,0.45);transition:transform .15s" style-hover="transform:scale(1.04)">Suscríbete</button>
+    </header>
+
+    <!-- HERO -->
+    <section style="position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:120px 24px 80px;overflow:hidden">
+      <div style="position:absolute;inset:0;background:radial-gradient(120% 90% at 70% 6%, #3a5560 0%, rgba(58,85,96,0) 52%), radial-gradient(120% 100% at 12% 88%, #2a1411 0%, rgba(42,20,17,0) 55%), radial-gradient(90% 80% at 92% 96%, #1d3236 0%, rgba(29,50,54,0) 60%), linear-gradient(165deg, #0a161a 0%, #06090c 60%)"></div>
+      <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(6,9,12,0.5) 0%, rgba(6,9,12,0.1) 30%, rgba(6,9,12,0.35) 70%, #06090c 100%)"></div>
+      <div style="position:relative;max-width:880px">
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:30px;background:rgba(216,166,74,0.12);border:1px solid rgba(216,166,74,0.32);color:#e3bd72;font-size:12px;font-weight:600;letter-spacing:0.04em;margin-bottom:28px"><i class="ti ti-fish" style="font-size:15px"></i>La plataforma del carpfishing en España</div>
+        <h1 style="font-family:Sora,sans-serif;font-weight:800;font-size:74px;line-height:1.02;letter-spacing:-0.025em;color:#fff;margin:0 0 22px;text-shadow:0 6px 40px rgba(0,0,0,0.5)">Las grandes carpas,<br>en tu pantalla.</h1>
+        <p style="font-size:19px;line-height:1.6;color:#c4d0cb;margin:0 auto 38px;max-width:620px">Series, documentales y técnicas de pesca de carpa en alta definición. Nuevo contenido cada semana, donde y cuando quieras.</p>
+        <div style="display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap">
+          <button onClick="{{ goRegister }}" style="display:inline-flex;align-items:center;gap:9px;padding:16px 34px;border:none;border-radius:10px;background:{{ accent }};color:#fff;font-family:Inter,sans-serif;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 8px 28px rgba(104,20,11,0.55);transition:transform .15s" style-hover="transform:scale(1.03)">Empezar ahora<i class="ti ti-arrow-right" style="font-size:19px"></i></button>
+          <button onClick="{{ scrollCat }}" style="display:inline-flex;align-items:center;gap:9px;padding:16px 28px;border:1px solid rgba(255,255,255,0.22);border-radius:10px;background:rgba(255,255,255,0.06);backdrop-filter:blur(6px);color:#fff;font-family:Inter,sans-serif;font-size:16px;font-weight:600;cursor:pointer;transition:background .2s" style-hover="background:rgba(255,255,255,0.14)"><i class="ti ti-player-play-filled" style="font-size:17px"></i>Ver catálogo</button>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:26px;flex-wrap:wrap;margin-top:34px;font-size:13px;color:#9aa9a3">
+          <span style="display:inline-flex;align-items:center;gap:7px"><i class="ti ti-circle-check-filled" style="font-size:16px;color:{{ accentBright }}"></i>Cancela cuando quieras</span>
+          <span style="display:inline-flex;align-items:center;gap:7px"><i class="ti ti-device-tv" style="font-size:16px;color:{{ accentBright }}"></i>Web, móvil y tablet</span>
+          <span style="display:inline-flex;align-items:center;gap:7px"><i class="ti ti-badge-4k" style="font-size:16px;color:{{ accentBright }}"></i>Calidad 4K</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- LOGO STRIP / STATS -->
+    <section style="position:relative;padding:0 56px 70px;margin-top:-30px">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;max-width:1100px;margin:0 auto">
+        <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+          <div style="text-align:center;padding:28px 16px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07)">
+            <div style="font-family:Sora,sans-serif;font-weight:800;font-size:38px;color:#fff;letter-spacing:-0.02em">{{ s.num }}</div>
+            <div style="font-size:13px;color:#85958e;margin-top:6px">{{ s.label }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section style="padding:60px 56px 80px">
+      <div style="max-width:1100px;margin:0 auto;text-align:center">
+        <div style="font-size:12.5px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:{{ accentBright }};margin-bottom:14px">Por qué Carp Partners TV</div>
+        <h2 style="font-family:Sora,sans-serif;font-weight:700;font-size:42px;letter-spacing:-0.02em;color:#fff;margin:0 0 54px">Hecho por y para carpfishers</h2>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;text-align:left">
+          <sc-for list="{{ features }}" as="f" hint-placeholder-count="3">
+            <div style="padding:32px 28px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07)">
+              <div style="width:52px;height:52px;border-radius:13px;background:rgba(104,20,11,0.18);border:1px solid rgba(207,74,53,0.3);display:flex;align-items:center;justify-content:center;margin-bottom:20px"><i class="ti ti-{{ f.icon }}" style="font-size:26px;color:{{ accentBright }}"></i></div>
+              <h3 style="font-family:Sora,sans-serif;font-weight:600;font-size:20px;color:#eef3f0;margin:0 0 10px">{{ f.title }}</h3>
+              <p style="font-size:14.5px;line-height:1.6;color:#9aa9a3;margin:0">{{ f.body }}</p>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <!-- CATALOG PREVIEW (blurred / locked) -->
+    <section ref="{{ catRef }}" style="padding:40px 0 90px">
+      <div style="text-align:center;padding:0 56px;margin-bottom:40px">
+        <div style="font-size:12.5px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:{{ accentBright }};margin-bottom:14px">Un vistazo al catálogo</div>
+        <h2 style="font-family:Sora,sans-serif;font-weight:700;font-size:42px;letter-spacing:-0.02em;color:#fff;margin:0">Cientos de horas esperándote</h2>
+      </div>
+      <div style="position:relative">
+        <div style="display:flex;flex-direction:column;gap:24px;filter:blur(1.5px);opacity:0.85;mask-image:linear-gradient(180deg,#000 0%,#000 55%,transparent 100%);-webkit-mask-image:linear-gradient(180deg,#000 0%,#000 55%,transparent 100%)">
+          <sc-for list="{{ previewRows }}" as="row" hint-placeholder-count="2">
+            <div style="display:flex;gap:18px;padding:0 56px;overflow:hidden">
+              <sc-for list="{{ row }}" as="m" hint-placeholder-count="6">
+                <div style="flex:0 0 260px;aspect-ratio:16/9;border-radius:11px;background:{{ m }};border:1px solid rgba(255,255,255,0.06);position:relative;overflow:hidden">
+                  <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(4,8,10,0.7) 100%)"></div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:6px;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 24px">
+          <div style="width:60px;height:60px;border-radius:50%;background:rgba(104,20,11,0.9);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px rgba(104,20,11,0.6);margin-bottom:18px"><i class="ti ti-lock" style="font-size:27px;color:#fff"></i></div>
+          <div style="font-family:Sora,sans-serif;font-weight:700;font-size:24px;color:#fff;margin-bottom:18px">Suscríbete para ver todo el catálogo</div>
+          <button onClick="{{ scrollPlans }}" style="display:inline-flex;align-items:center;gap:9px;padding:14px 28px;border:none;border-radius:10px;background:{{ accent }};color:#fff;font-family:Inter,sans-serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 8px 28px rgba(104,20,11,0.55)">Ver planes<i class="ti ti-arrow-right" style="font-size:18px"></i></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PLANS -->
+    <section ref="{{ plansRef }}" style="padding:70px 56px 90px;background:linear-gradient(180deg,#080d11 0%,#06090c 100%)">
+      <div style="max-width:920px;margin:0 auto;text-align:center">
+        <div style="font-size:12.5px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:{{ accentBright }};margin-bottom:14px">Planes</div>
+        <h2 style="font-family:Sora,sans-serif;font-weight:700;font-size:42px;letter-spacing:-0.02em;color:#fff;margin:0 0 26px">Elige cómo quieres ver</h2>
+        <div style="display:inline-flex;align-items:center;gap:4px;padding:5px;border-radius:11px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);margin-bottom:44px">
+          <span onClick="{{ setMonthly }}" style="padding:9px 20px;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer;background:{{ monthlyBg }};color:{{ monthlyColor }};transition:all .2s">Mensual</span>
+          <span onClick="{{ setAnnual }}" style="display:inline-flex;align-items:center;gap:8px;padding:9px 20px;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer;background:{{ annualBg }};color:{{ annualColor }};transition:all .2s">Anual <span style="padding:2px 7px;border-radius:5px;background:rgba(216,166,74,0.22);color:#e3bd72;font-size:11px;font-weight:700">−33%</span></span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;text-align:left">
+          <!-- Free / preview tier -->
+          <div style="padding:36px 32px;border-radius:18px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08)">
+            <div style="font-family:Sora,sans-serif;font-weight:600;font-size:20px;color:#eef3f0;margin-bottom:8px">Gratis</div>
+            <div style="font-size:13.5px;color:#85958e;margin-bottom:22px">Para descubrir la plataforma</div>
+            <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:26px"><span style="font-family:Sora,sans-serif;font-weight:800;font-size:46px;color:#fff;letter-spacing:-0.02em">0€</span><span style="font-size:14px;color:#85958e">/ siempre</span></div>
+            <button onClick="{{ goRegister }}" style="width:100%;padding:13px;border:1px solid rgba(255,255,255,0.2);border-radius:10px;background:rgba(255,255,255,0.06);color:#fff;font-family:Inter,sans-serif;font-size:14.5px;font-weight:600;cursor:pointer;margin-bottom:26px" style-hover="background:rgba(255,255,255,0.12)">Crear cuenta</button>
+            <sc-for list="{{ freePerks }}" as="p" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:11px;padding:8px 0;font-size:14px;color:#b3c0ba"><i class="ti ti-check" style="font-size:18px;color:#6a7a73"></i>{{ p }}</div>
+            </sc-for>
+          </div>
+          <!-- Premium tier -->
+          <div style="position:relative;padding:36px 32px;border-radius:18px;background:linear-gradient(165deg, rgba(104,20,11,0.16), rgba(104,20,11,0.04));border:1.5px solid rgba(207,74,53,0.45);box-shadow:0 20px 60px rgba(104,20,11,0.2)">
+            <div style="position:absolute;top:-13px;right:28px;padding:5px 14px;border-radius:20px;background:{{ accent }};color:#fff;font-size:11.5px;font-weight:700;letter-spacing:0.04em">RECOMENDADO</div>
+            <div style="font-family:Sora,sans-serif;font-weight:600;font-size:20px;color:#fff;margin-bottom:8px">Premium</div>
+            <div style="font-size:13.5px;color:#c4d0cb;margin-bottom:22px">Acceso total, sin límites</div>
+            <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px"><span style="font-family:Sora,sans-serif;font-weight:800;font-size:46px;color:#fff;letter-spacing:-0.02em">{{ planPrice }}</span><span style="font-size:14px;color:#c4d0cb">/ {{ planPeriod }}</span></div>
+            <div style="font-size:13px;color:#e3bd72;margin-bottom:24px;height:18px">{{ planNote }}</div>
+            <button onClick="{{ goRegister }}" style="width:100%;padding:13px;border:none;border-radius:10px;background:{{ accent }};color:#fff;font-family:Inter,sans-serif;font-size:14.5px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(104,20,11,0.5);margin-bottom:26px;transition:transform .15s" style-hover="transform:scale(1.02)">Suscribirme</button>
+            <sc-for list="{{ premiumPerks }}" as="p" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:11px;padding:8px 0;font-size:14px;color:#e9efeb"><i class="ti ti-check" style="font-size:18px;color:{{ accentBright }}"></i>{{ p }}</div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="font-size:12.5px;color:#6a7a73;margin-top:24px">Pago seguro con tarjeta vía Stripe · Sin permanencia · Cancela en un clic</div>
+      </div>
+    </section>
+
+    <!-- TESTIMONIALS -->
+    <section style="padding:70px 56px 80px">
+      <div style="max-width:1100px;margin:0 auto">
+        <div style="text-align:center;margin-bottom:50px">
+          <div style="font-size:12.5px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:{{ accentBright }};margin-bottom:14px">La comunidad</div>
+          <h2 style="font-family:Sora,sans-serif;font-weight:700;font-size:42px;letter-spacing:-0.02em;color:#fff;margin:0">Lo que dicen los pescadores</h2>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:22px">
+          <sc-for list="{{ testimonials }}" as="t" hint-placeholder-count="3">
+            <div style="padding:30px 28px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07)">
+              <div style="display:flex;gap:3px;margin-bottom:18px">
+                <i class="ti ti-star-filled" style="font-size:16px;color:#e3bd72"></i><i class="ti ti-star-filled" style="font-size:16px;color:#e3bd72"></i><i class="ti ti-star-filled" style="font-size:16px;color:#e3bd72"></i><i class="ti ti-star-filled" style="font-size:16px;color:#e3bd72"></i><i class="ti ti-star-filled" style="font-size:16px;color:#e3bd72"></i>
+              </div>
+              <p style="font-size:15px;line-height:1.65;color:#cdd6d2;margin:0 0 22px">{{ t.quote }}</p>
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="width:42px;height:42px;border-radius:50%;background:{{ t.av }};border:1px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;font-family:Sora,sans-serif;font-weight:600;font-size:14px;color:#fff">{{ t.initials }}</div>
+                <div>
+                  <div style="font-size:14px;font-weight:600;color:#eef3f0">{{ t.name }}</div>
+                  <div style="font-size:12.5px;color:#85958e">{{ t.loc }}</div>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section ref="{{ faqRef }}" style="padding:70px 56px 90px">
+      <div style="max-width:760px;margin:0 auto">
+        <div style="text-align:center;margin-bottom:48px">
+          <div style="font-size:12.5px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:{{ accentBright }};margin-bottom:14px">Preguntas frecuentes</div>
+          <h2 style="font-family:Sora,sans-serif;font-weight:700;font-size:42px;letter-spacing:-0.02em;color:#fff;margin:0">Todo lo que necesitas saber</h2>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <sc-for list="{{ faqs }}" as="q" hint-placeholder-count="5">
+            <div onClick="{{ q.toggle }}" style="border-radius:13px;background:rgba(255,255,255,0.03);border:1px solid {{ q.border }};overflow:hidden;cursor:pointer;transition:border-color .2s">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 24px">
+                <span style="font-family:Sora,sans-serif;font-size:16.5px;font-weight:500;color:#eef3f0">{{ q.q }}</span>
+                <i class="ti ti-{{ q.icon }}" style="font-size:21px;color:{{ q.iconColor }};flex-shrink:0"></i>
+              </div>
+              <sc-if value="{{ q.open }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:0 24px 22px;font-size:14.5px;line-height:1.65;color:#9aa9a3">{{ q.a }}</div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA BAND -->
+    <section style="padding:0 56px 90px">
+      <div style="position:relative;max-width:1100px;margin:0 auto;border-radius:24px;overflow:hidden;padding:64px 40px;text-align:center">
+        <div style="position:absolute;inset:0;background:radial-gradient(100% 120% at 50% 0%, #3a1a14 0%, #160a08 60%, #0a0606 100%)"></div>
+        <div style="position:absolute;inset:0;background:radial-gradient(70% 80% at 80% 100%, rgba(104,20,11,0.35) 0%, rgba(104,20,11,0) 60%)"></div>
+        <div style="position:relative">
+          <h2 style="font-family:Sora,sans-serif;font-weight:800;font-size:46px;letter-spacing:-0.025em;color:#fff;margin:0 0 16px">Tu próxima gran captura<br>empieza aquí.</h2>
+          <p style="font-size:17px;color:#d8c0bb;margin:0 auto 32px;max-width:480px">Únete a la comunidad de carpfishing más grande de España. Primer contenido gratis al registrarte.</p>
+          <button onClick="{{ goRegister }}" style="display:inline-flex;align-items:center;gap:9px;padding:16px 36px;border:none;border-radius:11px;background:#fff;color:#68140b;font-family:Inter,sans-serif;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,0.4);transition:transform .15s" style-hover="transform:scale(1.03)">Crear mi cuenta<i class="ti ti-arrow-right" style="font-size:19px"></i></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer style="border-top:1px solid rgba(255,255,255,0.07);padding:50px 56px 40px">
+      <div style="max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:40px">
+        <div>
+          <img src="assets/carp-partners-logo.png" alt="Carp Partners TV" style="height:24px;width:auto;margin-bottom:16px" />
+          <p style="font-size:13.5px;line-height:1.6;color:#7d8d86;margin:0 0 18px;max-width:260px">La primera plataforma de streaming especializada en carpfishing. Hecha en España.</p>
+          <div style="display:flex;gap:10px">
+            <div style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#9aa9a3" style-hover="color:#fff"><i class="ti ti-brand-youtube" style="font-size:19px"></i></div>
+            <div style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#9aa9a3" style-hover="color:#fff"><i class="ti ti-brand-instagram" style="font-size:19px"></i></div>
+            <div style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#9aa9a3" style-hover="color:#fff"><i class="ti ti-brand-facebook" style="font-size:19px"></i></div>
+          </div>
+        </div>
+        <sc-for list="{{ footerCols }}" as="col" hint-placeholder-count="3">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#cdd6d2;margin-bottom:16px">{{ col.title }}</div>
+            <sc-for list="{{ col.links }}" as="l" hint-placeholder-count="4">
+              <div style="font-size:13.5px;color:#7d8d86;padding:6px 0;cursor:pointer" style-hover="color:#b3c0ba">{{ l }}</div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+      <div style="max-width:1100px;margin:36px auto 0;padding-top:24px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div style="font-size:12.5px;color:#6a7a73">© 2026 Carp Partners TV. Todos los derechos reservados.</div>
+        <div style="display:flex;gap:22px;font-size:12.5px;color:#6a7a73">
+          <span style="cursor:pointer" style-hover="color:#b3c0ba">Privacidad</span>
+          <span style="cursor:pointer" style-hover="color:#b3c0ba">Términos</span>
+          <span style="cursor:pointer" style-hover="color:#b3c0ba">Cookies</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+  </sc-if>
+
+  <!-- ===================== AUTH (login / register) ===================== -->
+  <sc-if value="{{ isAuth }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:100vh;display:flex">
+    <!-- Left: visual panel -->
+    <div style="position:relative;flex:1;min-width:0;overflow:hidden;display:none">
+      <div style="position:absolute;inset:0;background:radial-gradient(110% 90% at 30% 10%, #3a5560 0%, rgba(58,85,96,0) 55%), radial-gradient(100% 100% at 90% 95%, #2a1411 0%, rgba(42,20,17,0) 55%), linear-gradient(165deg, #0a161a, #06090c)"></div>
+    </div>
+    <!-- Auth column -->
+    <div style="position:relative;width:100%;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px">
+      <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 75% 4%, #28424a 0%, rgba(40,66,74,0) 50%), radial-gradient(110% 90% at 8% 96%, #2a1411 0%, rgba(42,20,17,0) 52%), linear-gradient(165deg, #0a1216, #06090c 65%)"></div>
+      <div style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;padding:24px 32px">
+        <img src="assets/carp-partners-logo.png" alt="Carp Partners TV" style="height:24px;width:auto;cursor:pointer" onClick="{{ goLanding }}" />
+        <div style="flex:1"></div>
+        <div onClick="{{ goLanding }}" style="display:inline-flex;align-items:center;gap:7px;font-size:13px;color:#9aa9a3;cursor:pointer" style-hover="color:#fff"><i class="ti ti-arrow-left" style="font-size:17px"></i>Volver al inicio</div>
+      </div>
+
+      <div style="position:relative;width:100%;max-width:418px">
+        <div style="text-align:center;margin-bottom:30px">
+          <h1 style="font-family:Sora,sans-serif;font-weight:700;font-size:30px;letter-spacing:-0.02em;color:#fff;margin:0 0 8px">{{ authTitle }}</h1>
+          <p style="font-size:14.5px;color:#9aa9a3;margin:0">{{ authSubtitle }}</p>
+        </div>
+
+        <div style="padding:32px 30px;border-radius:18px;background:rgba(14,21,26,0.7);border:1px solid rgba(255,255,255,0.09);backdrop-filter:blur(12px);box-shadow:0 24px 60px rgba(0,0,0,0.5)">
+
+          <sc-if value="{{ isLoginReg }}" hint-placeholder-val="{{ true }}">
+          <sc-if value="{{ isRegister }}" hint-placeholder-val="{{ false }}">
+            <label style="display:block;font-size:12.5px;font-weight:600;color:#b3c0ba;margin-bottom:8px">Nombre completo</label>
+            <div style="display:flex;align-items:center;gap:10px;padding:0 14px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid {{ nameBorder }};margin-bottom:18px;transition:border-color .2s">
+              <i class="ti ti-user" style="font-size:18px;color:#6a7a73"></i>
+              <input value="{{ name }}" onChange="{{ setName }}" onFocus="{{ focusName }}" onBlur="{{ blurField }}" placeholder="Diego Ramírez" style="flex:1;background:transparent;border:none;outline:none;color:#eef3f0;font-family:Inter,sans-serif;font-size:14.5px;padding:13px 0" />
+            </div>
+          </sc-if>
+
+          <label style="display:block;font-size:12.5px;font-weight:600;color:#b3c0ba;margin-bottom:8px">Correo electrónico</label>
+          <div style="display:flex;align-items:center;gap:10px;padding:0 14px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid {{ emailBorder }};margin-bottom:18px;transition:border-color .2s">
+            <i class="ti ti-mail" style="font-size:18px;color:#6a7a73"></i>
+            <input value="{{ email }}" onChange="{{ setEmail }}" onFocus="{{ focusEmail }}" onBlur="{{ blurField }}" placeholder="tu@correo.com" style="flex:1;background:transparent;border:none;outline:none;color:#eef3f0;font-family:Inter,sans-serif;font-size:14.5px;padding:13px 0" />
+          </div>
+
+          <label style="display:block;font-size:12.5px;font-weight:600;color:#b3c0ba;margin-bottom:8px">Contraseña</label>
+          <div style="display:flex;align-items:center;gap:10px;padding:0 14px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid {{ passBorder }};margin-bottom:{{ passMargin }};transition:border-color .2s">
+            <i class="ti ti-lock" style="font-size:18px;color:#6a7a73"></i>
+            <input value="{{ pass }}" onChange="{{ setPass }}" onFocus="{{ focusPass }}" onBlur="{{ blurField }}" type="{{ passType }}" placeholder="••••••••" style="flex:1;background:transparent;border:none;outline:none;color:#eef3f0;font-family:Inter,sans-serif;font-size:14.5px;padding:13px 0" />
+            <i onClick="{{ togglePass }}" class="ti ti-{{ passEye }}" style="font-size:18px;color:#85958e;cursor:pointer"></i>
+          </div>
+
+          <sc-if value="{{ isRegister }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;gap:5px;margin-bottom:18px">
+              <div style="flex:1;height:4px;border-radius:3px;background:{{ pwBar1 }}"></div>
+              <div style="flex:1;height:4px;border-radius:3px;background:{{ pwBar2 }}"></div>
+              <div style="flex:1;height:4px;border-radius:3px;background:{{ pwBar3 }}"></div>
+              <div style="flex:1;height:4px;border-radius:3px;background:{{ pwBar4 }}"></div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px">
+              <label style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:#9aa9a3;cursor:pointer" onClick="{{ toggleRemember }}">
+                <span style="width:18px;height:18px;border-radius:5px;border:1px solid {{ rememberBorder }};background:{{ rememberBg }};display:flex;align-items:center;justify-content:center"><i class="ti ti-check" style="font-size:13px;color:#fff;opacity:{{ rememberOpacity }}"></i></span>
+                Recordarme
+              </label>
+              <span onClick="{{ goForgot }}" style="font-size:13px;color:{{ accentBright }};cursor:pointer;font-weight:500" style-hover="text-decoration:underline">¿Olvidaste tu contraseña?</span>
+            </div>
+          </sc-if>
+
+          <button onClick="{{ submitAuth }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:9px;padding:15px;border:none;border-radius:11px;background:{{ accent }};color:#fff;font-family:Inter,sans-serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(104,20,11,0.45);transition:transform .15s" style-hover="transform:scale(1.02)">{{ authCta }}<i class="ti ti-arrow-right" style="font-size:18px"></i></button>
+
+          <sc-if value="{{ isRegister }}" hint-placeholder-val="{{ false }}">
+            <p style="font-size:11.5px;line-height:1.5;color:#6a7a73;text-align:center;margin:16px 0 0">Al crear tu cuenta aceptas los Términos y la Política de privacidad de Carp Partners TV.</p>
+          </sc-if>
+          </sc-if>
+
+          <sc-if value="{{ isForgot }}" hint-placeholder-val="{{ false }}">
+            <label style="display:block;font-size:12.5px;font-weight:600;color:#b3c0ba;margin-bottom:8px">Correo electrónico</label>
+            <div style="display:flex;align-items:center;gap:10px;padding:0 14px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid {{ emailBorder }};margin-bottom:20px;transition:border-color .2s">
+              <i class="ti ti-mail" style="font-size:18px;color:#6a7a73"></i>
+              <input value="{{ email }}" onChange="{{ setEmail }}" onFocus="{{ focusEmail }}" onBlur="{{ blurField }}" placeholder="tu@correo.com" style="flex:1;background:transparent;border:none;outline:none;color:#eef3f0;font-family:Inter,sans-serif;font-size:14.5px;padding:13px 0" />
+            </div>
+            <button onClick="{{ sendReset }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:9px;padding:15px;border:none;border-radius:11px;background:{{ accent }};color:#fff;font-family:Inter,sans-serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(104,20,11,0.45);transition:transform .15s" style-hover="transform:scale(1.02)">Enviar enlace de recuperación<i class="ti ti-send" style="font-size:18px"></i></button>
+            <div onClick="{{ goLogin }}" style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:18px;font-size:13.5px;color:#9aa9a3;cursor:pointer" style-hover="color:#fff"><i class="ti ti-arrow-left" style="font-size:16px"></i>Volver a iniciar sesión</div>
+          </sc-if>
+
+          <sc-if value="{{ isSent }}" hint-placeholder-val="{{ false }}">
+            <div style="text-align:center;padding:8px 4px 4px">
+              <div style="width:64px;height:64px;border-radius:50%;background:rgba(104,20,11,0.16);border:1px solid rgba(207,74,53,0.35);display:flex;align-items:center;justify-content:center;margin:0 auto 22px"><i class="ti ti-mail-check" style="font-size:31px;color:{{ accentBright }}"></i></div>
+              <div style="font-family:Sora,sans-serif;font-weight:600;font-size:19px;color:#eef3f0;margin-bottom:10px">Revisa tu correo</div>
+              <p style="font-size:14px;line-height:1.6;color:#9aa9a3;margin:0 0 24px">Si <span style="color:#cdd6d2;font-weight:600">{{ sentEmail }}</span> tiene una cuenta, te hemos enviado un enlace para restablecer tu contraseña. Caduca en 30 minutos.</p>
+              <button onClick="{{ goLogin }}" style="width:100%;padding:14px;border:none;border-radius:11px;background:{{ accent }};color:#fff;font-family:Inter,sans-serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(104,20,11,0.45)">Volver a iniciar sesión</button>
+              <div style="font-size:13px;color:#6a7a73;margin-top:18px">¿No te ha llegado? <span onClick="{{ goForgot }}" style="color:{{ accentBright }};font-weight:600;cursor:pointer" style-hover="text-decoration:underline">Reenviar enlace</span></div>
+            </div>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ isLoginReg }}" hint-placeholder-val="{{ true }}">
+        <div style="text-align:center;margin-top:24px;font-size:14px;color:#9aa9a3">
+          {{ switchPrompt }} <span onClick="{{ toggleAuthMode }}" style="color:{{ accentBright }};font-weight:600;cursor:pointer" style-hover="text-decoration:underline">{{ switchAction }}</span>
+        </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: {&quot;width&quot;: 1280, &quot;height&quot;: 860},
+  &quot;accent&quot;: {&quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#68140b&quot;},
+  &quot;accentBright&quot;: {&quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#cf4a35&quot;}
+}">
+class Component extends DCLogic {
+  state = {
+    screen: 'landing',     // landing | login | register
+    billing: 'annual',     // monthly | annual
+    openFaq: 0,
+    name: '', email: '', pass: '', sentEmail: '',
+    focus: '', remember: true, showPass: false
+  };
+
+  goLanding = () => { this.setState({ screen: 'landing' }); this.toTop(); };
+  goLogin = () => { this.setState({ screen: 'login', focus: '' }); this.toTop(); };
+  goRegister = () => { this.setState({ screen: 'register', focus: '' }); this.toTop(); };
+  goForgot = () => { this.setState({ screen: 'forgot', focus: '' }); this.toTop(); };
+  sendReset = () => { this.setState(s => ({ screen: 'sent', sentEmail: (s.email && s.email.trim()) ? s.email.trim() : 'tu correo' })); this.toTop(); };
+  toggleAuthMode = () => this.setState(s => ({ screen: s.screen === 'login' ? 'register' : 'login', focus: '' }));
+  toTop = () => { try { window.scrollTo(0, 0); } catch (e) {} };
+
+  setMonthly = () => this.setState({ billing: 'monthly' });
+  setAnnual = () => this.setState({ billing: 'annual' });
+  toggleFaq = (i) => this.setState(s => ({ openFaq: s.openFaq === i ? -1 : i }));
+
+  setName = (e) => this.setState({ name: e.target.value });
+  setEmail = (e) => this.setState({ email: e.target.value });
+  setPass = (e) => this.setState({ pass: e.target.value });
+  focusName = () => this.setState({ focus: 'name' });
+  focusEmail = () => this.setState({ focus: 'email' });
+  focusPass = () => this.setState({ focus: 'pass' });
+  blurField = () => this.setState({ focus: '' });
+  togglePass = () => this.setState(s => ({ showPass: !s.showPass }));
+  toggleRemember = () => this.setState(s => ({ remember: !s.remember }));
+  submitAuth = () => {};
+
+  scrollTo = (ref) => () => { const el = this[ref]; if (el && el.scrollIntoView) { /* avoid scrollIntoView */ } if (el) { const y = el.getBoundingClientRect().top + window.pageYOffset - 70; window.scrollTo({ top: y, behavior: 'smooth' }); } };
+
+  renderVals() {
+    const st = this.state;
+    const accent = this.props.accent || '#68140b';
+    const accentBright = this.props.accentBright || '#cf4a35';
+
+    const moods = [
+      'radial-gradient(120% 100% at 18% 0%, #2a4a52 0%, rgba(42,74,82,0) 55%), linear-gradient(160deg, #0e1f24, #0a1518)',
+      'radial-gradient(100% 90% at 72% 8%, #5a4326 0%, rgba(90,67,38,0) 55%), linear-gradient(160deg, #1a1810, #0b0d0c)',
+      'radial-gradient(110% 100% at 28% 16%, #1e3a5c 0%, rgba(30,58,92,0) 55%), linear-gradient(160deg, #0c1626, #0a1014)',
+      'radial-gradient(110% 95% at 82% 0%, #25402c 0%, rgba(37,64,44,0) 55%), linear-gradient(160deg, #101a12, #0a0f0c)',
+      'radial-gradient(120% 100% at 50% 0%, #2e4d4a 0%, rgba(46,77,74,0) 60%), linear-gradient(160deg, #10201e, #0a1412)',
+      'radial-gradient(100% 95% at 62% 8%, #1c2740 0%, rgba(28,39,64,0) 55%), linear-gradient(160deg, #0c1018, #08090d)',
+      'radial-gradient(100% 85% at 22% 14%, #4a3320 0%, rgba(74,51,32,0) 55%), linear-gradient(160deg, #18130d, #0b0c0a)',
+      'radial-gradient(110% 100% at 76% 6%, #2b3b44 0%, rgba(43,59,68,0) 55%), linear-gradient(160deg, #121a1f, #0a0f12)'
+    ];
+    const previewRows = [[0,2,4,6,1,3,7], [5,7,3,0,6,2,4]].map(r => r.map(i => moods[i]));
+
+    const stats = [
+      { num: '180+', label: 'Vídeos en HD' },
+      { num: '4', label: 'Series originales' },
+      { num: 'Cada\u00a0semana', label: 'Nuevos estrenos' },
+      { num: '4K', label: 'Máxima calidad' }
+    ];
+    const features = [
+      { icon: 'movie', title: 'Series y documentales', body: 'Producciones originales rodadas en los mejores escenarios de pesca de carpa de España y Europa.' },
+      { icon: 'school', title: 'Técnicas que funcionan', body: 'Montajes, cebado, localización y estrategia explicados paso a paso por pescadores expertos.' },
+      { icon: 'device-tv', title: 'Donde y cuando quieras', body: 'Web, móvil y tablet. Continúa viendo desde donde lo dejaste, en calidad hasta 4K.' }
+    ];
+
+    // Plans
+    const annual = st.billing === 'annual';
+    const planPrice = annual ? '6,67€' : '9,99€';
+    const planPeriod = annual ? 'mes' : 'mes';
+    const planNote = annual ? 'Facturado 79,99€/año · Ahorras 40€' : 'Facturación mensual · Cancela cuando quieras';
+    const freePerks = ['Tráilers y avances', '1 vídeo gratuito al mes', 'Acceso al blog y comunidad'];
+    const premiumPerks = ['Catálogo completo sin límites', 'Estrenos cada semana', 'Calidad hasta 4K UHD', 'Descarga para ver sin conexión', 'Sin anuncios, sin permanencia'];
+
+    const testimonials = [
+      { quote: '"Por fin contenido serio de carpfishing en español. Las técnicas de montaje me han hecho mejorar muchísimo esta temporada."', name: 'Javier M.', loc: 'Zaragoza', initials: 'JM', av: 'linear-gradient(135deg,#2f5249,#16302b)' },
+      { quote: '"La serie de Mequinenza es una pasada de producción. Lo veo en el móvil mientras espero la picada, engancha."', name: 'Carlos R.', loc: 'Valencia', initials: 'CR', av: 'linear-gradient(135deg,#5a241d,#2a1411)' },
+      { quote: '"Pago el anual sin dudarlo. Cada semana hay algo nuevo y la calidad de imagen es de otro nivel."', name: 'Toni B.', loc: 'Lleida', initials: 'TB', av: 'linear-gradient(135deg,#3a4a5c,#1c2740)' }
+    ];
+
+    const faqData = [
+      { q: '¿Necesito permanencia?', a: 'No. Puedes cancelar tu suscripción cuando quieras desde tu perfil, en un solo clic. Seguirás teniendo acceso hasta el final del periodo que ya has pagado.' },
+      { q: '¿En qué dispositivos puedo ver Carp Partners TV?', a: 'En la web desde cualquier navegador, y en las apps de iOS y Android para móvil y tablet. Tu progreso se sincroniza entre todos tus dispositivos.' },
+      { q: '¿Con qué frecuencia se publica contenido nuevo?', a: 'Publicamos contenido nuevo todas las semanas: nuevos episodios de series, documentales y vídeos de técnica.' },
+      { q: '¿Cómo funciona el pago?', a: 'El pago es seguro a través de Stripe con tarjeta de crédito o débito. Puedes elegir plan mensual o anual; el anual tiene un descuento del 33%.' },
+      { q: '¿Hay contenido gratuito?', a: 'Sí. Al registrarte gratis tienes acceso a tráilers, avances y un vídeo completo gratuito al mes para que conozcas la plataforma.' }
+    ];
+    const faqs = faqData.map((f, i) => ({
+      q: f.q, a: f.a, open: st.openFaq === i, toggle: () => this.toggleFaq(i),
+      icon: st.openFaq === i ? 'minus' : 'plus',
+      iconColor: st.openFaq === i ? accentBright : '#85958e',
+      border: st.openFaq === i ? 'rgba(207,74,53,0.35)' : 'rgba(255,255,255,0.07)'
+    }));
+
+    const footerCols = [
+      { title: 'Plataforma', links: ['Catálogo', 'Series', 'Documentales', 'Planes'] },
+      { title: 'Empresa', links: ['Sobre nosotros', 'Blog', 'Contacto', 'Trabaja con nosotros'] },
+      { title: 'Ayuda', links: ['Centro de ayuda', 'Cuenta', 'Dispositivos', 'Estado'] }
+    ];
+
+    // Auth
+    const isLogin = st.screen === 'login';
+    const isRegister = st.screen === 'register';
+    const isForgot = st.screen === 'forgot';
+    const isSent = st.screen === 'sent';
+    const fieldBorder = (f) => st.focus === f ? 'rgba(207,74,53,0.6)' : 'rgba(255,255,255,0.1)';
+
+    // password strength
+    const p = st.pass || '';
+    let strength = 0;
+    if (p.length >= 6) strength++;
+    if (p.length >= 10) strength++;
+    if (/[A-Z]/.test(p) && /[a-z]/.test(p)) strength++;
+    if (/[0-9]/.test(p) || /[^A-Za-z0-9]/.test(p)) strength++;
+    const sColor = strength <= 1 ? '#c0392b' : (strength <= 2 ? '#d8a64a' : '#3e9d6b');
+    const barOff = 'rgba(255,255,255,0.1)';
+
+    return {
+      accent, accentBright,
+      isLanding: st.screen === 'landing',
+      isAuth: isLogin || isRegister || isForgot || isSent,
+      isLogin, isRegister, isForgot, isSent,
+      isLoginReg: isLogin || isRegister,
+      sentEmail: st.sentEmail,
+      goForgot: this.goForgot, sendReset: this.sendReset,
+
+      // landing nav scroll
+      catRef: (el) => { this.catEl = el; },
+      plansRef: (el) => { this.plansEl = el; },
+      faqRef: (el) => { this.faqEl = el; },
+      scrollCat: () => { if (this.catEl) window.scrollTo({ top: this.catEl.getBoundingClientRect().top + window.pageYOffset - 70, behavior: 'smooth' }); },
+      scrollPlans: () => { if (this.plansEl) window.scrollTo({ top: this.plansEl.getBoundingClientRect().top + window.pageYOffset - 70, behavior: 'smooth' }); },
+      scrollFaq: () => { if (this.faqEl) window.scrollTo({ top: this.faqEl.getBoundingClientRect().top + window.pageYOffset - 70, behavior: 'smooth' }); },
+      toTop: this.toTop,
+      navBg: 'rgba(6,9,12,0.82)', navBorder: 'rgba(255,255,255,0.07)',
+
+      goLogin: this.goLogin, goRegister: this.goRegister, goLanding: this.goLanding,
+
+      stats, features, previewRows,
+
+      // plans
+      monthlyBg: !annual ? '#68140b' : 'transparent', monthlyColor: !annual ? '#fff' : '#9aa9a3',
+      annualBg: annual ? '#68140b' : 'transparent', annualColor: annual ? '#fff' : '#9aa9a3',
+      setMonthly: this.setMonthly, setAnnual: this.setAnnual,
+      planPrice, planPeriod, planNote, freePerks, premiumPerks,
+
+      testimonials, faqs, footerCols,
+
+      // auth content
+      authTitle: isForgot ? 'Recuperar contraseña' : (isSent ? 'Enlace enviado' : (isLogin ? 'Bienvenido de nuevo' : 'Crea tu cuenta')),
+      authSubtitle: isForgot ? 'Te enviaremos un enlace para crear una nueva' : (isSent ? '' : (isLogin ? 'Inicia sesión para seguir viendo' : 'Empieza gratis. Sin tarjeta para registrarte.')),
+      authCta: isLogin ? 'Iniciar sesión' : 'Crear cuenta',
+      switchPrompt: isLogin ? '¿Aún no tienes cuenta?' : '¿Ya tienes cuenta?',
+      switchAction: isLogin ? 'Suscríbete' : 'Inicia sesión',
+      toggleAuthMode: this.toggleAuthMode,
+
+      name: st.name, email: st.email, pass: st.pass,
+      setName: this.setName, setEmail: this.setEmail, setPass: this.setPass,
+      focusName: this.focusName, focusEmail: this.focusEmail, focusPass: this.focusPass, blurField: this.blurField,
+      nameBorder: fieldBorder('name'), emailBorder: fieldBorder('email'), passBorder: fieldBorder('pass'),
+      passType: st.showPass ? 'text' : 'password',
+      passEye: st.showPass ? 'eye-off' : 'eye',
+      togglePass: this.togglePass,
+      passMargin: isRegister ? '14px' : '0',
+
+      pwBar1: strength >= 1 ? sColor : barOff,
+      pwBar2: strength >= 2 ? sColor : barOff,
+      pwBar3: strength >= 3 ? sColor : barOff,
+      pwBar4: strength >= 4 ? sColor : barOff,
+
+      remember: st.remember, toggleRemember: this.toggleRemember,
+      rememberBg: st.remember ? accent : 'transparent',
+      rememberBorder: st.remember ? accent : 'rgba(255,255,255,0.25)',
+      rememberOpacity: st.remember ? 1 : 0,
+
+      submitAuth: this.submitAuth
+    };
+  }
+}
+</script>
+</body>
+</html>

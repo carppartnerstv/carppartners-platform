@@ -226,6 +226,20 @@ const CREW_SUBQUERY = `
     '[]'::json
   ) AS crew`;
 
+// Resumen de valoraciones de un vídeo: nº de votos por tipo + media.
+// Siempre devuelve una fila (agregado sobre conjunto vacío = ceros/NULL), así
+// que no hace falta el COALESCE que sí necesita CREW_SUBQUERY (json_agg).
+const RATINGS_SUBQUERY = `
+  (SELECT json_build_object(
+      'love',  COUNT(*) FILTER (WHERE vr.rating = 2),
+      'like',  COUNT(*) FILTER (WHERE vr.rating = 1),
+      'down',  COUNT(*) FILTER (WHERE vr.rating = -1),
+      'total', COUNT(*),
+      'avg',   ROUND(AVG(vr.rating)::numeric, 2)
+    )
+     FROM video_ratings vr WHERE vr.video_id = v.id
+  ) AS ratings`;
+
 const videoSchema = z.object({
   title: z.string().min(1),
   slug: z.string().min(1),
@@ -364,13 +378,14 @@ adminRouter.delete(
 // El GET /videos público exige suscripción y solo devuelve publicados;
 // el panel admin necesita ver el catálogo completo.
 // Filtros opcionales: published (true/false), category, series, q.
+// sort=rated ordena por nº de votos descendente (para ver qué gusta más).
 // =====================================================================
 adminRouter.get(
   '/videos',
   asyncHandler(async (req, res) => {
     const limit  = Math.min(parseInt(req.query.limit  ?? '50', 10), 200);
     const offset = Math.max(parseInt(req.query.offset ?? '0',  10), 0);
-    const { published, category, series, q } = req.query;
+    const { published, category, series, q, sort } = req.query;
 
     const filters = [];
     const params  = [];
@@ -417,12 +432,15 @@ adminRouter.get(
                      AND v.published_at > now()                                THEN 'programado'
                 ELSE 'publicado'
               END AS status,
-              ${CREW_SUBQUERY}
+              ${CREW_SUBQUERY},
+              ${RATINGS_SUBQUERY}
          FROM videos v
          LEFT JOIN categories c ON c.id = v.category_id
          LEFT JOIN series s     ON s.id = v.series_id
         ${where}
-        ORDER BY v.created_at DESC
+        ORDER BY ${sort === 'rated'
+          ? `(SELECT COUNT(*) FROM video_ratings vr WHERE vr.video_id = v.id) DESC, v.created_at DESC`
+          : `v.created_at DESC`}
         LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params,
     );

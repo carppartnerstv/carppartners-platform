@@ -135,6 +135,19 @@ Centered: 76–80px circle icon (Mi Lista uses `bookmark` in `brand-bright` on r
 
 ## 6. Screens (built in prototype)
 
+> Two prototype files: `Carp Partners TV.dc.html` (subscriber app — the screens below from Home through Mi Lista) and `Carp Partners — Landing.dc.html` (public/marketing — Landing, Login, Register).
+
+### Landing (public, logged-out) — `Carp Partners — Landing.dc.html`
+- **Purpose:** convert visitors into subscribers.
+- **Sections (in order):** fixed nav (logo · Catálogo / Planes / Preguntas anchor links · Iniciar sesión · Suscríbete) → centered **hero** (gold eyebrow badge, 74px Sora headline, subcopy, primary "Empezar ahora" + glass "Ver catálogo", trust row: cancela / dispositivos / 4K) → **stats strip** (4 cards) → **features** (3 cards: series, técnicas, multidispositivo) → **catálogo preview** (two rows of 16:9 placeholders, blurred + masked, with a lock overlay + "Suscríbete para ver todo el catálogo" CTA) → **planes** (Mensual/Anual billing toggle with −33% badge; Gratis vs Premium cards, Premium highlighted "RECOMENDADO") → **testimonios** (3 rated cards) → **FAQ** (5-item accordion, single-open) → **CTA band** (granate gradient) → **footer** (logo + tagline + social + 3 link columns + legal). Nav links smooth-scroll to sections.
+- **Notes:** brand-red accents on dark; gold reserved for premium/badges. Recreate the blurred preview with real catalog stills later.
+
+### Login — `Carp Partners — Landing.dc.html` (screen `login`)
+- Centered glass card over atmospheric gradient. Logo + "Volver al inicio" top bar. Fields: email, password (with show/hide eye). Row: "Recordarme" checkbox + "¿Olvidaste tu contraseña?". Primary "Iniciar sesión". Divider → Google / Apple social buttons. Footer: "¿Aún no tienes cuenta? Suscríbete" toggles to register. Input focus state = brand-red border.
+
+### Registro — `Carp Partners — Landing.dc.html` (screen `register`)
+- Same card; adds "Nombre completo" field and a live **password-strength meter** (4 segments, red→amber→green). Primary "Crear cuenta" + legal microcopy. Toggles back to login. (Recuperar/Establecer contraseña still to build — see §9.)
+
 ### Home
 - **Purpose:** main screen after login; primary discovery surface.
 - **Layout:** full-bleed hero (84vh) at top, navbar overlapping it; below, a vertical stack of horizontal-scroll rows; 48px side padding.
@@ -145,8 +158,16 @@ Centered: 76–80px circle icon (Mi Lista uses `bookmark` in `brand-bright` on r
 - **Purpose:** pre-play screen with full info.
 - **Layout:** 66vh hero header with back button (top-left), kicker + title + rating/meta row over the still; below a two-column block (main 1fr + side 300px): main = action row (**Reproducir** primary, **Mi Lista** toggle, like, share) + synopsis + tag chips; side = metadata (serie, categoría, duración, presenta). Then "Más como esto" responsive grid.
 - **Mi Lista toggle:** swaps `plus`→`check`, label "Mi Lista"→"En tu lista", icon turns `brand-bright`.
+- **Rating dialog (Netflix-style):** clicking the thumb-up circle button opens a centered modal (dark blurred scrim, click-outside or × to close). Three options side by side: **thumb-down** "No es para mí", **thumb-up** "Me gusta", **double thumb-up** "Me encanta" (two thumb icons overlaid at a slight angle). Selecting one fills its circle `brand` red with a white icon and shows a short confirmation line; clicking the same option again deselects. Rating is stored per video (`state.ratings[videoId]`) and persists back on the detail page — the thumb button itself turns filled/red once a rating exists. Tap targets 56px circles, dialog max-width 440px, radius 20px.
 
 ### Reproductor — see §5 Player. Returns to the screen it was launched from.
+
+### Perfil
+- **Purpose:** account management, reached from the navbar avatar dropdown ("Perfil" or "Ajustes").
+- **Layout:** left sidebar (avatar + name + email + "Editar perfil", then 3 tab items + "Cerrar sesión") + right content pane with 3 tabs:
+  - **Cuenta y suscripción** — current plan card (badge, price, renewal date, "Gestionar suscripción" → Stripe Customer Portal) + account data (email, change-password link, masked payment method).
+  - **Historial** — recently-watched list: thumbnail, title, relative date, duration.
+  - **Notificaciones** — 4 toggle rows (estrenos, recomendaciones, promos, push) with a working on/off switch component (42×24px pill, sliding 20px knob, `brand-bright` when on).
 
 ### Explorar
 - **Purpose:** search + discovery.
@@ -191,15 +212,20 @@ Design base **375px**, verify at **430px**, adapt at **768px** (tablet, 2-col gr
 
 The prototype covers the **core subscriber loop**. The following are specified in the briefing but **not yet designed** — build them in the codebase using the tokens/components above, mobile-first, dark mode:
 
-**Public (logged-out):**
-- **Landing page** — hero teaser, 3-point value prop, blurred catalog preview, plans & pricing, testimonials, FAQ, footer.
+**Public (logged-out):** **Landing page** — hero teaser, 3-point value prop, blurred catalog preview, plans & pricing, testimonials, FAQ, footer.
 - **Página de planes** — Mensual vs Anual comparison, highlight annual savings, CTAs, benefits list, payment FAQ.
 - **Login** — email + password, Entrar, "Olvidé mi contraseña", link to plans.
 - **Recuperar contraseña** — email field → confirmation screen.
 - **Establecer contraseña** (migrated users) — new password + confirm, strength meter.
+- **Landing page** — ✅ built (`Carp Partners — Landing.dc.html`).
+- **Página de planes** — covered as the Planes section of the landing; build a standalone full comparison page if needed (payment FAQ, annual savings detail).
+- **Login** — ✅ built. **Registro** — ✅ built.
+- **Recuperar contraseña** — email field → confirmation screen. *(to build)*
+- **Establecer contraseña** (migrated users) — new password + confirm, strength meter (meter component already designed in Registro). *(to build)*
 
 **Subscriber:**
 - **Perfil** — avatar + name + email, plan + renewal date, "Gestionar suscripción" (Stripe), recent history, notification settings, logout. (Dropdown stub exists in navbar.)
+ **Perfil** — ✅ built (Cuenta y suscripción / Historial / Notificaciones tabs). See §6.
 
 **Onboarding:**
 - **Bienvenida** — name, welcome, category preview, "Empezar a ver".
@@ -212,7 +238,7 @@ The prototype covers the **core subscriber loop**. The following are specified i
 - **Historial de pagos** (Stripe transactions, date/status filters, monthly totals, CSV export)
 - **Notificaciones push** (title + body, audience selector, preview, send)
 
-**Component gaps (§2.4):** Button Danger/Disabled/Loading · form Input states · Modal · Spinner · Toast · bottom Tab Bar.
+**Component gaps (§2.4):** Button Danger/Disabled/Loading · form Input states · Spinner · Toast · bottom Tab Bar. (Modal ✅ built, as the rating dialog — reuse its scrim/card pattern for confirm/error/info modals.)
 
 **Phase 2:** light mode (define light tokens now).
 
@@ -238,7 +264,9 @@ design_handoff_carp_partners_tv/
 │   ├── carp-partners-logo.png         ← web-optimized wordmark
 │   └── logo-original-full.png         ← original full-res logo
 └── prototype/
-    ├── Carp Partners TV.dc.html       ← main app (Home, Detail, Player, Explorar, Mi Lista) + logic & state
+       ├── Carp Partners TV.dc.html       ← main app (Home, Detail, Player, Explorar, Mi Lista) + logic & state├
+       ── Carp Partners TV.dc.html       ← subscriber app (Home, Detail, Player, Explorar, Mi Lista) + logic & state
+    ├── Carp Partners — Landing.dc.html ← public site (Landing, Login, Registro) + logic & state
     ├── VideoCard.dc.html              ← reusable video card component
     └── support.js                     ← tiny runtime so the HTML opens in a browser (reference only)
 ```

@@ -43,6 +43,15 @@
   animation: toast-in 0.18s ease-out forwards;
 }
 
+/* ── Modal fade-in (diálogos centrados, p. ej. valoración) ── */
+@keyframes modal-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.modal-fade-in {
+  animation: modal-fade-in 0.18s ease forwards;
+}
+
 /* ── Rich-text editor (Tiptap / ProseMirror) ── */
 .rich-editor .ProseMirror {
   outline: none;

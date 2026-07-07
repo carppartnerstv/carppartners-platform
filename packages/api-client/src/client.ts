@@ -270,6 +270,12 @@ export class ApiClient {
     });
   }
 
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ ok: boolean }> {
+    return this.request('POST', '/auth/change-password', {
+      body: { currentPassword, newPassword },
+    });
+  }
+
   // ─── Catálogo ──────────────────────────────────────────────────────────────
 
   async getVideos(params?: {
@@ -288,6 +294,20 @@ export class ApiClient {
 
   async getVideoStream(id: string): Promise<{ hlsUrl: string; expiresInSec: number }> {
     return this.request('GET', `/videos/${id}/stream`);
+  }
+
+  // ─── Valoraciones ────────────────────────────────────────────────────────
+
+  async getVideoRating(id: string): Promise<{ rating: -1 | 1 | 2 | null }> {
+    return this.request('GET', `/videos/${id}/rating`);
+  }
+
+  async rateVideo(id: string, rating: -1 | 1 | 2): Promise<{ rating: -1 | 1 | 2 }> {
+    return this.request('POST', `/videos/${id}/rating`, { body: { rating } });
+  }
+
+  async deleteVideoRating(id: string): Promise<void> {
+    return this.request('DELETE', `/videos/${id}/rating`);
   }
 
   async getCategories(): Promise<{ categories: Category[] }> {
@@ -384,6 +404,7 @@ export class ApiClient {
     q?: string;
     limit?: number;
     offset?: number;
+    sort?: 'rated';
   }): Promise<{ videos: AdminVideo[]; limit: number; offset: number; total: number }> {
     return this.request('GET', '/admin/videos', { query: params as Record<string, string | number | boolean | undefined> });
   }

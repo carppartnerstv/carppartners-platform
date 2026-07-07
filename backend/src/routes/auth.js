@@ -6,6 +6,7 @@
 //   POST /auth/logout        revoca el refresh token
 //   GET  /auth/me            datos del usuario + estado de suscripción
 //   POST /auth/set-password  flujo "establece tu contraseña" (migración WP)
+//   POST /auth/change-password  cambio de contraseña estando ya autenticado
 // =====================================================================
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
@@ -185,6 +186,30 @@ authRouter.post(
         WHERE id = $2`,
       [passwordHash, user.id],
     );
+    res.json({ ok: true });
+  }),
+);
+
+// --- Cambiar contraseña (usuario ya autenticado, desde su Perfil) ----
+authRouter.post(
+  '/change-password',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const schema = z.object({
+      currentPassword: z.string().min(1, 'Introduce tu contraseña actual'),
+      newPassword: z.string().min(8, 'La nueva contraseña debe tener al menos 8 caracteres'),
+    });
+    const { currentPassword, newPassword } = parse(schema, req.body);
+
+    const user = await queryOne(
+      'SELECT password_hash FROM users WHERE id = $1',
+      [req.user.id],
+    );
+    const ok = user?.password_hash && (await bcrypt.compare(currentPassword, user.password_hash));
+    if (!ok) throw badRequest('La contraseña actual no es correcta', 'BAD_CURRENT_PASSWORD');
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, req.user.id]);
     res.json({ ok: true });
   }),
 );

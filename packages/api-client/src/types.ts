@@ -28,6 +28,8 @@ export interface Video {
   series_id: string | null;
   episode_num: number | null;
   created_at: string;
+  /** Presente en /videos y /videos/:id; ausente en vídeos "sintéticos" derivados de historial/watchlist */
+  crew?: Pick<CrewMember, 'id' | 'name' | 'slug' | 'role'>[];
 }
 
 export interface Category {
@@ -127,6 +129,14 @@ export interface AdminVideoInput {
   crewMemberIds?: string[];
 }
 
+export interface RatingsSummary {
+  love: number;
+  like: number;
+  down: number;
+  total: number;
+  avg: number | null;
+}
+
 // GET /admin/videos devuelve campos extra respecto al Video público
 export interface AdminVideo extends Video {
   vimeo_id: string;
@@ -137,6 +147,7 @@ export interface AdminVideo extends Video {
   category_name: string | null;
   series_title: string | null;
   crew: Pick<CrewMember, 'id' | 'name' | 'slug' | 'role'>[];
+  ratings: RatingsSummary;
 }
 
 export interface CrewMember {

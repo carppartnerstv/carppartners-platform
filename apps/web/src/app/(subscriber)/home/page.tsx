@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { Video, Category, WatchHistoryItem } from '@carp-partners/api-client';
+import type { Video, Category, Series, WatchHistoryItem } from '@carp-partners/api-client';
 import { HeroBanner, VideoRow } from '@carp-partners/ui';
 
 interface CategoryRow {
@@ -17,10 +17,17 @@ export default function HomePage() {
   const [continueItems, setContinueItems] = useState<WatchHistoryItem[]>([]);
   const [rows, setRows] = useState<CategoryRow[]>([]);
   const [hero, setHero] = useState<Video | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [series, setSeries] = useState<Series[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const goToVideo = useCallback(
+  // Clic en una tarjeta → pantalla de detalle. "Ver ahora" del hero → reproducción directa.
+  const goToDetail = useCallback(
     (video: Video) => router.push(`/watch/${video.id}`),
+    [router],
+  );
+  const goToPlay = useCallback(
+    (video: Video) => router.push(`/watch/${video.id}/play`),
     [router],
   );
 
@@ -29,13 +36,16 @@ export default function HomePage() {
 
     async function load() {
       try {
-        // Cargamos categorías y "Continuar viendo" en paralelo
-        const [{ categories }, { items: continueWatching }] = await Promise.all([
+        // Cargamos categorías, series y "Continuar viendo" en paralelo
+        const [{ categories }, { series: allSeries }, { items: continueWatching }] = await Promise.all([
           apiClient.getCategories(),
+          apiClient.getSeries(),
           apiClient.getContinueWatching(),
         ]);
 
         if (cancelled) return;
+        setCategories(categories);
+        setSeries(allSeries);
         setContinueItems(continueWatching);
 
         // Cargamos vídeos de cada categoría en paralelo
@@ -56,7 +66,7 @@ export default function HomePage() {
         if (allVideos.length > 0) setHero(allVideos[0]);
       } catch (err) {
         if (err instanceof ApiError && err.code === 'SUBSCRIPTION_REQUIRED') {
-          router.replace('/?planes=1');
+          router.replace('/planes');
         }
         // Otros errores los mostramos con la UI vacía
       } finally {
@@ -90,6 +100,10 @@ export default function HomePage() {
     created_at: item.last_watched_at,
   }));
 
+  // Metadatos de categoría/serie para el hero
+  const heroCategory = hero ? categories.find((c) => c.id === hero.category_id) : undefined;
+  const heroSeries = hero ? series.find((s) => s.id === hero.series_id) : undefined;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center">
@@ -107,8 +121,11 @@ export default function HomePage() {
       {hero && (
         <HeroBanner
           video={hero}
-          onPlay={goToVideo}
-          onAddToList={(v) => apiClient.addToWatchlist(v.id).catch(() => null)}
+          categoryName={heroCategory?.name}
+          seriesTitle={heroSeries?.title}
+          episodeCount={heroSeries?.episode_count}
+          onPlay={goToPlay}
+          onMoreInfo={goToDetail}
         />
       )}
 
@@ -120,7 +137,7 @@ export default function HomePage() {
             title="Continuar viendo"
             videos={continueVideos}
             progressMap={progressMap}
-            onVideoClick={goToVideo}
+            onVideoClick={goToDetail}
           />
         )}
 
@@ -130,7 +147,7 @@ export default function HomePage() {
             key={category.id}
             title={category.name}
             videos={videos}
-            onVideoClick={goToVideo}
+            onVideoClick={goToDetail}
           />
         ))}
 

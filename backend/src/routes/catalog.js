@@ -1,17 +1,21 @@
 // =====================================================================
 // Rutas de catálogo y reproducción.  (Briefing 4.1, 4.3)
-//   GET /videos                catálogo paginado con filtros
-//   GET /videos/:id            detalle de un vídeo
-//   GET /videos/:id/stream     token/URL firmada de Vimeo (proxy seguro)
-//   GET /categories            categorías con portadas
-//   GET /series                series con episodios
+//   GET  /videos                catálogo paginado con filtros
+//   GET  /videos/:id            detalle de un vídeo
+//   GET  /videos/:id/stream     token/URL firmada de Vimeo (proxy seguro)
+//   POST /videos/:id/rating     vota el vídeo (-1/1/2, UPSERT)
+//   GET  /videos/:id/rating     valoración actual del usuario para ese vídeo
+//   DELETE /videos/:id/rating   quita la valoración del usuario
+//   GET  /categories            categorías con portadas
+//   GET  /series                series con episodios
 //
 // Todas exigen JWT; las de contenido exigen además suscripción activa.
 // =====================================================================
 import { Router } from 'express';
+import { z } from 'zod';
 import { query, queryOne } from '../config/db.js';
 import { requireAuth, requireSubscription } from '../middleware/auth.js';
-import { asyncHandler, notFound } from '../utils/errors.js';
+import { asyncHandler, badRequest, notFound } from '../utils/errors.js';
 import { getPlaybackUrl } from '../services/vimeo.js';
 
 export const catalogRouter = Router();
@@ -124,6 +128,59 @@ catalogRouter.get(
     // Las credenciales de Vimeo nunca salen del servidor.
     const { hlsUrl, expiresInSec } = await getPlaybackUrl(video.vimeo_id);
     res.json({ hlsUrl, expiresInSec });
+  }),
+);
+
+// --- Valoraciones (diálogo "¿Qué te ha parecido?") --------------------
+// rating: -1 = No es para mí · 1 = Me gusta · 2 = Me encanta
+const ratingSchema = z.object({
+  rating: z.union([z.literal(-1), z.literal(1), z.literal(2)], {
+    errorMap: () => ({ message: 'rating debe ser -1, 1 o 2' }),
+  }),
+});
+
+catalogRouter.post(
+  '/videos/:id/rating',
+  requireAuth,
+  requireSubscription,
+  asyncHandler(async (req, res) => {
+    const parsed = ratingSchema.safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message ?? 'Datos inválidos', 'VALIDATION');
+
+    const video = await queryOne(`SELECT id FROM videos v WHERE id = $1 AND ${VISIBLE}`, [req.params.id]);
+    if (!video) throw notFound('Vídeo no encontrado', 'VIDEO_NOT_FOUND');
+
+    const row = await queryOne(
+      `INSERT INTO video_ratings (user_id, video_id, rating)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, video_id) DO UPDATE SET rating = EXCLUDED.rating
+       RETURNING rating`,
+      [req.user.id, req.params.id, parsed.data.rating],
+    );
+    res.json({ rating: row.rating });
+  }),
+);
+
+catalogRouter.get(
+  '/videos/:id/rating',
+  requireAuth,
+  requireSubscription,
+  asyncHandler(async (req, res) => {
+    const row = await queryOne(
+      `SELECT rating FROM video_ratings WHERE user_id = $1 AND video_id = $2`,
+      [req.user.id, req.params.id],
+    );
+    res.json({ rating: row ? row.rating : null });
+  }),
+);
+
+catalogRouter.delete(
+  '/videos/:id/rating',
+  requireAuth,
+  requireSubscription,
+  asyncHandler(async (req, res) => {
+    await query('DELETE FROM video_ratings WHERE user_id = $1 AND video_id = $2', [req.user.id, req.params.id]);
+    res.status(204).end();
   }),
 );
 

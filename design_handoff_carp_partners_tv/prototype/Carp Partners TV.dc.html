@@ -22,6 +22,14 @@
   @keyframes cpspin{to{transform:rotate(360deg)}}
 </style>
 </helmet>
+<template id="__bundler_thumbnail" data-bg-color="#06090c">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#06090c"/>
+    <rect x="380" y="330" width="440" height="140" rx="16" fill="#68140b"/>
+    <circle cx="600" cy="400" r="46" fill="#fff" opacity="0.92"/>
+    <path d="M588 380 L622 400 L588 420 Z" fill="#68140b"/>
+  </svg>
+</template>
 <div style="min-height:100vh;background:#06090c;font-family:Inter,sans-serif;color:#e9efeb;position:relative;overflow-x:hidden">
 
   <sc-if value="{{ showChrome }}" hint-placeholder-val="{{ true }}">
@@ -48,8 +56,8 @@
             <div style="font-size:11.5px;color:#7d8d86;margin-top:2px">diego@carppartners.tv</div>
             <div style="display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:3px 8px;border-radius:5px;background:rgba(104,20,11,0.2);color:{{ accentBright }};font-size:10.5px;font-weight:600"><i class="ti ti-circle-check-filled" style="font-size:12px"></i>Plan Anual activo</div>
           </div>
-          <div onClick="{{ goList }}" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;color:#cdd6d2;cursor:pointer" style-hover="background:rgba(255,255,255,0.05)"><i class="ti ti-user" style="font-size:17px;color:#85958e"></i>Perfil</div>
-          <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;color:#cdd6d2;cursor:pointer" style-hover="background:rgba(255,255,255,0.05)"><i class="ti ti-settings" style="font-size:17px;color:#85958e"></i>Ajustes</div>
+          <div onClick="{{ goProfile }}" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;color:#cdd6d2;cursor:pointer" style-hover="background:rgba(255,255,255,0.05)"><i class="ti ti-user" style="font-size:17px;color:#85958e"></i>Perfil</div>
+          <div onClick="{{ goProfile }}" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;color:#cdd6d2;cursor:pointer" style-hover="background:rgba(255,255,255,0.05)"><i class="ti ti-settings" style="font-size:17px;color:#85958e"></i>Ajustes</div>
           <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;color:#cdd6d2;cursor:pointer;border-top:1px solid rgba(255,255,255,0.07)" style-hover="background:rgba(255,255,255,0.05)"><i class="ti ti-logout" style="font-size:17px;color:#85958e"></i>Cerrar sesi&oacute;n</div>
         </div>
       </sc-if>
@@ -133,7 +141,7 @@
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px">
           <button onClick="{{ playCurrent }}" style="display:inline-flex;align-items:center;gap:9px;padding:13px 30px;border:none;border-radius:9px;background:{{ accent }};color:#fff;font-family:Inter,sans-serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 6px 22px rgba(104,20,11,0.55);transition:transform .15s" style-hover="transform:scale(1.03)"><i class="ti ti-player-play-filled" style="font-size:19px"></i>Reproducir</button>
           <button onClick="{{ toggleCurrentList }}" style="display:inline-flex;align-items:center;gap:9px;padding:13px 22px;border:1px solid rgba(255,255,255,0.2);border-radius:9px;background:rgba(255,255,255,0.07);color:#fff;font-family:Inter,sans-serif;font-size:14.5px;font-weight:600;cursor:pointer;transition:background .2s" style-hover="background:rgba(255,255,255,0.14)"><i class="ti ti-{{ listIcon }}" style="font-size:19px;color:{{ listIconColor }}"></i>{{ listLabel }}</button>
-          <div style="width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#cdd6d2" style-hover="background:rgba(255,255,255,0.08)"><i class="ti ti-thumb-up" style="font-size:20px"></i></div>
+          <div onClick="{{ openRating }}" style="width:46px;height:46px;border-radius:50%;border:1px solid {{ rateBorder }};background:{{ rateBg }};display:flex;align-items:center;justify-content:center;cursor:pointer;color:{{ rateColor }}" style-hover="background:rgba(255,255,255,0.08)"><i class="ti ti-{{ rateIcon }}" style="font-size:20px"></i></div>
           <div style="width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#cdd6d2" style-hover="background:rgba(255,255,255,0.08)"><i class="ti ti-share-2" style="font-size:20px"></i></div>
         </div>
         <p style="font-size:16px;line-height:1.7;color:#cdd6d2;margin:0 0 24px">{{ curSyn }}</p>
@@ -159,6 +167,36 @@
         </sc-for>
       </div>
     </div>
+
+    <sc-if value="{{ ratingOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeRating }}" style="position:fixed;inset:0;z-index:200;background:rgba(4,6,8,0.72);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;animation:cpfade .18s ease;padding:20px">
+        <div onClick="{{ stopProp }}" style="position:relative;width:100%;max-width:440px;border-radius:20px;background:#0e151a;border:1px solid rgba(255,255,255,0.1);box-shadow:0 30px 80px rgba(0,0,0,0.6);padding:34px 32px 30px;text-align:center">
+          <div onClick="{{ closeRating }}" style="position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#9aa9a3" style-hover="background:rgba(255,255,255,0.12)"><i class="ti ti-x" style="font-size:17px"></i></div>
+          <div style="font-family:Sora,sans-serif;font-weight:700;font-size:20px;color:#fff;margin-bottom:6px">&iquest;Qu&eacute; te ha parecido?</div>
+          <div style="font-size:13.5px;color:#85958e;margin-bottom:30px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ curTitle }}</div>
+          <div style="display:flex;align-items:stretch;justify-content:center;gap:14px">
+            <div onClick="{{ rateDown }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px 8px;border-radius:14px;cursor:pointer;background:{{ downBg }};border:1.5px solid {{ downBorder }};transition:all .15s" style-hover="background:rgba(255,255,255,0.06)">
+              <div style="width:56px;height:56px;border-radius:50%;background:{{ downCircle }};display:flex;align-items:center;justify-content:center"><i class="ti ti-thumb-down{{ downFilled }}" style="font-size:25px;color:{{ downIconColor }}"></i></div>
+              <div style="font-size:12.5px;font-weight:600;color:{{ downTextColor }};line-height:1.3">No es<br>para m&iacute;</div>
+            </div>
+            <div onClick="{{ rateLike }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px 8px;border-radius:14px;cursor:pointer;background:{{ likeBg }};border:1.5px solid {{ likeBorder }};transition:all .15s" style-hover="background:rgba(255,255,255,0.06)">
+              <div style="width:56px;height:56px;border-radius:50%;background:{{ likeCircle }};display:flex;align-items:center;justify-content:center"><i class="ti ti-thumb-up{{ likeFilled }}" style="font-size:25px;color:{{ likeIconColor }}"></i></div>
+              <div style="font-size:12.5px;font-weight:600;color:{{ likeTextColor }}">Me gusta</div>
+            </div>
+            <div onClick="{{ rateLove }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px 8px;border-radius:14px;cursor:pointer;background:{{ loveBg }};border:1.5px solid {{ loveBorder }};transition:all .15s" style-hover="background:rgba(255,255,255,0.06)">
+              <div style="width:56px;height:56px;border-radius:50%;background:{{ loveCircle }};display:flex;align-items:center;justify-content:center;position:relative">
+                <i class="ti ti-thumb-up{{ loveFilled }}" style="font-size:19px;color:{{ loveIconColor }};position:absolute;left:12px;top:14px;transform:rotate(-8deg)"></i>
+                <i class="ti ti-thumb-up{{ loveFilled }}" style="font-size:19px;color:{{ loveIconColor }};position:absolute;right:12px;top:14px;transform:rotate(8deg)"></i>
+              </div>
+              <div style="font-size:12.5px;font-weight:600;color:{{ loveTextColor }}">Me encanta</div>
+            </div>
+          </div>
+          <sc-if value="{{ ratingChosen }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:24px;font-size:13px;color:{{ accentBright }};display:flex;align-items:center;justify-content:center;gap:7px"><i class="ti ti-check" style="font-size:16px"></i>{{ ratingConfirmText }}</div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
   </div>
   </sc-if>
 
@@ -213,6 +251,104 @@
         </sc-for>
       </div>
     </sc-if>
+  </div>
+  </sc-if>
+
+  <!-- ===================== PERFIL ===================== -->
+  <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:100vh;padding:108px 48px 70px">
+    <h1 style="font-family:Sora,sans-serif;font-weight:700;font-size:34px;letter-spacing:-0.02em;color:#fff;margin:0 0 30px">Perfil</h1>
+    <div style="display:grid;grid-template-columns:340px 1fr;gap:24px;max-width:1080px">
+
+      <div>
+        <div style="padding:28px 26px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);margin-bottom:20px">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+            <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#5a241d,#2a1411);border:1px solid rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center;font-family:Sora,sans-serif;font-weight:600;font-size:19px;color:#d4e4dd">DR</div>
+            <div style="min-width:0">
+              <div style="font-family:Sora,sans-serif;font-size:17px;font-weight:600;color:#eef3f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Diego Ram&iacute;rez</div>
+              <div style="font-size:12.5px;color:#85958e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">diego@carppartners.tv</div>
+            </div>
+          </div>
+          <button style="width:100%;padding:11px;border:1px solid rgba(255,255,255,0.16);border-radius:9px;background:rgba(255,255,255,0.05);color:#e9efeb;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:rgba(255,255,255,0.1)">Editar perfil</button>
+        </div>
+
+        <div style="padding:8px 4px;display:flex;flex-direction:column">
+          <div onClick="{{ setTabAccount }}" style="display:flex;align-items:center;gap:11px;padding:12px 16px;border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:500;background:{{ tabAccountBg }};color:{{ tabAccountColor }}"><i class="ti ti-user-circle" style="font-size:19px"></i>Cuenta y suscripci&oacute;n</div>
+          <div onClick="{{ setTabHistory }}" style="display:flex;align-items:center;gap:11px;padding:12px 16px;border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:500;background:{{ tabHistoryBg }};color:{{ tabHistoryColor }}"><i class="ti ti-history" style="font-size:19px"></i>Historial</div>
+          <div onClick="{{ setTabNotifs }}" style="display:flex;align-items:center;gap:11px;padding:12px 16px;border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:500;background:{{ tabNotifsBg }};color:{{ tabNotifsColor }}"><i class="ti ti-bell" style="font-size:19px"></i>Notificaciones</div>
+          <div onClick="{{ goHome }}" style="display:flex;align-items:center;gap:11px;padding:12px 16px;border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:500;color:#c0392b;margin-top:10px;border-top:1px solid rgba(255,255,255,0.07);padding-top:18px"><i class="ti ti-logout" style="font-size:19px"></i>Cerrar sesi&oacute;n</div>
+        </div>
+      </div>
+
+      <div>
+        <sc-if value="{{ tabIsAccount }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:30px 32px;border-radius:16px;background:linear-gradient(165deg, rgba(104,20,11,0.14), rgba(104,20,11,0.03));border:1px solid rgba(207,74,53,0.3);margin-bottom:20px">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+              <div>
+                <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;background:rgba(104,20,11,0.22);color:{{ accentBright }};font-size:11px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;margin-bottom:12px"><i class="ti ti-circle-check-filled" style="font-size:13px"></i>Plan Anual activo</div>
+                <div style="font-family:Sora,sans-serif;font-size:22px;font-weight:700;color:#fff">79,99&euro; / a&ntilde;o</div>
+                <div style="font-size:13px;color:#9aa9a3;margin-top:6px">Se renueva el 14 de marzo de 2027</div>
+              </div>
+              <button style="padding:12px 22px;border:none;border-radius:9px;background:{{ accent }};color:#fff;font-family:Inter,sans-serif;font-size:13.5px;font-weight:700;cursor:pointer;box-shadow:0 6px 18px rgba(104,20,11,0.4);white-space:nowrap">Gestionar suscripci&oacute;n</button>
+            </div>
+          </div>
+
+          <div style="padding:26px 28px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08)">
+            <div style="font-family:Sora,sans-serif;font-size:15.5px;font-weight:600;color:#eef3f0;margin-bottom:16px">Datos de la cuenta</div>
+            <div style="display:flex;flex-direction:column;gap:0">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+                <span style="font-size:13.5px;color:#85958e">Correo electr&oacute;nico</span>
+                <span style="font-size:13.5px;color:#e9efeb">diego@carppartners.tv</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+                <span style="font-size:13.5px;color:#85958e">Contrase&ntilde;a</span>
+                <span style="font-size:13.5px;color:{{ accentBright }};cursor:pointer;font-weight:500" style-hover="text-decoration:underline">Cambiar contrase&ntilde;a</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0">
+                <span style="font-size:13.5px;color:#85958e">M&eacute;todo de pago</span>
+                <span style="display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:#e9efeb"><i class="ti ti-credit-card" style="font-size:17px;color:#85958e"></i>Visa &middot;&middot;&middot;&middot; 4471</span>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tabIsHistory }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:26px 28px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08)">
+            <div style="font-family:Sora,sans-serif;font-size:15.5px;font-weight:600;color:#eef3f0;margin-bottom:6px">Visto recientemente</div>
+            <div style="font-size:12.5px;color:#7d8d86;margin-bottom:18px">Tu actividad de los &uacute;ltimos d&iacute;as</div>
+            <div style="display:flex;flex-direction:column">
+              <sc-for list="{{ historyItems }}" as="h" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+                  <div style="flex:0 0 84px;height:48px;border-radius:7px;background:{{ h.bg }};position:relative;overflow:hidden"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><i class="ti ti-player-play-filled" style="font-size:15px;color:#fff"></i></div></div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:13.5px;font-weight:600;color:#e9efeb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ h.title }}</div>
+                    <div style="font-size:12px;color:#7d8d86;margin-top:2px">{{ h.when }}</div>
+                  </div>
+                  <div style="font-size:12px;color:#85958e;font-variant-numeric:tabular-nums">{{ h.dur }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tabIsNotifs }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:26px 28px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08)">
+            <div style="font-family:Sora,sans-serif;font-size:15.5px;font-weight:600;color:#eef3f0;margin-bottom:16px">Preferencias de notificaci&oacute;n</div>
+            <sc-for list="{{ notifRows }}" as="n" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+                <div>
+                  <div style="font-size:13.5px;font-weight:500;color:#e9efeb">{{ n.label }}</div>
+                  <div style="font-size:12px;color:#7d8d86;margin-top:2px">{{ n.desc }}</div>
+                </div>
+                <div onClick="{{ n.toggle }}" style="flex-shrink:0;width:42px;height:24px;border-radius:12px;background:{{ n.trackBg }};position:relative;cursor:pointer;transition:background .2s">
+                  <div style="position:absolute;top:2px;left:{{ n.knobLeft }};width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </div>
   </div>
   </sc-if>
 
@@ -319,7 +455,10 @@ class Component extends DCLogic {
     screen: 'home', current: null, prevScreen: 'home', playerReturn: 'home',
     playing: false, currentTime: 0, duration: 2040, volume: 0.8, muted: false,
     speed: 1, fullscreen: false, heroMuted: true,
-    myList: [], query: '', filterCat: 'Todo', menuOpen: false
+    myList: [], query: '', filterCat: 'Todo', menuOpen: false,
+    profileTab: 'account',
+    notifs: { estrenos: true, recomendaciones: true, promos: false, push: true },
+    ratingOpen: false, ratings: {}
   };
 
   componentDidMount() {
@@ -350,7 +489,26 @@ class Component extends DCLogic {
   goHome = () => this.setState({ screen: 'home', menuOpen: false });
   goExplore = () => this.setState({ screen: 'explore', menuOpen: false });
   goList = () => this.setState({ screen: 'list', menuOpen: false });
+  goProfile = () => this.setState({ screen: 'profile', menuOpen: false });
   toggleMenu = () => this.setState(s => ({ menuOpen: !s.menuOpen }));
+
+  setTabAccount = () => this.setState({ profileTab: 'account' });
+  setTabHistory = () => this.setState({ profileTab: 'history' });
+  setTabNotifs = () => this.setState({ profileTab: 'notifs' });
+  toggleNotif = (key) => this.setState(s => ({ notifs: Object.assign({}, s.notifs, { [key]: !s.notifs[key] }) }));
+
+  openRating = () => this.setState({ ratingOpen: true });
+  closeRating = () => this.setState({ ratingOpen: false });
+  stopProp = (e) => e.stopPropagation();
+  rateVideo = (val) => this.setState(s => {
+    const cur = s.current;
+    if (!cur) return null;
+    const next = Object.assign({}, s.ratings, { [cur.id]: s.ratings[cur.id] === val ? null : val });
+    return { ratings: next };
+  });
+  rateDown = () => this.rateVideo('down');
+  rateLike = () => this.rateVideo('like');
+  rateLove = () => this.rateVideo('love');
 
   openDetail = (v) => this.setState(s => ({ current: v, prevScreen: (s.screen === 'detail' || s.screen === 'player') ? s.prevScreen : s.screen, screen: 'detail', menuOpen: false }));
   play = (v) => this.setState(s => ({ current: v, playerReturn: s.screen === 'player' ? s.playerReturn : s.screen, screen: 'player', playing: true, currentTime: 0, duration: v.durSec, menuOpen: false }));
@@ -420,6 +578,7 @@ class Component extends DCLogic {
 
     // current meta
     const inList = cur ? st.myList.includes(cur.id) : false;
+    const curRating = cur ? st.ratings[cur.id] : null;
 
     // player
     const pct = (st.currentTime / (st.duration || 1)) * 100;
@@ -429,13 +588,13 @@ class Component extends DCLogic {
 
     return {
       accent, accentBright, newLabel,
-      isHome: st.screen === 'home', isDetail: st.screen === 'detail', isExplore: st.screen === 'explore', isList: st.screen === 'list', isPlayer: st.screen === 'player',
+      isHome: st.screen === 'home', isDetail: st.screen === 'detail', isExplore: st.screen === 'explore', isList: st.screen === 'list', isPlayer: st.screen === 'player', isProfile: st.screen === 'profile',
       showChrome: st.screen !== 'player',
       navHome: st.screen === 'home' ? '#ffffff' : '#9aa9a3',
       navExplore: st.screen === 'explore' ? '#ffffff' : '#9aa9a3',
       navList: st.screen === 'list' ? '#ffffff' : '#9aa9a3',
       menuOpen: st.menuOpen,
-      goHome: this.goHome, goExplore: this.goExplore, goList: this.goList, toggleMenu: this.toggleMenu, back: this.back,
+      goHome: this.goHome, goExplore: this.goExplore, goList: this.goList, goProfile: this.goProfile, toggleMenu: this.toggleMenu, back: this.back,
 
       // home
       homeRows,
@@ -457,6 +616,35 @@ class Component extends DCLogic {
       listIconColor: inList ? accentBright : '#ffffff',
       related,
 
+      // rating dialog
+      openRating: this.openRating, closeRating: this.closeRating, stopProp: this.stopProp,
+      rateDown: this.rateDown, rateLike: this.rateLike, rateLove: this.rateLove,
+      ratingOpen: st.ratingOpen,
+      rateBorder: curRating ? accentBright : 'rgba(255,255,255,0.2)',
+      rateBg: curRating ? 'rgba(104,20,11,0.18)' : 'transparent',
+      rateColor: curRating ? accentBright : '#cdd6d2',
+      rateIcon: curRating ? 'thumb-up-filled' : 'thumb-up',
+      downFilled: curRating === 'down' ? '-filled' : '',
+      likeFilled: curRating === 'like' ? '-filled' : '',
+      loveFilled: curRating === 'love' ? '-filled' : '',
+      downCircle: curRating === 'down' ? '#c0392b' : 'rgba(255,255,255,0.06)',
+      likeCircle: curRating === 'like' ? accentBright : 'rgba(255,255,255,0.06)',
+      loveCircle: curRating === 'love' ? accentBright : 'rgba(255,255,255,0.06)',
+      downIconColor: curRating === 'down' ? '#fff' : '#9aa9a3',
+      likeIconColor: curRating === 'like' ? '#fff' : '#9aa9a3',
+      loveIconColor: curRating === 'love' ? '#fff' : '#9aa9a3',
+      downBorder: curRating === 'down' ? 'rgba(192,57,43,0.55)' : 'rgba(255,255,255,0.08)',
+      likeBorder: curRating === 'like' ? 'rgba(207,74,53,0.55)' : 'rgba(255,255,255,0.08)',
+      loveBorder: curRating === 'love' ? 'rgba(207,74,53,0.55)' : 'rgba(255,255,255,0.08)',
+      downBg: curRating === 'down' ? 'rgba(192,57,43,0.12)' : 'rgba(255,255,255,0.03)',
+      likeBg: curRating === 'like' ? 'rgba(104,20,11,0.12)' : 'rgba(255,255,255,0.03)',
+      loveBg: curRating === 'love' ? 'rgba(104,20,11,0.12)' : 'rgba(255,255,255,0.03)',
+      downTextColor: curRating === 'down' ? '#e9efeb' : '#9aa9a3',
+      likeTextColor: curRating === 'like' ? '#e9efeb' : '#9aa9a3',
+      loveTextColor: curRating === 'love' ? '#e9efeb' : '#9aa9a3',
+      ratingChosen: !!curRating,
+      ratingConfirmText: curRating === 'down' ? 'Gracias, ajustaremos tus recomendaciones' : (curRating === 'love' ? '\u00a1Te encanta! Buscaremos m\u00e1s como este' : 'Gracias por tu valoraci\u00f3n'),
+
       // explore
       query: st.query, setQuery: (e) => this.setState({ query: e.target.value }),
       filterChips, exploreResults,
@@ -466,6 +654,34 @@ class Component extends DCLogic {
       // list
       listItems, listEmpty: listItems.length === 0, listHasItems: listItems.length > 0,
       listCount: listItems.length === 0 ? 'A\u00fan no has guardado nada' : (listItems.length + (listItems.length === 1 ? ' v\u00eddeo guardado' : ' v\u00eddeos guardados')),
+
+      // profile
+      setTabAccount: this.setTabAccount, setTabHistory: this.setTabHistory, setTabNotifs: this.setTabNotifs,
+      tabIsAccount: st.profileTab === 'account', tabIsHistory: st.profileTab === 'history', tabIsNotifs: st.profileTab === 'notifs',
+      tabAccountBg: st.profileTab === 'account' ? 'rgba(104,20,11,0.16)' : 'transparent',
+      tabAccountColor: st.profileTab === 'account' ? '#fff' : '#9aa9a3',
+      tabHistoryBg: st.profileTab === 'history' ? 'rgba(104,20,11,0.16)' : 'transparent',
+      tabHistoryColor: st.profileTab === 'history' ? '#fff' : '#9aa9a3',
+      tabNotifsBg: st.profileTab === 'notifs' ? 'rgba(104,20,11,0.16)' : 'transparent',
+      tabNotifsColor: st.profileTab === 'notifs' ? '#fff' : '#9aa9a3',
+      historyItems: [
+        { title: 'Amanecer en el Ebro', when: 'Ayer', dur: '34 min', bg: this.moods[0] },
+        { title: 'Carpas trofeo en Mequinenza', when: 'Hace 3 d\u00edas', dur: '38 min', bg: this.moods[3] },
+        { title: 'La sesi\u00f3n de 72 horas', when: 'Hace 5 d\u00edas', dur: '41 min', bg: this.moods[2] },
+        { title: 'Montajes para fondos duros', when: 'Hace 1 semana', dur: '22 min', bg: this.moods[4] },
+        { title: 'El arte del spod', when: 'Hace 2 semanas', dur: '19 min', bg: this.moods[7] }
+      ],
+      notifRows: [
+        { key: 'estrenos', label: 'Nuevos estrenos', desc: 'Avisos cuando se publique contenido nuevo' },
+        { key: 'recomendaciones', label: 'Recomendaciones', desc: 'Sugerencias basadas en lo que ves' },
+        { key: 'promos', label: 'Ofertas y promociones', desc: 'Descuentos y novedades de planes' },
+        { key: 'push', label: 'Notificaciones push (app)', desc: 'Avisos en tu m\u00f3vil o tablet' }
+      ].map(n => ({
+        label: n.label, desc: n.desc,
+        toggle: () => this.toggleNotif(n.key),
+        trackBg: st.notifs[n.key] ? accentBright : 'rgba(255,255,255,0.14)',
+        knobLeft: st.notifs[n.key] ? '20px' : '2px'
+      })),
 
       // player
       progressPct: pct + '%', volPct: (volEff * 100) + '%',

@@ -55,6 +55,26 @@ function fmtDate(iso: string | null | undefined): string {
 
 // ─── Componentes de la tabla ─────────────────────────────────────────────────
 
+function RatingsCell({ ratings }: { ratings: AdminVideo['ratings'] }) {
+  if (!ratings || ratings.total === 0) {
+    return <span className="text-white/25 text-xs">Sin votos</span>;
+  }
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400" title="Me encanta">
+        {ratings.love}
+      </span>
+      <span className="text-[11px] px-1.5 py-0.5 rounded bg-brand/20 text-brand-bright" title="Me gusta">
+        {ratings.like}
+      </span>
+      <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400" title="No es para mí">
+        {ratings.down}
+      </span>
+      <span className="text-white/35 text-[11px]">({ratings.total})</span>
+    </div>
+  );
+}
+
 function StatusBadge({ video }: { video: AdminVideo }) {
   const s = video.status;
   if (s === 'publicado') {
@@ -160,6 +180,7 @@ export default function AdminVideosPage() {
   // Filtros
   const [q, setQ]                   = useState('');
   const [filterPub, setFilterPub]   = useState<'' | 'true' | 'false'>('');
+  const [sort, setSort]             = useState<'' | 'rated'>('');
 
   // Modal formulario
   const [showForm, setShowForm]     = useState(false);
@@ -193,6 +214,7 @@ export default function AdminVideosPage() {
       const vRes = await apiClient.getAdminVideos({
         q: q || undefined,
         published: filterPub ? filterPub === 'true' : undefined,
+        sort: sort || undefined,
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
       });
@@ -203,7 +225,7 @@ export default function AdminVideosPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, filterPub, page]);
+  }, [q, filterPub, sort, page]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -353,6 +375,15 @@ export default function AdminVideosPage() {
           <option value="true">Publicados</option>
           <option value="false">Borradores</option>
         </select>
+        <select
+          value={sort}
+          onChange={e => { setSort(e.target.value as '' | 'rated'); setPage(0); }}
+          className="bg-surface-raised border border-white/12 rounded-md px-3 py-2 text-white text-sm
+                     focus:outline-none focus:border-brand-bright [&>option]:bg-surface-raised"
+        >
+          <option value="">Más recientes</option>
+          <option value="rated">Más valorados</option>
+        </select>
       </div>
 
       {/* Error global */}
@@ -371,15 +402,16 @@ export default function AdminVideosPage() {
               <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden md:table-cell">Categoría</th>
               <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Duración</th>
               <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden xl:table-cell">Crew</th>
+              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden md:table-cell">Valoraciones</th>
               <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide">Estado</th>
               <th className="px-4 py-3 w-28" />
             </tr>
           </thead>
           <tbody className="divide-y divide-white/6">
             {loading ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-white/40">Cargando…</td></tr>
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-white/40">Cargando…</td></tr>
             ) : videos.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-white/40">No hay vídeos</td></tr>
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-white/40">No hay vídeos</td></tr>
             ) : videos.map(v => (
               <tr key={v.id} className="hover:bg-white/3 transition-colors">
                 <td className="px-4 py-3">
@@ -412,6 +444,9 @@ export default function AdminVideosPage() {
                       <span className="text-[10px] text-white/30">+{v.crew.length - 3}</span>
                     )}
                   </div>
+                </td>
+                <td className="px-4 py-3 hidden md:table-cell">
+                  <RatingsCell ratings={v.ratings} />
                 </td>
                 <td className="px-4 py-3">
                   <button onClick={() => togglePublished(v)} className="cursor-pointer text-left">

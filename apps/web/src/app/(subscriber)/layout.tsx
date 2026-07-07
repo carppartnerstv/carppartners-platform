@@ -23,7 +23,7 @@ export default function SubscriberLayout({ children }: { children: React.ReactNo
     }
 
     if (!hasSubscription) {
-      router.replace('/?planes=1');
+      router.replace('/planes');
     }
   }, [status, hasSubscription, router]);
 

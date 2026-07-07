@@ -1,0 +1,51 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(file /tmp/logo-from-bundle.png *)",
+      "Bash(lsof -iTCP -sTCP:LISTEN -P)",
+      "Bash(ls backend/.env)",
+      "Bash(pg_isready)",
+      "Bash(redis-cli ping *)",
+      "Bash(npm run *)",
+      "Bash(disown)",
+      "Read(//tmp/**)",
+      "Bash(psql \"postgresql://carp:carp@localhost:5432/carp_partners\" -c \"SELECT u.email, u.role, s.status, s.period_end FROM users u LEFT JOIN subscriptions s ON s.user_id = u.id ORDER BY u.created_at DESC LIMIT 15;\")",
+      "Bash(find . -iname \"*.html\" -not -path \"*/node_modules/*\")",
+      "Bash(find . -iname \"*design*\" -not -path \"*/node_modules/*\" -not -path \"*/.git/*\")",
+      "Bash(psql \"postgresql://carp:carp@localhost:5432/carp_partners\" -c \"SELECT DISTINCT plan FROM subscriptions;\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/home)",
+      "Bash(psql \"postgresql://carp:carp@localhost:5432/carp_partners\" -t -c \"SELECT id, title FROM videos WHERE published = true LIMIT 3;\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3000/watch/5b357c62-a524-4876-a6c0-98c50e2c6470\")",
+      "Bash(npx eslint *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3000/perfil\")",
+      "Bash(awk '{ print NR\": \"length\\($0\\) }' \"Carp Partners TV NEW.html\")",
+      "Bash(sort -t: -k2 -n -r)",
+      "Bash(sed -n '178p' \"Carp Partners TV NEW.html\")",
+      "Bash(python3 -c ' *)",
+      "Read(//private/tmp/**)",
+      "Bash(node --check backend/src/routes/auth.js)",
+      "Bash(grep -rn \"'/watch/\\\\|\\\\`/watch/\\\\|watch/\\\\${\" apps/web/src packages/ui/src)",
+      "Bash(mkdir -p \"/Users/estherfrailesanchez/Downloads/CARP PARTNERS/carp-partners-tv/apps/web/src/app/\\(subscriber\\)/watch/[id]/play\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3000/watch/5b357c62-a524-4876-a6c0-98c50e2c6470/play\")",
+      "Bash(grep -n \"\\\\-\\\\-brand\" apps/web/src/app/globals.css)",
+      "Bash(grep -rn \"var\\(--brand\" apps/web/src packages/ui/src)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3000/explorar\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\([v['title'] for v in d['videos']]\\)\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3000/watch/5ccf2c8d-9b26-4d9b-a698-61c3d3fdbcd2\")",
+      "Bash(node backend/db/migrate.js status)",
+      "Bash(npm --workspace @carp-partners/backend run migrate:status)",
+      "Bash(npm --workspace @carp-partners/backend run migrate)",
+      "Bash(psql \"postgresql://carp:carp@localhost:5432/carp_partners\" -c \"\\\\d video_ratings\")",
+      "Bash(node --check backend/src/routes/catalog.js)",
+      "Bash(node --check backend/src/routes/admin.js)",
+      "Bash(psql \"postgresql://carp:carp@localhost:5432/carp_partners\" -t -c \"SELECT email, role FROM users WHERE email='admin@carppartners.tv';\")",
+      "Bash(psql postgresql://carp:carp@localhost:5432/carp_partners -c ' *)",
+      "Bash(psql \"postgresql://carp:carp@localhost:5432/carp_partners\" -t -c \"SELECT count\\(*\\) FROM information_schema.tables WHERE table_schema='public' AND table_name != 'migrations';\")",
+      "Bash(grep -n \"setRatingOpen\\(true\\)\\\\|RatingDialog\\\\|import type { RatingValue }\\\\|VideoCard, RatingDialog\" \"apps/web/src/app/\\(subscriber\\)/watch/[id]/page.tsx\")"
+    ],
+    "additionalDirectories": [
+      "/private/tmp",
+      "/Users/estherfrailesanchez/Downloads/CARP PARTNERS/carp-partners-tv/apps/web/src/app/(subscriber)/watch/[id]"
+    ]
+  }
+}

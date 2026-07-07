@@ -56,7 +56,7 @@ carp-partners-tv/
 ## Estado actual (NO rehacer salvo que se pida)
 
 El **backend está completo y probado** para las Semanas 1–3 del briefing:
-auth JWT, esquema de BD (9 tablas), webhooks Stripe, proxy seguro de Vimeo,
+auth JWT, esquema de BD (11 tablas), webhooks Stripe, proxy seguro de Vimeo,
 catálogo, watch-history, watchlist, endpoints admin, migración de Stripe,
 config de Nginx/pm2/GitHub Actions. Corre en `http://localhost:3001`.
 
@@ -74,9 +74,13 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | POST | `/auth/logout` | pública | 204 |
 | GET | `/auth/me` | JWT | `{user, subscription}` |
 | POST | `/auth/set-password` | token | `{ok}` |
+| POST | `/auth/change-password` `{currentPassword,newPassword}` | JWT | `{ok}` — cambio de contraseña desde Perfil estando ya logueado (añadido 2026-07, ver Perfil) |
 | GET | `/videos?limit&offset&category&series&q` | JWT + suscripción | `{videos, limit, offset}` |
 | GET | `/videos/:id` | JWT + suscripción | `{video, related}` |
 | GET | `/videos/:id/stream` | JWT + suscripción | `{hlsUrl, expiresInSec}` |
+| POST | `/videos/:id/rating` `{rating: -1\|1\|2}` | JWT + suscripción | `{rating}` — UPSERT del voto (-1 no es para mí, 1 me gusta, 2 me encanta) |
+| GET | `/videos/:id/rating` | JWT + suscripción | `{rating: -1\|1\|2\|null}` — valoración del usuario actual para ese vídeo |
+| DELETE | `/videos/:id/rating` | JWT + suscripción | 204 — quita la valoración del usuario |
 | GET | `/categories` | JWT | `{categories}` |
 | GET | `/series?category` | JWT | `{series}` |
 | POST | `/watch-history` `{videoId,progressSec,completed?}` | JWT | 204 |
@@ -90,7 +94,7 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | GET | `/admin/users?status&q&limit&offset` | JWT + admin | `{users}` |
 | GET | `/admin/payments` | JWT + admin | `{payments}` |
 | POST/PUT/DELETE | `/admin/videos[/:id]` | JWT + admin | vídeo / 204 |
-| GET | `/admin/videos?published&category&series&q&limit&offset` | JWT + admin | `{videos,limit,offset}` — incluye borradores |
+| GET | `/admin/videos?published&category&series&q&sort&limit&offset` | JWT + admin | `{videos,limit,offset}` — incluye borradores. `sort=rated` ordena por nº de votos desc. Cada vídeo incluye `ratings: {love,like,down,total,avg}` |
 | POST | `/admin/categories` `{name,slug,description?,coverUrl?,orderIndex?}` | JWT + admin | `{category}` 201 |
 | PUT | `/admin/categories/:id` | JWT + admin | `{category}` |
 | DELETE | `/admin/categories/:id` | JWT + admin | 204 |
@@ -130,6 +134,8 @@ de planes, no mostrar un error genérico.
 | `/home` | Home tipo Netflix: hero + filas por categoría | suscriptores |
 | `/explorar` | Búsqueda y filtros (categoría, serie, duración) | suscriptores |
 | `/watch/[id]` | Reproductor a pantalla completa + relacionados | suscriptores |
+| `/watch/[id]` | Detalle del vídeo (sinopsis, Mi Lista, relacionados) — clic en cualquier tarjeta lleva aquí | suscriptores |
+| `/watch/[id]/play` | Reproductor a pantalla completa — solo se llega pulsando "Reproducir" desde el detalle | suscriptores |
 | `/mi-lista` | Vídeos guardados | suscriptores |
 | `/perfil` | Datos, plan activo, enlace a Customer Portal de Stripe | suscriptores |
 | `/admin` | Panel de administración | solo admin |
