@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, Sora } from 'next/font/google';
 import './globals.css';
 import { SessionProvider } from '@/context/SessionContext';
@@ -19,6 +19,10 @@ const sora = Sora({
 export const metadata: Metadata = {
   title: 'Carp Partners TV',
   description: 'La plataforma de vídeo especializada en carpfishing',
+};
+
+export const viewport: Viewport = {
+  themeColor: '#06090c',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
