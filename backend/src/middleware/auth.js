@@ -61,12 +61,14 @@ export async function requireSubscription(req, _res, next) {
       [req.user.id],
     );
 
+    // period_end NULL = sin fecha de caducidad (p. ej. cortesía indefinida).
+    // Para las de pago, los webhooks de Stripe mantienen period_end al día
+    // en cada renovación, así que comprobarlo aquí no cambia su comportamiento
+    // salvo si un webhook se retrasa (en cuyo caso es lo correcto: cortar el
+    // acceso en cuanto el periodo ya pagado/regalado termina de verdad).
+    const notExpired = !sub?.period_end || new Date(sub.period_end) > new Date();
     const hasAccess =
-      sub &&
-      (sub.status === 'active' ||
-        sub.status === 'trialing' ||
-        // past_due sigue dando acceso hasta que termina el periodo ya pagado
-        (sub.status === 'past_due' && sub.period_end && new Date(sub.period_end) > new Date()));
+      !!sub && notExpired && ['active', 'trialing', 'past_due'].includes(sub.status);
 
     if (!hasAccess) {
       throw forbidden('Necesitas una suscripción activa', 'SUBSCRIPTION_REQUIRED');

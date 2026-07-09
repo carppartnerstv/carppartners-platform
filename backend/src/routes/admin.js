@@ -3,6 +3,8 @@
 // Todas exigen JWT + role = 'admin'.
 //   GET    /admin/dashboard      métricas (suscriptores activos, MRR, etc.)
 //   GET    /admin/users          listado de suscriptores con filtros
+//   POST   /admin/users          alta manual de suscriptor (sin Stripe)
+//   POST   /admin/users/:id/courtesy-subscription  otorga/extiende cortesía
 //   GET    /admin/payments       historial de pagos (desde Stripe)
 //   POST   /admin/videos         crea vídeo en catálogo
 //   PUT    /admin/videos/:id     edita metadatos
@@ -12,8 +14,10 @@ import { Router } from 'express';
 import { z } from 'zod';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
+import bcrypt from 'bcryptjs';
 import { query, queryOne, withTransaction } from '../config/db.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { asyncHandler, badRequest, notFound, HttpError } from '../utils/errors.js';
@@ -125,7 +129,7 @@ adminRouter.get(
 
 // Lateral reutilizable para la última suscripción de cada usuario
 const SUB_LATERAL = `LEFT JOIN LATERAL (
-  SELECT plan, status, period_end FROM subscriptions
+  SELECT plan, status, period_end, source FROM subscriptions
    WHERE user_id = u.id ORDER BY period_end DESC NULLS LAST LIMIT 1
 ) s ON true`;
 
@@ -182,7 +186,7 @@ adminRouter.get(
     params.push(limit, offset);
     const { rows } = await query(
       `SELECT u.id, u.email, u.name, u.created_at,
-              s.plan, s.status, s.period_end
+              s.plan, s.status, s.period_end, s.source
          FROM users u ${SUB_LATERAL}
         ${where}
         ORDER BY u.created_at DESC
@@ -190,6 +194,108 @@ adminRouter.get(
       params,
     );
     res.json({ users: rows, limit, offset, total: countRow.total });
+  }),
+);
+
+// =====================================================================
+// Alta manual de suscriptores + suscripciones de cortesía (sin Stripe).
+// Pensado para familiares, sorteos, etc. Nunca tocan stripe_sub_id.
+// =====================================================================
+const createUserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1).optional(),
+  // Si se omite, el usuario queda sin password_hash y se genera un token de
+  // "establece tu contraseña" (mismo flujo que la migración desde WordPress).
+  password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres').optional(),
+});
+
+const SET_PASSWORD_TTL_DAYS = 14;
+
+// POST /admin/users — crea un suscriptor manualmente (sin pasar por /auth/register).
+adminRouter.post(
+  '/users',
+  asyncHandler(async (req, res) => {
+    const parsed = createUserSchema.safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+    const d = parsed.data;
+    const email = d.email.toLowerCase();
+
+    const existing = await queryOne('SELECT id FROM users WHERE email = $1', [email]);
+    if (existing) throw badRequest('Ese email ya está registrado', 'EMAIL_TAKEN');
+
+    let passwordHash = null;
+    let setPasswordToken = null;
+    if (d.password) {
+      passwordHash = await bcrypt.hash(d.password, 12);
+    } else {
+      setPasswordToken = crypto.randomBytes(32).toString('hex');
+    }
+    const setPasswordExpires = setPasswordToken
+      ? new Date(Date.now() + SET_PASSWORD_TTL_DAYS * 86_400_000)
+      : null;
+
+    const user = await queryOne(
+      `INSERT INTO users (email, name, password_hash, password_set_token, password_set_expires)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, email, name, role, avatar_url, created_at`,
+      [email, d.name ?? null, passwordHash, setPasswordToken, setPasswordExpires],
+    );
+
+    res.status(201).json({ user, setPasswordToken });
+  }),
+);
+
+// Calcula period_end a partir de exactamente una de las tres opciones.
+const courtesySchema = z.object({
+  durationMonths: z.number().int().min(1).max(60).optional(),
+  endDate: z.string().datetime().optional(),
+  indefinite: z.boolean().optional(),
+}).refine(
+  (d) => [d.durationMonths != null, d.endDate != null, d.indefinite === true].filter(Boolean).length === 1,
+  { message: 'Indica exactamente una opción: duración en meses, fecha concreta, o indefinido' },
+);
+
+// POST /admin/users/:id/courtesy-subscription — otorga o extiende (upsert)
+// la suscripción de cortesía de un usuario. Nunca crea/toca filas con
+// source='stripe'; si el usuario ya tenía una cortesía previa, se actualiza
+// esa misma fila en vez de acumular filas nuevas cada vez.
+adminRouter.post(
+  '/users/:id/courtesy-subscription',
+  asyncHandler(async (req, res) => {
+    const parsed = courtesySchema.safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+    const d = parsed.data;
+
+    const user = await queryOne('SELECT id FROM users WHERE id = $1', [req.params.id]);
+    if (!user) throw notFound('Usuario no encontrado', 'USER_NOT_FOUND');
+
+    const periodEnd = d.indefinite
+      ? null
+      : d.endDate
+        ? new Date(d.endDate)
+        : new Date(Date.now() + d.durationMonths * 30 * 86_400_000);
+
+    const existing = await queryOne(
+      `SELECT id FROM subscriptions WHERE user_id = $1 AND source = 'courtesy' ORDER BY created_at DESC LIMIT 1`,
+      [user.id],
+    );
+
+    const subscription = existing
+      ? await queryOne(
+          `UPDATE subscriptions
+              SET status = 'active', period_end = $1, period_start = COALESCE(period_start, now()), cancelled_at = NULL
+            WHERE id = $2
+            RETURNING *`,
+          [periodEnd, existing.id],
+        )
+      : await queryOne(
+          `INSERT INTO subscriptions (user_id, stripe_sub_id, source, plan, status, period_start, period_end)
+           VALUES ($1, NULL, 'courtesy', 'courtesy', 'active', now(), $2)
+           RETURNING *`,
+          [user.id, periodEnd],
+        );
+
+    res.status(existing ? 200 : 201).json({ subscription });
   }),
 );
 

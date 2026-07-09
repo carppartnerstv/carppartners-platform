@@ -17,7 +17,7 @@ interface SessionContextValue {
   logout: () => Promise<void>;
   /** Actualiza el usuario en memoria tras editar el perfil (nombre/avatar) */
   setUser: (user: User) => void;
-  /** True si la suscripción da acceso (active | trialing | past_due vigente) */
+  /** True si la suscripción da acceso (active | trialing | past_due, con period_end vigente o sin caducidad) */
   hasSubscription: boolean;
 }
 
@@ -79,12 +79,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setStatus('unauthenticated');
   }, []);
 
+  // Mismo criterio que requireSubscription en el backend: period_end NULL =
+  // sin caducidad, si no, tiene que ser una fecha futura. No basta con el
+  // status — si no, una cortesía o un plan de pago caducado seguiría dando
+  // acceso en el cliente hasta que se recargaran datos frescos de otra forma.
+  const notExpired = !subscription?.period_end || new Date(subscription.period_end) > new Date();
   const hasSubscription =
-    subscription?.status === 'active' ||
-    subscription?.status === 'trialing' ||
-    (subscription?.status === 'past_due' &&
-      !!subscription.period_end &&
-      new Date(subscription.period_end) > new Date());
+    !!subscription && notExpired &&
+    (subscription.status === 'active' || subscription.status === 'trialing' || subscription.status === 'past_due');
 
   return (
     <SessionContext.Provider value={{ user, subscription, status, login, register, logout, setUser, hasSubscription }}>

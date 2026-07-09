@@ -96,7 +96,9 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | POST | `/push-tokens` `{token,platform}` | JWT | 201 |
 | POST | `/billing/portal` | JWT | `{url}` |
 | GET | `/admin/dashboard` | JWT + admin | `{activeSubscribers,publishedVideos,playsToday,mrr}` |
-| GET | `/admin/users?status&q&limit&offset` | JWT + admin | `{users}` |
+| GET | `/admin/users?status&q&limit&offset` | JWT + admin | `{users}` — cada usuario incluye `source: 'stripe'\|'courtesy'\|null` de su suscripción más reciente |
+| POST | `/admin/users` `{email,name?,password?}` | JWT + admin | `{user, setPasswordToken}` 201 — alta manual de suscriptor, sin pasar por `/auth/register`. Si se omite `password`, el usuario queda sin `password_hash` y se devuelve `setPasswordToken` (mismo mecanismo que la migración desde WordPress, TTL 14 días) para construir el enlace `/set-password?token=...`; con `password`, `setPasswordToken` es `null` |
+| POST | `/admin/users/:id/courtesy-subscription` `{durationMonths?, endDate?, indefinite?}` | JWT + admin | `{subscription}` 200/201 — otorga o extiende (upsert sobre la misma fila) una suscripción de cortesía (`source='courtesy'`, sin `stripe_sub_id`). Exactamente una de las tres opciones; `indefinite` deja `period_end = NULL` (no caduca nunca) |
 | GET | `/admin/payments` | JWT + admin | `{payments}` |
 | POST/PUT/DELETE | `/admin/videos[/:id]` | JWT + admin | vídeo / 204 |
 | GET | `/admin/videos?published&category&series&q&sort&limit&offset` | JWT + admin | `{videos,limit,offset}` — incluye borradores. `sort=rated` ordena por nº de votos desc. Cada vídeo incluye `ratings: {love,like,down,total,avg}` e `is_featured` |
@@ -132,7 +134,20 @@ El campo `publishedAt` (camelCase en la API, `published_at` en BD) es opcional e
 
 **Regla de acceso clave:** un 403 con `code: "SUBSCRIPTION_REQUIRED"` significa
 que el usuario no tiene suscripción activa → la UI debe redirigir a la pantalla
-de planes, no mostrar un error genérico.
+de planes, no mostrar un error genérico. `requireSubscription` exige además que
+`period_end` sea `NULL` (sin caducidad) o una fecha futura para los estados
+`active`/`trialing`/`past_due` — no basta con el `status`, aplica también a
+suscripciones de pago (protege contra un webhook de Stripe retrasado).
+
+**Suscripciones de cortesía (migración 009):** `subscriptions.source` distingue
+`'stripe'` (con `stripe_sub_id`) de `'courtesy'` (regalo/familiar, sin
+`stripe_sub_id`, `plan='courtesy'`). Se crean/extienden desde
+`POST /admin/users/:id/courtesy-subscription`: `indefinite=true` → nunca
+caduca; `durationMonths` o `endDate` → caduca igual que cualquier suscripción,
+vía la comprobación de `period_end` de `requireSubscription`. Nunca las toques
+por otra vía: los webhooks de Stripe (`services/subscriptions.js`) solo operan
+sobre filas con `stripe_sub_id`, así que una fila de cortesía nunca se ve
+afectada por ellos.
 
 **Series con temporadas (migración 008):** `series.parent_series_id` (nullable,
 FK a `series.id`) modela temporadas con un único nivel de profundidad. La
@@ -153,8 +168,9 @@ manualmente desde `/admin/series` cuando el usuario lo decida, no por script.
 |------|----------|--------|
 | `/` | Landing (propuesta de valor, planes, login) | pública |
 | `/login` | Login + registro | pública |
+| `/set-password?token=...` | Establece contraseña con un token de un solo uso (`POST /auth/set-password`) — usada tanto por la migración desde WordPress como por el alta manual de suscriptores desde el panel (`POST /admin/users` sin `password`) | pública |
 | `/home` | Home tipo Netflix: hero + filas por categoría, una tarjeta por serie/película (no vídeos sueltos) | suscriptores |
-| `/explorar` | Sin búsqueda activa: tarjetas de serie/película por categoría. Con texto de búsqueda: vídeos sueltos que coinciden (como antes) | suscriptores |
+| `/explorar` | Pestañas por categoría real + "Crew". En categorías: sin búsqueda, tarjetas de serie/película (filtradas por categoría); con texto, se filtran esas mismas tarjetas por título (siempre a nivel de serie/película, nunca vídeos sueltos). En "Crew": parrilla de miembros (`GET /crew`) filtrable por nombre; clic → `/crew/[slug]` | suscriptores |
 | `/serie/[id]` | Detalle de una serie o película (portada, sinopsis, metadatos) + lista de episodios. Si la serie tiene temporadas (`GET /series/:id` → `seasons.length > 0`), muestra selector de temporada (por defecto la primera) y lista los episodios de la temporada elegida vía `GET /videos?series=<seasonId>`; si no, lista sus vídeos directamente vía `GET /videos?series=<id>`. Ruta única para series y películas (mismo modelo de datos). Clic en un episodio → `/watch/[id]` | suscriptores |
 | `/watch/[id]` | Detalle del vídeo (sinopsis, Reparto, Mi Lista, relacionados) — clic en cualquier tarjeta lleva aquí | suscriptores |
 | `/watch/[id]/play` | Reproductor a pantalla completa — solo se llega pulsando "Reproducir"/"Reanudar" desde el detalle | suscriptores |

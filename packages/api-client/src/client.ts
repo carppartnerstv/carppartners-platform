@@ -12,6 +12,10 @@ import type {
   AuthResponse,
   DashboardStats,
   AdminUser,
+  AdminCreateUserInput,
+  AdminCreatedUser,
+  CourtesySubscriptionInput,
+  AdminSubscription,
   UserStatusCounts,
   Payment,
   AdminVideoInput,
@@ -415,6 +419,14 @@ export class ApiClient {
 
   async getAdminPayments(params?: { limit?: number }): Promise<{ payments: Payment[] }> {
     return this.request('GET', '/admin/payments', { query: params });
+  }
+
+  async createAdminUser(data: AdminCreateUserInput): Promise<{ user: AdminCreatedUser; setPasswordToken: string | null }> {
+    return this.request('POST', '/admin/users', { body: data });
+  }
+
+  async grantCourtesySubscription(userId: string, data: CourtesySubscriptionInput): Promise<{ subscription: AdminSubscription }> {
+    return this.request('POST', `/admin/users/${userId}/courtesy-subscription`, { body: data });
   }
 
   async createAdminVideo(video: AdminVideoInput): Promise<{ video: Video }> {

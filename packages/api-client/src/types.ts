@@ -160,6 +160,43 @@ export interface AdminUser {
   plan: string | null;
   status: string | null;
   period_end: string | null;
+  source: 'stripe' | 'courtesy' | null;
+}
+
+export interface AdminCreateUserInput {
+  email: string;
+  name?: string;
+  /** Si se omite, el usuario queda sin contraseña y se devuelve `setPasswordToken`. */
+  password?: string;
+}
+
+export interface AdminCreatedUser {
+  id: string;
+  email: string;
+  name: string | null;
+  role: 'user' | 'admin';
+  avatar_url: string | null;
+  created_at: string;
+}
+
+// Exactamente una de las tres opciones.
+export type CourtesySubscriptionInput =
+  | { durationMonths: number; endDate?: never; indefinite?: never }
+  | { endDate: string; durationMonths?: never; indefinite?: never }
+  | { indefinite: true; durationMonths?: never; endDate?: never };
+
+export interface AdminSubscription {
+  id: string;
+  user_id: string;
+  stripe_sub_id: string | null;
+  plan: string | null;
+  status: 'active' | 'cancelled' | 'past_due' | 'trialing' | 'incomplete';
+  period_start: string | null;
+  period_end: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
+  source: 'stripe' | 'courtesy';
 }
 
 export interface Payment {

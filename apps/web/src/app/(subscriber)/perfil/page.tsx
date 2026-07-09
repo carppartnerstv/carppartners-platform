@@ -14,12 +14,14 @@ type Tab = 'account' | 'history' | 'notifs';
 const PLAN_LABELS: Record<string, string> = {
   monthly: 'Mensual',
   annual: 'Anual',
+  courtesy: 'Cortesía',
 };
 
 // Precios de referencia (los mismos que en /planes) — no hay endpoint que los devuelva.
 const PLAN_PRICES: Record<string, string> = {
   monthly: '9,99€ / mes',
   annual: '89,99€ / año',
+  courtesy: 'Acceso de cortesía',
 };
 
 const NOTIF_ROWS = [
