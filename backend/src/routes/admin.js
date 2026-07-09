@@ -142,7 +142,7 @@ adminRouter.get(
          FROM users u ${SUB_LATERAL}
         GROUP BY s.status`,
     );
-    const counts = { active: 0, trialing: 0, past_due: 0, cancelled: 0, with_subscription: 0, total: 0 };
+    const counts = { active: 0, trialing: 0, past_due: 0, cancelled: 0, courtesy: 0, with_subscription: 0, total: 0 };
     for (const r of rows) {
       counts.total += r.count;
       if (r.status !== '__none__') {
@@ -150,6 +150,12 @@ adminRouter.get(
         counts.with_subscription += r.count;
       }
     }
+    // Cortesía es una dimensión aparte (source, no status) — se cuenta por
+    // separado en vez de agruparla con el resto.
+    const courtesyRow = await queryOne(
+      `SELECT COUNT(*)::int AS n FROM users u ${SUB_LATERAL} WHERE s.source = 'courtesy'`,
+    );
+    counts.courtesy = courtesyRow.n;
     res.json({ counts });
   }),
 );
@@ -164,9 +170,12 @@ adminRouter.get(
     const filters = [];
     const params = [];
 
-    // 'with_subscription' es un valor especial: cualquier suscripción activa/pasada
+    // 'with_subscription' y 'courtesy' son valores especiales: no son un
+    // status real, sino que filtran por otra columna (source).
     if (status === 'with_subscription') {
       filters.push(`s.status IS NOT NULL`);
+    } else if (status === 'courtesy') {
+      filters.push(`s.source = 'courtesy'`);
     } else if (status) {
       params.push(status);
       filters.push(`s.status = $${params.length}`);

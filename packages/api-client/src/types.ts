@@ -148,6 +148,8 @@ export interface UserStatusCounts {
   trialing: number;
   past_due: number;
   cancelled: number;
+  /** Suscriptores cuya suscripción más reciente es de cortesía (source='courtesy'), no un status real */
+  courtesy: number;
   with_subscription: number;
   total: number;
 }

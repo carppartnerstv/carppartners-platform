@@ -339,8 +339,9 @@ function CourtesyModal({ user, onClose, onSaved }: {
 // ─── Pestañas ─────────────────────────────────────────────────────────────────
 
 // 'with_subscription' = usuarios con cualquier suscripción (default)
+// 'courtesy'          = filtra por source='courtesy', no es un status real
 // ''                  = todos sin filtro (incluye usuarios sin suscripción)
-type TabKey = 'with_subscription' | 'active' | 'trialing' | 'past_due' | 'cancelled' | '';
+type TabKey = 'with_subscription' | 'active' | 'courtesy' | 'past_due' | 'cancelled' | '';
 
 interface Tab {
   key: TabKey;
@@ -351,7 +352,7 @@ interface Tab {
 const TABS: Tab[] = [
   { key: 'with_subscription', label: 'Con suscripción', countKey: 'with_subscription' },
   { key: 'active',            label: 'Activos',         countKey: 'active' },
-  { key: 'trialing',          label: 'En prueba',       countKey: 'trialing' },
+  { key: 'courtesy',          label: 'Cortesía',        countKey: 'courtesy' },
   { key: 'past_due',          label: 'Vencidos',        countKey: 'past_due' },
   { key: 'cancelled',         label: 'Cancelados',      countKey: 'cancelled' },
   { key: '',                  label: 'Todos',           countKey: 'total' },
