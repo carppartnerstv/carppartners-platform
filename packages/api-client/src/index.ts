@@ -27,4 +27,8 @@ export type {
   SeriesInput,
   CrewMember,
   CrewMemberInput,
+  PublicPage,
+  AdminPage,
+  AdminPageSummary,
+  PageInput,
 } from './types';

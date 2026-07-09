@@ -49,10 +49,26 @@ const FAQS = [
   { q: '¿Hay contenido gratuito?', a: 'Sí. Al registrarte gratis tienes acceso a tráilers, avances y un vídeo completo gratuito al mes para que conozcas la plataforma.' },
 ];
 
-const FOOTER_COLS = [
-  { title: 'Plataforma', links: ['Catálogo', 'Series', 'Documentales', 'Planes'] },
-  { title: 'Empresa', links: ['Sobre nosotros', 'Blog', 'Contacto', 'Trabaja con nosotros'] },
-  { title: 'Ayuda', links: ['Centro de ayuda', 'Cuenta', 'Dispositivos', 'Estado'] },
+const FOOTER_COLS: { title: string; links: { label: string; href?: string }[] }[] = [
+  { title: 'Plataforma', links: [
+    { label: 'Catálogo' }, { label: 'Series' }, { label: 'Documentales' }, { label: 'Planes' },
+  ] },
+  { title: 'Empresa', links: [
+    { label: 'Sobre nosotros', href: '/sobre-carp-partners' },
+    { label: 'Blog' },
+    { label: 'Contacto', href: '/contacto' },
+    { label: 'Trabaja con nosotros' },
+  ] },
+  { title: 'Ayuda', links: [
+    { label: 'Centro de ayuda' }, { label: 'Cuenta' }, { label: 'Dispositivos' }, { label: 'Estado' },
+  ] },
+];
+
+const LEGAL_LINKS = [
+  { label: 'Privacidad', href: '/politica-de-privacidad' },
+  { label: 'Términos', href: '/terminos-de-uso' },
+  { label: 'Cookies', href: '/politica-de-cookies' },
+  { label: 'Aviso legal', href: '/aviso-legal' },
 ];
 
 // ─── Componente principal ─────────────────────────────────────────────────────
@@ -358,8 +374,10 @@ function LandingContent() {
           {FOOTER_COLS.map(col => (
             <div key={col.title}>
               <div className="text-[13px] font-semibold mb-4" style={{ color: '#cdd6d2' }}>{col.title}</div>
-              {col.links.map(l => (
-                <div key={l} className="text-[13.5px] py-1.5 cursor-pointer transition-colors hover:text-white/70" style={{ color: '#7d8d86' }}>{l}</div>
+              {col.links.map(l => l.href ? (
+                <Link key={l.label} href={l.href} className="block text-[13.5px] py-1.5 transition-colors hover:text-white/70" style={{ color: '#7d8d86' }}>{l.label}</Link>
+              ) : (
+                <div key={l.label} className="text-[13.5px] py-1.5 cursor-pointer transition-colors hover:text-white/70" style={{ color: '#7d8d86' }}>{l.label}</div>
               ))}
             </div>
           ))}
@@ -367,8 +385,8 @@ function LandingContent() {
         <div className="max-w-[1100px] mx-auto mt-9 pt-6 flex items-center justify-between flex-wrap gap-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="text-[12.5px]" style={{ color: '#6a7a73' }}>© 2026 Carp Partners TV. Todos los derechos reservados.</div>
           <div className="flex gap-[22px] text-[12.5px]" style={{ color: '#6a7a73' }}>
-            {['Privacidad', 'Términos', 'Cookies'].map(l => (
-              <span key={l} className="cursor-pointer hover:text-white/50 transition-colors">{l}</span>
+            {LEGAL_LINKS.map(l => (
+              <Link key={l.label} href={l.href} className="hover:text-white/50 transition-colors">{l.label}</Link>
             ))}
           </div>
         </div>

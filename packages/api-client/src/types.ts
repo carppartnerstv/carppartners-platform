@@ -201,6 +201,34 @@ export interface AdminSubscription {
   source: 'stripe' | 'courtesy';
 }
 
+// Página de contenido fijo (Sobre nosotros, legales, Contacto...), tal y
+// como la devuelve el endpoint público GET /pages/:slug (sin login).
+export interface PublicPage {
+  slug: string;
+  title: string;
+  content: string | null;
+  meta_title: string | null;
+  meta_description: string | null;
+  og_image: string | null;
+  updated_at: string;
+}
+
+export interface AdminPage extends PublicPage {
+  id: string;
+  created_at: string;
+}
+
+// Forma que devuelve GET /admin/pages (listado): sin el HTML del content.
+export type AdminPageSummary = Omit<AdminPage, 'content' | 'created_at'>;
+
+export interface PageInput {
+  slug: string;
+  title: string;
+  content?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+}
+
 export interface Payment {
   id: string;
   amount: number;

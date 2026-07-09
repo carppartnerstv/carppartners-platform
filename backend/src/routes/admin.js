@@ -25,13 +25,16 @@ import { stripe } from '../services/stripe.js';
 import { getVideoMetadata } from '../services/vimeo.js';
 import sanitizeHtml from 'sanitize-html';
 
-// ─── Configuración de subida de imágenes (avatares de crew, portadas de series) ─
+// ─── Configuración de subida de imágenes (avatares de crew, portadas de series,
+// imagen social de páginas de contenido) ──────────────────────────────────────
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CREW_UPLOADS_DIR   = path.resolve(__dirname, '../../uploads/crew');
 const SERIES_UPLOADS_DIR = path.resolve(__dirname, '../../uploads/series');
+const PAGES_UPLOADS_DIR  = path.resolve(__dirname, '../../uploads/pages');
 fs.mkdirSync(CREW_UPLOADS_DIR, { recursive: true });
 fs.mkdirSync(SERIES_UPLOADS_DIR, { recursive: true });
+fs.mkdirSync(PAGES_UPLOADS_DIR, { recursive: true });
 
 const ALLOWED_IMAGE_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const IMAGE_MAX_BYTES    = 5 * 1024 * 1024;
@@ -72,6 +75,7 @@ function makeImageUpload(uploadsDir, fieldName) {
 
 const avatarUpload = makeImageUpload(CREW_UPLOADS_DIR, 'avatar');
 const seriesCoverUpload = makeImageUpload(SERIES_UPLOADS_DIR, 'cover');
+const pageImageUpload = makeImageUpload(PAGES_UPLOADS_DIR, 'image');
 
 function deleteFileIfExists(filePath) {
   fs.unlink(filePath, () => {}); // fire-and-forget; si no existe, sin error
@@ -1037,5 +1041,152 @@ adminRouter.get(
         'VIMEO_ERROR',
       );
     }
+  }),
+);
+
+// =====================================================================
+// CRUD de páginas de contenido (Sobre nosotros, legales, Contacto...).
+// Conjunto acotado de páginas fijas precargado por la migración 010; crear
+// y borrar quedan disponibles pero no son el caso de uso principal — lo
+// habitual es editar el contenido/SEO de las seis páginas ya existentes.
+// =====================================================================
+const pageSchema = z.object({
+  slug:            z.string().min(1).regex(/^[a-z0-9-]+$/, 'slug solo puede contener a-z, 0-9 y guiones'),
+  title:           z.string().min(1),
+  content:         z.string().optional(),
+  metaTitle:       z.string().optional(),
+  metaDescription: z.string().optional(),
+});
+
+// GET /admin/pages — listado (sin el HTML completo, para la tabla del panel)
+adminRouter.get(
+  '/pages',
+  asyncHandler(async (_req, res) => {
+    const { rows } = await query(
+      `SELECT id, slug, title, meta_title, meta_description, og_image, updated_at
+         FROM pages ORDER BY title`,
+    );
+    res.json({ pages: rows });
+  }),
+);
+
+// GET /admin/pages/:slug — página completa (con content) para el formulario de edición
+adminRouter.get(
+  '/pages/:slug',
+  asyncHandler(async (req, res) => {
+    const page = await queryOne(`SELECT * FROM pages WHERE slug = $1`, [req.params.slug]);
+    if (!page) throw notFound('Página no encontrada', 'PAGE_NOT_FOUND');
+    res.json({ page });
+  }),
+);
+
+adminRouter.post(
+  '/pages',
+  asyncHandler(async (req, res) => {
+    const parsed = pageSchema.safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+    const d = parsed.data;
+
+    const existing = await queryOne('SELECT id FROM pages WHERE slug = $1', [d.slug]);
+    if (existing) throw badRequest('Ya existe una página con ese slug', 'SLUG_TAKEN');
+
+    const safeContent = d.content ? sanitizeHtml(d.content, RICH_TEXT_SANITIZE_OPTIONS) : null;
+    const page = await queryOne(
+      `INSERT INTO pages (slug, title, content, meta_title, meta_description)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [d.slug, d.title, safeContent, d.metaTitle ?? null, d.metaDescription ?? null],
+    );
+    res.status(201).json({ page });
+  }),
+);
+
+adminRouter.put(
+  '/pages/:slug',
+  asyncHandler(async (req, res) => {
+    const parsed = pageSchema.partial().safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+
+    if (parsed.data.content !== undefined) {
+      parsed.data.content = parsed.data.content
+        ? sanitizeHtml(parsed.data.content, RICH_TEXT_SANITIZE_OPTIONS)
+        : '';
+    }
+
+    const map = {
+      slug: 'slug', title: 'title', content: 'content',
+      metaTitle: 'meta_title', metaDescription: 'meta_description',
+    };
+    const sets = []; const params = [];
+    for (const [key, col] of Object.entries(map)) {
+      if (parsed.data[key] !== undefined) {
+        params.push(parsed.data[key]);
+        sets.push(`${col} = $${params.length}`);
+      }
+    }
+    if (sets.length === 0) throw badRequest('Nada que actualizar', 'EMPTY_UPDATE');
+
+    params.push(req.params.slug);
+    const page = await queryOne(
+      `UPDATE pages SET ${sets.join(', ')} WHERE slug = $${params.length} RETURNING *`,
+      params,
+    );
+    if (!page) throw notFound('Página no encontrada', 'PAGE_NOT_FOUND');
+    res.json({ page });
+  }),
+);
+
+adminRouter.delete(
+  '/pages/:id',
+  asyncHandler(async (req, res) => {
+    const page = await queryOne(`DELETE FROM pages WHERE id = $1 RETURNING id, og_image`, [req.params.id]);
+    if (!page) throw notFound('Página no encontrada', 'PAGE_NOT_FOUND');
+    if (page.og_image) {
+      const filename = path.basename(page.og_image);
+      deleteFileIfExists(path.join(PAGES_UPLOADS_DIR, filename));
+    }
+    res.status(204).end();
+  }),
+);
+
+// POST /admin/pages/:slug/image — sube/reemplaza la imagen social (og_image)
+adminRouter.post(
+  '/pages/:slug/image',
+  pageImageUpload,
+  asyncHandler(async (req, res) => {
+    if (!req.file) throw badRequest('No se recibió ninguna imagen', 'NO_FILE');
+
+    const current = await queryOne('SELECT id, og_image FROM pages WHERE slug = $1', [req.params.slug]);
+    if (!current) {
+      deleteFileIfExists(req.file.path);
+      throw notFound('Página no encontrada', 'PAGE_NOT_FOUND');
+    }
+
+    if (current.og_image) {
+      const oldFilename = path.basename(current.og_image);
+      deleteFileIfExists(path.join(PAGES_UPLOADS_DIR, oldFilename));
+    }
+
+    const ogImage = `${req.protocol}://${req.get('host')}/uploads/pages/${req.file.filename}`;
+    const page = await queryOne(
+      'UPDATE pages SET og_image = $1 WHERE slug = $2 RETURNING *',
+      [ogImage, req.params.slug],
+    );
+    res.json({ page });
+  }),
+);
+
+// DELETE /admin/pages/:slug/image — elimina la imagen social
+adminRouter.delete(
+  '/pages/:slug/image',
+  asyncHandler(async (req, res) => {
+    const current = await queryOne('SELECT id, og_image FROM pages WHERE slug = $1', [req.params.slug]);
+    if (!current) throw notFound('Página no encontrada', 'PAGE_NOT_FOUND');
+
+    if (current.og_image) {
+      const filename = path.basename(current.og_image);
+      deleteFileIfExists(path.join(PAGES_UPLOADS_DIR, filename));
+    }
+    await queryOne('UPDATE pages SET og_image = NULL WHERE slug = $1 RETURNING id', [req.params.slug]);
+    res.status(204).end();
   }),
 );

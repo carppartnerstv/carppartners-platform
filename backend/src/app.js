@@ -17,6 +17,7 @@ import { authRouter } from './routes/auth.js';
 import { catalogRouter } from './routes/catalog.js';
 import { userRouter } from './routes/user.js';
 import { adminRouter } from './routes/admin.js';
+import { pagesRouter } from './routes/pages.js';
 import { stripeWebhookRouter } from './routes/stripe.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
@@ -59,6 +60,7 @@ export function createApp() {
   });
 
   app.use('/auth', authLimiter, authRouter);
+  app.use('/', pagesRouter); // /pages/:slug — pública, sin login
   app.use('/', catalogRouter); // /videos, /categories, /series
   app.use('/', userRouter); // /watch-history, /watchlist, /push-tokens, /billing
   app.use('/admin', adminRouter);

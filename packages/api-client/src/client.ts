@@ -24,6 +24,10 @@ import type {
   SeriesInput,
   CrewMember,
   CrewMemberInput,
+  PublicPage,
+  AdminPage,
+  AdminPageSummary,
+  PageInput,
 } from './types.js';
 
 // ─── Error tipado ────────────────────────────────────────────────────────────
@@ -534,6 +538,42 @@ export class ApiClient {
     thumbnailUrl: string | null;
   }> {
     return this.request('GET', `/admin/vimeo/${encodeURIComponent(vimeoId)}/metadata`);
+  }
+
+  // ── Páginas de contenido fijo ────────────────────────────────────────────────
+
+  async getPage(slug: string): Promise<{ page: PublicPage }> {
+    return this.request('GET', `/pages/${slug}`, { auth: false });
+  }
+
+  async getAdminPages(): Promise<{ pages: AdminPageSummary[] }> {
+    return this.request('GET', '/admin/pages');
+  }
+
+  async getAdminPage(slug: string): Promise<{ page: AdminPage }> {
+    return this.request('GET', `/admin/pages/${slug}`);
+  }
+
+  async createAdminPage(data: PageInput): Promise<{ page: AdminPage }> {
+    return this.request('POST', '/admin/pages', { body: data });
+  }
+
+  async updateAdminPage(slug: string, data: Partial<PageInput>): Promise<{ page: AdminPage }> {
+    return this.request('PUT', `/admin/pages/${slug}`, { body: data });
+  }
+
+  async deleteAdminPage(id: string): Promise<void> {
+    return this.request('DELETE', `/admin/pages/${id}`);
+  }
+
+  async uploadPageImage(slug: string, file: File): Promise<{ page: AdminPage }> {
+    const fd = new FormData();
+    fd.append('image', file);
+    return this.requestMultipart('POST', `/admin/pages/${slug}/image`, fd);
+  }
+
+  async deletePageImage(slug: string): Promise<void> {
+    return this.request('DELETE', `/admin/pages/${slug}/image`);
   }
 }
 

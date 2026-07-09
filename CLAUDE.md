@@ -78,6 +78,7 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | PUT | `/auth/me` `{name}` | JWT | `{user}` — "Editar perfil"; el email NO es editable aquí (ligado a Stripe) |
 | POST | `/auth/me/avatar` `multipart/form-data; field=avatar` | JWT | `{user}` — sube/reemplaza la foto propia (JPG/PNG/WebP, máx 5 MB) |
 | DELETE | `/auth/me/avatar` | JWT | 204 |
+| GET | `/pages/:slug` | pública | `{page}` — contenido + SEO (`meta_title`,`meta_description`,`og_image`) de una página fija (Sobre nosotros, legales, Contacto...); usada por las rutas públicas homónimas de `apps/web` |
 | GET | `/videos?limit&offset&category&series&q` | JWT + suscripción | `{videos, limit, offset}` |
 | GET | `/videos/featured` | JWT + suscripción | `{video}` — destacado de portada de Home: el marcado manualmente (`is_featured`) o, si no hay ninguno, fallback al criterio automático (primera categoría por `order_index` · primer vídeo). Registrada antes de `/videos/:id` en el router |
 | GET | `/videos/:id` | JWT + suscripción | `{video, related}` — cada `related` incluye `progress_sec`/`completed` del usuario actual, para pintar su línea de tiempo en "Más como esto" |
@@ -113,6 +114,13 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | POST | `/admin/series/:id/cover` `multipart/form-data; field=cover` | JWT + admin | `{series}` — sube/reemplaza la portada (JPG/PNG/WebP, máx 5 MB; pensada para 16:9 1920×1080); la URL pública se guarda en `series.cover_url` |
 | DELETE | `/admin/series/:id/cover` | JWT + admin | 204 — borra el archivo de disco y pone `cover_url = NULL` |
 | GET | `/admin/vimeo/:vimeoId/metadata` | JWT + admin | `{title,durationSec,thumbnailUrl}` — autorelleno formulario |
+| GET | `/admin/pages` | JWT + admin | `{pages}` — listado sin `content` (para la tabla del panel) |
+| GET | `/admin/pages/:slug` | JWT + admin | `{page}` — página completa, con `content`, para el formulario de edición |
+| POST | `/admin/pages` `{slug,title,content?,metaTitle?,metaDescription?}` | JWT + admin | `{page}` 201 — crear página nueva; no es el caso de uso principal (las seis páginas fijas ya existen desde la migración 010), pero queda disponible |
+| PUT | `/admin/pages/:slug` | JWT + admin | `{page}` — `content` se sanitiza igual que la bio de crew (`RICH_TEXT_SANITIZE_OPTIONS`) |
+| DELETE | `/admin/pages/:id` | JWT + admin | 204 — borra también la imagen social del disco si era local |
+| POST | `/admin/pages/:slug/image` `multipart/form-data; field=image` | JWT + admin | `{page}` — sube/reemplaza la imagen social (`og_image`, JPG/PNG/WebP, máx 5 MB) |
+| DELETE | `/admin/pages/:slug/image` | JWT + admin | 204 — borra el archivo de disco y pone `og_image = NULL` |
 | GET | `/admin/crew` | JWT + admin | `{crew}` |
 | POST | `/admin/crew` `{name,slug,role?,bio?,avatarUrl?,orderIndex?}` | JWT + admin | `{member}` 201 |
 | PUT | `/admin/crew/:id` | JWT + admin | `{member}` |
@@ -177,6 +185,8 @@ manualmente desde `/admin/series` cuando el usuario lo decida, no por script.
 | `/crew/[slug]` | Perfil de miembro de la crew (bio, "Vídeos con {nombre}") — se abre desde el Reparto del detalle | suscriptores |
 | `/mi-lista` | Vídeos guardados | suscriptores |
 | `/perfil` | Datos, plan activo, enlace a Customer Portal de Stripe | suscriptores |
+| `/sobre-carp-partners`, `/aviso-legal`, `/politica-de-privacidad`, `/politica-de-cookies`, `/terminos-de-uso` | Páginas de contenido fijo editables desde `/admin/paginas` (`GET /pages/:slug`), maquetadas con `StaticPageLayout`/`StaticPageContent` (`apps/web/src/components/StaticPageLayout.tsx`). `generateMetadata()` en cada `page.tsx` aplica `meta_title`/`meta_description`/`og_image` de la página | pública |
+| `/contacto` | Igual que las anteriores + `<ContactForm />` maquetado por código (no editable desde el panel); el envío real queda pendiente de conectar a un endpoint — de momento solo valida y confirma en local | pública |
 | `/admin` | Panel de administración | solo admin |
 
 ## Reproductor (briefing 5.3) — componente crítico
@@ -204,44 +214,49 @@ manualmente desde `/admin/series` cuando el usuario lo decida, no por script.
 - Tailwind con tokens de color centralizados; nada de estilos mágicos repetidos.
 - Componentes de UI reutilizables en `/packages/ui`; las apps solo componen.
 
-## Subida de archivos (avatars de crew, portadas de series y de usuarios)
+## Subida de archivos (avatars de crew, portadas de series, imagen social de páginas y de usuarios)
 
 - Las imágenes se guardan en **`backend/uploads/crew/`** (avatar de crew),
   **`backend/uploads/series/`** (portada de serie/película, pensada para
-  16:9 1920×1080) o **`backend/uploads/avatars/`** (foto de perfil del propio
-  usuario, subida desde Perfil → Editar perfil) con nombre único
-  (`<timestamp>-<random>.<ext>`). Los tres comparten la misma factory
+  16:9 1920×1080), **`backend/uploads/pages/`** (imagen social/`og_image` de
+  una página de contenido) o **`backend/uploads/avatars/`** (foto de perfil
+  del propio usuario, subida desde Perfil → Editar perfil) con nombre único
+  (`<timestamp>-<random>.<ext>`). Los cuatro comparten la misma factory
   `makeImageUpload(uploadsDir, fieldName)` en `admin.js` (mismo `multer`,
-  misma validación) — para añadir un cuarto tipo de imagen, reutiliza esa
+  misma validación) — para añadir un tipo de imagen más, reutiliza esa
   factory en vez de duplicar la configuración de `multer`.
 - La carpeta **`backend/uploads/`** está en `.gitignore** y **debe incluirse en
   las copias de seguridad del servidor** (no está en el repositorio).
 - El backend las sirve de forma estática en la ruta `/uploads/*` mediante
   `express.static` (solo esa carpeta, `index: false, dotfiles: 'deny'`).
 - La URL pública almacenada en `crew_members.avatar_url` / `series.cover_url` /
-  `users.avatar_url` usa el host del request (`req.protocol + '://' + req.get('host')`):
-  - Dev: `http://localhost:3001/uploads/crew/<filename>`, `/uploads/series/<filename>` o `/uploads/avatars/<filename>`
+  `pages.og_image` / `users.avatar_url` usa el host del request
+  (`req.protocol + '://' + req.get('host')`):
+  - Dev: `http://localhost:3001/uploads/crew/<filename>`, `/uploads/series/<filename>`, `/uploads/pages/<filename>` o `/uploads/avatars/<filename>`
   - Producción: requiere que Nginx tenga un `location /uploads/ { proxy_pass http://localhost:3001; }`.
 - Al reemplazar o eliminar una imagen, el endpoint borra el archivo anterior del
-  disco. Al eliminar la fila dueña (DELETE `/admin/crew/:id` o `/admin/series/:id`),
-  también se borra su imagen del disco.
+  disco. Al eliminar la fila dueña (DELETE `/admin/crew/:id`, `/admin/series/:id`
+  o `/admin/pages/:id`), también se borra su imagen del disco.
 - `multer` gestiona la subida; validación: solo `image/jpeg`, `image/png`,
   `image/webp`; máximo **5 MB**. Errores devueltos con formato estándar.
 
-## Texto enriquecido (bio de crew, descripción de series/películas)
+## Texto enriquecido (bio de crew, descripción de series/películas, páginas)
 
-- `crew_members.bio` y `series.description` se editan con el mismo componente
-  `RichTextEditor` (Tiptap: negrita, cursiva, tachado, enlaces, listas) en
+- `crew_members.bio`, `series.description` y `pages.content` se editan con el
+  mismo componente `RichTextEditor` (Tiptap: negrita, cursiva, tachado,
+  enlaces, listas — sin imágenes incrustadas, decisión explícita) en
   `apps/web/src/components/admin/RichTextEditor.tsx`.
-- El backend sanitiza el HTML al guardar (POST/PUT de `/admin/crew` y
-  `/admin/series`) con `sanitizeHtml` y las mismas `RICH_TEXT_SANITIZE_OPTIONS`
-  en `admin.js` (etiquetas permitidas: `p, br, strong, b, em, i, s, u, a, ul,
-  ol, li`; los enlaces fuerzan `rel="noopener noreferrer"`). Nunca confíes en
-  HTML sin sanitizar de estos campos si añades un nuevo punto de entrada.
+- El backend sanitiza el HTML al guardar (POST/PUT de `/admin/crew`,
+  `/admin/series` y `/admin/pages`) con `sanitizeHtml` y las mismas
+  `RICH_TEXT_SANITIZE_OPTIONS` en `admin.js` (etiquetas permitidas: `p, br,
+  strong, b, em, i, s, u, a, ul, ol, li`; los enlaces fuerzan
+  `rel="noopener noreferrer"`). Nunca confíes en HTML sin sanitizar de estos
+  campos si añades un nuevo punto de entrada.
 - Al mostrarlo en la web pública se renderiza con `dangerouslySetInnerHTML`
   dentro de un wrapper `.rich-editor .ProseMirror` (con `style` inline para
-  igualar la tipografía del contexto) — así ya se hace en `/crew/[slug]` (bio)
-  y en `/serie/[id]` (descripción de la serie/película).
+  igualar la tipografía del contexto) — así ya se hace en `/crew/[slug]` (bio),
+  en `/serie/[id]` (descripción de la serie/película) y en las páginas fijas
+  vía `StaticPageContent` (`apps/web/src/components/StaticPageLayout.tsx`).
 
 ## Reglas para el agente
 
