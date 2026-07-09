@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { AdminVideo, AdminVideoInput, Category, Series, CrewMember } from '@carp-partners/api-client';
+import type { AdminVideo, AdminVideoInput, Category, AdminSeries, CrewMember } from '@carp-partners/api-client';
 import { Button, Pagination } from '@carp-partners/ui';
 import { AdminModal } from '@/components/admin/AdminModal';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
@@ -170,7 +170,7 @@ export default function AdminVideosPage() {
   const { toast } = useToast();
   const [videos, setVideos]         = useState<AdminVideo[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [seriesList, setSeriesList] = useState<Series[]>([]);
+  const [seriesList, setSeriesList] = useState<AdminSeries[]>([]);
   const [crewList, setCrewList]     = useState<CrewMember[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
@@ -198,7 +198,7 @@ export default function AdminVideosPage() {
   useEffect(() => {
     Promise.all([
       apiClient.getCategories(),
-      apiClient.getSeries(),
+      apiClient.getAdminSeries(),
       apiClient.getAdminCrew(),
     ]).then(([cRes, sRes, crewRes]) => {
       setCategories(cRes.categories);
@@ -350,6 +350,19 @@ export default function AdminVideosPage() {
       toast('error', e instanceof ApiError ? e.message : 'No se pudo eliminar');
     } finally { setDeleting(false); }
   };
+
+  // Series asignables a un vídeo: los vídeos viven en series sin temporadas
+  // propias (planas o temporadas hijas), nunca en una serie madre que solo
+  // agrupa temporadas ("La Picada" a secas no es asignable, sus temporadas sí).
+  const assignableSeries = seriesList
+    .filter(s => s.season_count === 0)
+    .map(s => ({
+      id: s.id,
+      label: s.parent_series_id ? `${s.parent_title} — Temporada ${s.season_num ?? '?'}` : s.title,
+      sortKey: (s.parent_title ?? s.title).toLowerCase(),
+      seasonNum: s.season_num ?? 0,
+    }))
+    .sort((a, b) => a.sortKey.localeCompare(b.sortKey) || a.seasonNum - b.seasonNum);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -616,13 +629,13 @@ export default function AdminVideosPage() {
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
           </Field>
-          <Field label="Serie">
+          <Field label="Serie" hint="Las series con varias temporadas muestran cada temporada por separado; el vídeo va a la temporada, no a la serie madre.">
             <Select
               value={form.seriesId ?? ''}
               onChange={v => setForm(f => ({ ...f, seriesId: v }))}
             >
               <option value="">— Sin serie —</option>
-              {seriesList.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+              {assignableSeries.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
             </Select>
           </Field>
           <Field label="Crew" hint="Personas que aparecen en este vídeo. Ctrl/Cmd + clic para selección múltiple.">

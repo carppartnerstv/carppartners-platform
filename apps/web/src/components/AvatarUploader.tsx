@@ -3,12 +3,14 @@
 import React, { useRef } from 'react';
 
 interface AvatarUploaderProps {
-  /** URL actual almacenada en la BD (puede ser null si no tiene avatar) */
+  /** URL actual almacenada en la BD (puede ser null si no tiene imagen) */
   currentUrl: string | null;
   /** Data-URL de previsualización local (antes de subir) */
   pendingPreview: string | null;
-  /** Iniciales para el placeholder cuando no hay imagen */
-  initials: string;
+  /** Iniciales para el placeholder cuando no hay imagen (solo shape="circle") */
+  initials?: string;
+  /** "circle" (avatar de persona, por defecto) o "cover" (portada 16:9 de serie/película) */
+  shape?: 'circle' | 'cover';
   /** Estado de carga mientras se sube o elimina */
   uploading?: boolean;
   /** Se llama cuando el usuario selecciona un archivo */
@@ -21,6 +23,7 @@ export function AvatarUploader({
   currentUrl,
   pendingPreview,
   initials,
+  shape = 'circle',
   uploading = false,
   onFileSelect,
   onDelete,
@@ -28,7 +31,8 @@ export function AvatarUploader({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const displayUrl = pendingPreview ?? currentUrl;
-  const hasRealAvatar = !!currentUrl && !pendingPreview;
+  const hasRealImage = !!currentUrl && !pendingPreview;
+  const isCover = shape === 'cover';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -39,18 +43,29 @@ export function AvatarUploader({
   };
 
   return (
-    <div className="flex items-center gap-4">
+    <div className={isCover ? 'flex flex-col gap-3' : 'flex items-center gap-4'}>
       {/* Previsualización */}
       <div className="relative shrink-0">
-        <div className="w-16 h-16 rounded-full overflow-hidden bg-surface-raised border border-white/12 flex items-center justify-center">
+        <div
+          className={
+            isCover
+              ? 'w-full max-w-[320px] aspect-video rounded-lg overflow-hidden bg-surface-raised border border-white/12 flex items-center justify-center'
+              : 'w-16 h-16 rounded-full overflow-hidden bg-surface-raised border border-white/12 flex items-center justify-center'
+          }
+        >
           {displayUrl ? (
             <img src={displayUrl} alt="" className="w-full h-full object-cover" />
+          ) : isCover ? (
+            <svg className="w-8 h-8 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M4 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
           ) : (
             <span className="text-white/30 text-lg font-bold select-none">{initials}</span>
           )}
         </div>
         {uploading && (
-          <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center">
+          <div className={`absolute inset-0 ${isCover ? 'rounded-lg' : 'rounded-full'} bg-black/60 flex items-center justify-center`}>
             <svg className="w-5 h-5 text-white animate-spin" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor"
@@ -77,7 +92,7 @@ export function AvatarUploader({
           {displayUrl ? 'Reemplazar' : 'Subir imagen'}
         </button>
 
-        {hasRealAvatar && onDelete && (
+        {hasRealImage && onDelete && (
           <button
             type="button"
             disabled={uploading}
@@ -94,7 +109,9 @@ export function AvatarUploader({
           </button>
         )}
 
-        <p className="text-white/25 text-[10px]">JPG, PNG o WebP · máx. 5 MB</p>
+        <p className="text-white/25 text-[10px]">
+          JPG, PNG o WebP · máx. 5 MB{isCover ? ' · horizontal 16:9' : ''}
+        </p>
       </div>
 
       <input

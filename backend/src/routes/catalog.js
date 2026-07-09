@@ -7,7 +7,8 @@
 //   GET  /videos/:id/rating     valoración actual del usuario para ese vídeo
 //   DELETE /videos/:id/rating   quita la valoración del usuario
 //   GET  /categories            categorías con portadas
-//   GET  /series                series con episodios
+//   GET  /series                series de primer nivel (con temporadas agregadas)
+//   GET  /series/:id            detalle de una serie + sus temporadas
 //
 // Todas exigen JWT; las de contenido exigen además suscripción activa.
 // =====================================================================
@@ -252,7 +253,10 @@ catalogRouter.get(
   }),
 );
 
-// --- Series (con sus episodios publicados) ---------------------------
+// --- Series (solo de primer nivel; las temporadas quedan anidadas) ---
+// Una serie con temporadas (parent_series_id IS NULL en la fila madre) se
+// devuelve una sola vez aquí; episode_count suma los episodios propios MÁS
+// los de todas sus temporadas, para que la portada muestre el total real.
 catalogRouter.get(
   '/series',
   requireAuth,
@@ -263,14 +267,48 @@ catalogRouter.get(
     const { rows } = await query(
       `SELECT s.id, s.title, s.slug, s.description, s.category_id, s.season_num,
               s.cover_url, s.order_index,
-              COUNT(v.id) FILTER (WHERE v.published) AS episode_count
+              COUNT(DISTINCT ch.id)::int AS season_count,
+              COUNT(DISTINCT v.id) FILTER (WHERE ${VISIBLE})::int AS episode_count
          FROM series s
-         LEFT JOIN videos v ON v.series_id = s.id
-        WHERE 1 = 1 ${categoryFilter}
+         LEFT JOIN series ch ON ch.parent_series_id = s.id
+         LEFT JOIN videos v  ON v.series_id = s.id OR v.series_id = ch.id
+        WHERE s.parent_series_id IS NULL ${categoryFilter}
         GROUP BY s.id
         ORDER BY s.order_index, s.title`,
       params,
     );
     res.json({ series: rows });
+  }),
+);
+
+// --- Detalle de una serie + sus temporadas -----------------------------
+// Si `seasons` viene vacío, la serie es "plana": sus episodios se obtienen
+// directamente con GET /videos?series=<id>. Si trae elementos, cada uno es
+// una temporada (fila de `series` con parent_series_id = esta serie) y sus
+// episodios se obtienen con GET /videos?series=<seasonId>.
+catalogRouter.get(
+  '/series/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const series = await queryOne(
+      `SELECT id, title, slug, description, category_id, season_num,
+              cover_url, order_index, parent_series_id
+         FROM series WHERE id = $1`,
+      [req.params.id],
+    );
+    if (!series) throw notFound('Serie no encontrada', 'SERIES_NOT_FOUND');
+
+    const { rows: seasons } = await query(
+      `SELECT s.id, s.title, s.slug, s.season_num, s.cover_url, s.order_index,
+              COUNT(v.id) FILTER (WHERE ${VISIBLE})::int AS episode_count
+         FROM series s
+         LEFT JOIN videos v ON v.series_id = s.id
+        WHERE s.parent_series_id = $1
+        GROUP BY s.id
+        ORDER BY s.season_num, s.order_index`,
+      [series.id],
+    );
+
+    res.json({ series, seasons });
   }),
 );

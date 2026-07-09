@@ -63,7 +63,52 @@ export interface Series {
   season_num: number | null;
   cover_url: string | null;
   order_index: number;
+  season_count: number;
   episode_count: number;
+}
+
+// Temporada = fila de `series` con parent_series_id apuntando a la serie
+// madre. Un array vacío en SeriesDetail.seasons significa serie "plana".
+export interface SeriesSeason {
+  id: string;
+  title: string;
+  slug: string;
+  season_num: number | null;
+  cover_url: string | null;
+  order_index: number;
+  episode_count: number;
+}
+
+export interface SeriesDetail {
+  series: {
+    id: string;
+    title: string;
+    slug: string;
+    description: string | null;
+    category_id: string | null;
+    season_num: number | null;
+    cover_url: string | null;
+    order_index: number;
+    parent_series_id: string | null;
+  };
+  seasons: SeriesSeason[];
+}
+
+export interface AdminSeries {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  category_id: string | null;
+  season_num: number | null;
+  cover_url: string | null;
+  order_index: number;
+  parent_series_id: string | null;
+  created_at: string;
+  category_name: string | null;
+  parent_title: string | null;
+  season_count: number;
+  video_count: number;
 }
 
 export interface WatchHistoryItem {
@@ -202,4 +247,7 @@ export interface SeriesInput {
   seasonNum?: number;
   coverUrl?: string;
   orderIndex?: number;
+  // uuid de la serie madre para convertir esta serie en una temporada suya,
+  // o null para quitarle la serie madre (solo se permite un nivel).
+  parentSeriesId?: string | null;
 }

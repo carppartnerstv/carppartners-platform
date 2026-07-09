@@ -86,7 +86,8 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | GET | `/videos/:id/rating` | JWT + suscripción | `{rating: -1\|1\|2\|null}` — valoración del usuario actual para ese vídeo |
 | DELETE | `/videos/:id/rating` | JWT + suscripción | 204 — quita la valoración del usuario |
 | GET | `/categories` | JWT | `{categories}` |
-| GET | `/series?category` | JWT | `{series}` |
+| GET | `/series?category` | JWT | `{series}` — solo series de primer nivel (`parent_series_id IS NULL`); `episode_count` suma los episodios propios + los de todas sus temporadas |
+| GET | `/series/:id` | JWT | `{series, seasons}` — `seasons` son las temporadas (filas de `series` con `parent_series_id` = esta serie) con su propio `episode_count`. Si `seasons` viene vacío, la serie es "plana": sus episodios se piden con `GET /videos?series=<id>`. Si no, cada temporada expone su propio id para pedir `GET /videos?series=<seasonId>` |
 | POST | `/watch-history` `{videoId,progressSec,completed?}` | JWT | 204 |
 | GET | `/watch-history/continue` | JWT | `{items}` |
 | GET | `/watchlist` | JWT | `{items}` |
@@ -103,9 +104,12 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | POST | `/admin/categories` `{name,slug,description?,coverUrl?,orderIndex?}` | JWT + admin | `{category}` 201 |
 | PUT | `/admin/categories/:id` | JWT + admin | `{category}` |
 | DELETE | `/admin/categories/:id` | JWT + admin | 204 |
-| POST | `/admin/series` `{title,slug,description?,categoryId?,seasonNum?,coverUrl?,orderIndex?}` | JWT + admin | `{series}` 201 |
-| PUT | `/admin/series/:id` | JWT + admin | `{series}` |
-| DELETE | `/admin/series/:id` | JWT + admin | 204 |
+| GET | `/admin/series?category` | JWT + admin | `{series}` — TODAS las series (incluidas las temporadas), con `parent_series_id`, `parent_title`, `season_count`, `video_count` |
+| POST | `/admin/series` `{title,slug,description?,categoryId?,seasonNum?,coverUrl?,orderIndex?,parentSeriesId?}` | JWT + admin | `{series}` 201 — `parentSeriesId` convierte la serie en una temporada de otra (solo 1 nivel de profundidad: el padre no puede tener a su vez padre, y una serie con temporadas propias no puede recibir padre) |
+| PUT | `/admin/series/:id` | JWT + admin | `{series}` — mismas reglas de `parentSeriesId`; enviar `null` explícito quita la serie madre |
+| DELETE | `/admin/series/:id` | JWT + admin | 204 — si tenía temporadas, quedan huérfanas (pasan a ser series de primer nivel, `parent_series_id = NULL`); borra también el archivo de portada del disco si era local |
+| POST | `/admin/series/:id/cover` `multipart/form-data; field=cover` | JWT + admin | `{series}` — sube/reemplaza la portada (JPG/PNG/WebP, máx 5 MB; pensada para 16:9 1920×1080); la URL pública se guarda en `series.cover_url` |
+| DELETE | `/admin/series/:id/cover` | JWT + admin | 204 — borra el archivo de disco y pone `cover_url = NULL` |
 | GET | `/admin/vimeo/:vimeoId/metadata` | JWT + admin | `{title,durationSec,thumbnailUrl}` — autorelleno formulario |
 | GET | `/admin/crew` | JWT + admin | `{crew}` |
 | POST | `/admin/crew` `{name,slug,role?,bio?,avatarUrl?,orderIndex?}` | JWT + admin | `{member}` 201 |
@@ -130,14 +134,28 @@ El campo `publishedAt` (camelCase en la API, `published_at` en BD) es opcional e
 que el usuario no tiene suscripción activa → la UI debe redirigir a la pantalla
 de planes, no mostrar un error genérico.
 
+**Series con temporadas (migración 008):** `series.parent_series_id` (nullable,
+FK a `series.id`) modela temporadas con un único nivel de profundidad. La
+mayoría de series son "planas" (sin padre ni hijas). Una serie con varias
+temporadas es una fila madre (`parent_series_id IS NULL`) con N filas hijas
+que apuntan a ella; cada hija reutiliza `season_num` como número de temporada.
+Reglas de negocio (impuestas en `admin.js`, no solo en la UI): una serie que
+ya tiene temporadas propias no puede a su vez recibir un padre, y el padre
+asignado nunca puede ser a su vez una temporada. `GET /series` (público) solo
+devuelve series de primer nivel; usa `GET /series/:id` para sus temporadas.
+Pendiente (decisión del usuario, no automatizar): reconvertir "La Picada 1" y
+"La Picada 2" en temporadas de una nueva serie madre "La Picada" — se hace
+manualmente desde `/admin/series` cuando el usuario lo decida, no por script.
+
 ## Rutas de la web (briefing 5.1)
 
 | Ruta | Pantalla | Acceso |
 |------|----------|--------|
 | `/` | Landing (propuesta de valor, planes, login) | pública |
 | `/login` | Login + registro | pública |
-| `/home` | Home tipo Netflix: hero + filas por categoría | suscriptores |
-| `/explorar` | Búsqueda y filtros (categoría, serie, duración) | suscriptores |
+| `/home` | Home tipo Netflix: hero + filas por categoría, una tarjeta por serie/película (no vídeos sueltos) | suscriptores |
+| `/explorar` | Sin búsqueda activa: tarjetas de serie/película por categoría. Con texto de búsqueda: vídeos sueltos que coinciden (como antes) | suscriptores |
+| `/serie/[id]` | Detalle de una serie o película (portada, sinopsis, metadatos) + lista de episodios. Si la serie tiene temporadas (`GET /series/:id` → `seasons.length > 0`), muestra selector de temporada (por defecto la primera) y lista los episodios de la temporada elegida vía `GET /videos?series=<seasonId>`; si no, lista sus vídeos directamente vía `GET /videos?series=<id>`. Ruta única para series y películas (mismo modelo de datos). Clic en un episodio → `/watch/[id]` | suscriptores |
 | `/watch/[id]` | Detalle del vídeo (sinopsis, Reparto, Mi Lista, relacionados) — clic en cualquier tarjeta lleva aquí | suscriptores |
 | `/watch/[id]/play` | Reproductor a pantalla completa — solo se llega pulsando "Reproducir"/"Reanudar" desde el detalle | suscriptores |
 | `/crew/[slug]` | Perfil de miembro de la crew (bio, "Vídeos con {nombre}") — se abre desde el Reparto del detalle | suscriptores |
@@ -170,25 +188,44 @@ de planes, no mostrar un error genérico.
 - Tailwind con tokens de color centralizados; nada de estilos mágicos repetidos.
 - Componentes de UI reutilizables en `/packages/ui`; las apps solo componen.
 
-## Subida de archivos (avatars de crew y de usuarios)
+## Subida de archivos (avatars de crew, portadas de series y de usuarios)
 
-- Las imágenes se guardan en **`backend/uploads/crew/`** (crew) o
-  **`backend/uploads/avatars/`** (foto de perfil del propio usuario, subida
-  desde Perfil → Editar perfil) con nombre único (`<timestamp>-<random>.<ext>`).
-  Cada tipo tiene su propio middleware `multer`, pero con la misma validación.
+- Las imágenes se guardan en **`backend/uploads/crew/`** (avatar de crew),
+  **`backend/uploads/series/`** (portada de serie/película, pensada para
+  16:9 1920×1080) o **`backend/uploads/avatars/`** (foto de perfil del propio
+  usuario, subida desde Perfil → Editar perfil) con nombre único
+  (`<timestamp>-<random>.<ext>`). Los tres comparten la misma factory
+  `makeImageUpload(uploadsDir, fieldName)` en `admin.js` (mismo `multer`,
+  misma validación) — para añadir un cuarto tipo de imagen, reutiliza esa
+  factory en vez de duplicar la configuración de `multer`.
 - La carpeta **`backend/uploads/`** está en `.gitignore** y **debe incluirse en
   las copias de seguridad del servidor** (no está en el repositorio).
 - El backend las sirve de forma estática en la ruta `/uploads/*` mediante
   `express.static` (solo esa carpeta, `index: false, dotfiles: 'deny'`).
-- La URL pública almacenada en `crew_members.avatar_url` / `users.avatar_url`
-  usa el host del request (`req.protocol + '://' + req.get('host')`):
-  - Dev: `http://localhost:3001/uploads/crew/<filename>` o `/uploads/avatars/<filename>`
+- La URL pública almacenada en `crew_members.avatar_url` / `series.cover_url` /
+  `users.avatar_url` usa el host del request (`req.protocol + '://' + req.get('host')`):
+  - Dev: `http://localhost:3001/uploads/crew/<filename>`, `/uploads/series/<filename>` o `/uploads/avatars/<filename>`
   - Producción: requiere que Nginx tenga un `location /uploads/ { proxy_pass http://localhost:3001; }`.
-- Al reemplazar o eliminar un avatar, el endpoint borra el archivo anterior del
-  disco. Al eliminar un miembro (DELETE `/admin/crew/:id`), también se borra su
-  avatar del disco.
+- Al reemplazar o eliminar una imagen, el endpoint borra el archivo anterior del
+  disco. Al eliminar la fila dueña (DELETE `/admin/crew/:id` o `/admin/series/:id`),
+  también se borra su imagen del disco.
 - `multer` gestiona la subida; validación: solo `image/jpeg`, `image/png`,
   `image/webp`; máximo **5 MB**. Errores devueltos con formato estándar.
+
+## Texto enriquecido (bio de crew, descripción de series/películas)
+
+- `crew_members.bio` y `series.description` se editan con el mismo componente
+  `RichTextEditor` (Tiptap: negrita, cursiva, tachado, enlaces, listas) en
+  `apps/web/src/components/admin/RichTextEditor.tsx`.
+- El backend sanitiza el HTML al guardar (POST/PUT de `/admin/crew` y
+  `/admin/series`) con `sanitizeHtml` y las mismas `RICH_TEXT_SANITIZE_OPTIONS`
+  en `admin.js` (etiquetas permitidas: `p, br, strong, b, em, i, s, u, a, ul,
+  ol, li`; los enlaces fuerzan `rel="noopener noreferrer"`). Nunca confíes en
+  HTML sin sanitizar de estos campos si añades un nuevo punto de entrada.
+- Al mostrarlo en la web pública se renderiza con `dangerouslySetInnerHTML`
+  dentro de un wrapper `.rich-editor .ProseMirror` (con `style` inline para
+  igualar la tipografía del contexto) — así ya se hace en `/crew/[slug]` (bio)
+  y en `/serie/[id]` (descripción de la serie/película).
 
 ## Reglas para el agente
 

@@ -150,14 +150,77 @@
           <span style="padding:6px 12px;border-radius:7px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);font-size:12.5px;color:#a9b8b1">Trofeo</span>
           <span style="padding:6px 12px;border-radius:7px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);font-size:12.5px;color:#a9b8b1">T&eacute;cnica avanzada</span>
         </div>
+
+        <sc-if value="{{ curHasCrew }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:34px">
+            <div style="font-size:12.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#7d8d86;margin-bottom:16px">Reparto</div>
+            <div style="display:flex;gap:22px;flex-wrap:wrap">
+              <sc-for list="{{ curCrew }}" as="p" hint-placeholder-count="2">
+                <div onClick="{{ p.open }}" style="display:flex;flex-direction:column;align-items:center;gap:10px;width:88px;cursor:pointer;text-align:center" style-hover="opacity:0.85">
+                  <div style="width:64px;height:64px;border-radius:50%;background:{{ p.avatarBg }};border:1px solid rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center"><i class="ti ti-user" style="font-size:26px;color:rgba(255,255,255,0.55)"></i></div>
+                  <div>
+                    <div style="font-size:12.5px;font-weight:600;color:#e9efeb;line-height:1.3">{{ p.name }}</div>
+                    <div style="font-size:11px;color:#7d8d86;margin-top:2px;line-height:1.3">{{ p.role }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
       </div>
       <div style="font-size:13px;line-height:1.9;color:#85958e">
         <div style="margin-bottom:14px"><span style="color:#5f6f69">Serie:&nbsp;</span><span style="color:#cdd6d2">{{ curSeries }}</span></div>
         <div style="margin-bottom:14px"><span style="color:#5f6f69">Categor&iacute;a:&nbsp;</span><span style="color:#cdd6d2">{{ curCat }}</span></div>
-        <div style="margin-bottom:14px"><span style="color:#5f6f69">Duraci&oacute;n:&nbsp;</span><span style="color:#cdd6d2">{{ curDur }}</span></div>
-        <div><span style="color:#5f6f69">Presenta:&nbsp;</span><span style="color:#cdd6d2">Equipo Carp Partners</span></div>
+        <div><span style="color:#5f6f69">Duraci&oacute;n:&nbsp;</span><span style="color:#cdd6d2">{{ curDur }}</span></div>
       </div>
     </div>
+
+    <sc-if value="{{ curHasSeasons }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:0 48px 50px;max-width:1180px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:14px">
+          <h2 style="font-family:Sora,sans-serif;font-size:19px;font-weight:600;color:#eef3f0;margin:0">Episodios</h2>
+          <div style="position:relative">
+            <div onClick="{{ toggleSeasonMenu }}" style="display:inline-flex;align-items:center;gap:10px;padding:10px 16px;border-radius:9px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);cursor:pointer;font-size:13.5px;font-weight:600;color:#e9efeb" style-hover="background:rgba(255,255,255,0.1)">{{ seasonLabel }}<i class="ti ti-chevron-down" style="font-size:16px;color:#9aa9a3"></i></div>
+            <sc-if value="{{ seasonMenuOpen }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ stopProp }}" style="position:absolute;top:calc(100% + 6px);right:0;min-width:170px;background:#0e151a;border:1px solid rgba(255,255,255,0.1);border-radius:11px;box-shadow:0 18px 44px rgba(0,0,0,0.55);overflow:hidden;z-index:20">
+                <sc-for list="{{ seasonOptions }}" as="so" hint-placeholder-count="2">
+                  <div onClick="{{ so.select }}" style="padding:11px 16px;font-size:13.5px;font-weight:{{ so.weight }};color:{{ so.color }};cursor:pointer;background:{{ so.bg }}" style-hover="background:rgba(255,255,255,0.06)">{{ so.label }}</div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <sc-if value="{{ seasonMenuOpen }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ closeSeasonMenu }}" style="position:fixed;inset:0;z-index:15"></div>
+        </sc-if>
+
+        <div style="display:flex;flex-direction:column">
+          <sc-for list="{{ seasonEpisodes }}" as="e" hint-placeholder-count="3">
+            <div onClick="{{ e.open }}" style="display:flex;align-items:center;gap:20px;padding:18px 14px;border-radius:12px;cursor:pointer" style-hover="background:rgba(255,255,255,0.04)">
+              <div style="width:26px;flex-shrink:0;text-align:center;font-family:Sora,sans-serif;font-size:19px;font-weight:700;color:{{ e.numColor }}">{{ e.num }}</div>
+              <div style="position:relative;flex:0 0 168px;height:94px;border-radius:9px;overflow:hidden;background:{{ e.bg }};border:{{ e.ringBorder }}">
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.18)"><div style="width:34px;height:34px;border-radius:50%;background:{{ e.playBg }};display:flex;align-items:center;justify-content:center"><i class="ti ti-player-play-filled" style="font-size:16px;color:{{ e.playColor }}"></i></div></div>
+                <sc-if value="{{ e.showProgress }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,0.25)"><div style="height:100%;width:{{ e.progressPct }};background:{{ accentBright }}"></div></div>
+                </sc-if>
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:14.5px;font-weight:{{ e.titleWeight }};color:{{ e.titleColor }};margin-bottom:5px">{{ e.title }}</div>
+                <div style="font-size:13px;line-height:1.55;color:#85958e;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ e.syn }}</div>
+              </div>
+              <div style="flex-shrink:0;text-align:right">
+                <div style="font-size:12.5px;color:#7d8d86;font-variant-numeric:tabular-nums">{{ e.dur }}</div>
+                <sc-if value="{{ e.isCurrent }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:11px;font-weight:600;color:{{ accentBright }};margin-top:3px">Viendo ahora</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
     <div style="padding:0 48px 60px">
       <h2 style="font-family:Sora,sans-serif;font-size:19px;font-weight:600;color:#eef3f0;margin:0 0 16px">M&aacute;s como esto</h2>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,1fr));gap:22px 18px">
@@ -196,6 +259,35 @@
         </div>
       </div>
     </sc-if>
+  </div>
+  </sc-if>
+
+  <!-- ===================== CREW MEMBER ===================== -->
+  <sc-if value="{{ isCrew }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:100vh;padding:108px 48px 70px">
+    <div onClick="{{ back }}" style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px 9px 12px;border-radius:9px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#e9efeb;font-size:13.5px;font-weight:500;cursor:pointer;margin-bottom:36px" style-hover="background:rgba(255,255,255,0.1)"><i class="ti ti-arrow-left" style="font-size:18px"></i>Volver</div>
+
+    <div style="display:flex;align-items:center;gap:28px;margin-bottom:28px;flex-wrap:wrap">
+      <div style="width:136px;height:136px;flex-shrink:0;border-radius:50%;background:{{ crewAvatarBg }};border:1px solid rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center"><i class="ti ti-user" style="font-size:56px;color:rgba(255,255,255,0.5)"></i></div>
+      <div>
+        <h1 style="font-family:Sora,sans-serif;font-weight:800;font-size:38px;letter-spacing:-0.02em;color:#fff;margin:0 0 10px">{{ crewName }}</h1>
+        <div style="display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:6px;background:rgba(104,20,11,0.18);color:{{ accentBright }};font-size:12px;font-weight:600"><i class="ti ti-fish" style="font-size:14px"></i>{{ crewRole }}</div>
+      </div>
+    </div>
+
+    <div style="max-width:760px;margin-bottom:44px">
+      <p style="font-size:14.5px;line-height:1.75;color:#c4d0cb;margin:0;{{ bioClampStyle }}">{{ crewBio }}</p>
+      <sc-if value="{{ bioIsLong }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ toggleBio }}" style="display:inline-flex;align-items:center;gap:5px;margin-top:10px;font-size:13px;font-weight:600;color:{{ accentBright }};cursor:pointer" style-hover="text-decoration:underline">{{ bioToggleLabel }}<i class="ti ti-{{ bioToggleIcon }}" style="font-size:15px"></i></div>
+      </sc-if>
+    </div>
+
+    <h2 style="font-family:Sora,sans-serif;font-size:19px;font-weight:600;color:#eef3f0;margin:0 0 16px">{{ crewVideosHeading }}</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,1fr));gap:22px 18px">
+      <sc-for list="{{ crewVideos }}" as="v" hint-placeholder-count="4">
+        <div><dc-import name="VideoCard" item="{{ v }}" accent="{{ accentBright }}" new-label="{{ newLabel }}" w="100%" hint-size="100%,232px"></dc-import></div>
+      </sc-for>
+    </div>
   </div>
   </sc-if>
 
@@ -451,29 +543,44 @@ class Component extends DCLogic {
     'radial-gradient(110% 100% at 76% 6%, #2b3b44 0%, rgba(43,59,68,0) 55%), linear-gradient(160deg, #121a1f, #0a0f12)'
   ];
 
+  crewTypeLabel = { socio: 'Socio', crew: 'Miembro de la crew' };
+
+  crew = [
+    { id: 'c1', name: 'Marc Oliver', type: 'socio', avatarBg: 'linear-gradient(135deg,#2f5249,#16302b)', bio: 'Marc lleva m\u00e1s de quince a\u00f1os pescando carpas en los grandes r\u00edos y embalses de Espa\u00f1a, y hoy es la cara m\u00e1s reconocible de Carp Partners TV como presentador de Aguas Salvajes. Empez\u00f3 de ni\u00f1o acompa\u00f1ando a su padre a las orillas del Ebro, y esa curiosidad temprana se convirti\u00f3 en una carrera dedicada casi por completo a entender el comportamiento de la carpa en aguas dif\u00edciles. Antes de dedicarse a la televisi\u00f3n especializada, Marc compiti\u00f3 durante varias temporadas en circuitos nacionales de carpfishing, donde afin\u00f3 su lectura del agua, su paciencia y su capacidad para adaptar la estrategia a cada escenario: embalses profundos, r\u00edos con corriente, aguas vadeables y sesiones nocturnas de larga duraci\u00f3n. Esa experiencia de competici\u00f3n es la base de casi todo lo que ense\u00f1a delante de la c\u00e1mara. En Aguas Salvajes, Marc no busca solo la captura: le interesa mostrar el proceso completo, desde el reconocimiento del terreno y la elecci\u00f3n del cebado hasta los errores y ajustes que rara vez se ven en otros programas de pesca. Es conocido entre la comunidad por su estilo directo, sin artificios, y por explicar con detalle t\u00e9cnico cada decisi\u00f3n que toma durante una sesi\u00f3n. Fuera de la pantalla, colabora con varias marcas de material de pesca en el desarrollo de nuevos productos y participa habitualmente en encuentros y quedadas de la comunidad de Carp Partners, donde comparte sesi\u00f3n con suscriptores de la plataforma. Vive cerca del Delta del Ebro, su zona de pesca favorita, y aprovecha cualquier fin de semana libre para explorar nuevos tramos de r\u00edo con la misma curiosidad de cuando empez\u00f3.' },
+    { id: 'c2', name: 'Laia Ferrer', type: 'crew', avatarBg: 'linear-gradient(135deg,#5a4326,#2a2415)', bio: 'Al frente de Escuela de Carp. Ex competidora, hoy ense\u00f1a montajes y estrategia a toda la comunidad.' },
+    { id: 'c3', name: 'Bruno S\u00e1ez', type: 'crew', avatarBg: 'linear-gradient(135deg,#1e3a5c,#0c1626)', bio: 'Presenta los documentales y El Podcast del Carp. Cuenta las historias detr\u00e1s de cada sesi\u00f3n y cada captura.' },
+    { id: 'c4', name: 'Nora Castells', type: 'crew', avatarBg: 'linear-gradient(135deg,#5a241d,#2a1411)', bio: 'Construye las series y documentales de Carp Partners TV, del guion al montaje final.' }
+  ];
+
+  crewByVideo = {
+    1: ['c1'], 2: ['c1'], 3: ['c2'], 4: ['c4'], 5: ['c1'], 6: ['c2'], 7: ['c4'],
+    8: ['c3'], 9: ['c3'], 10: ['c2'], 11: ['c1'], 12: ['c4'], 13: ['c3'], 14: ['c2'],
+    15: ['c3'], 16: ['c3'], 17: ['c1'], 18: ['c2'], 19: ['c3'], 20: ['c3'], 21: ['c2'], 22: ['c1']
+  };
+
   catalog = [
-    {id:1,  title:'Amanecer en el Ebro',            series:'Aguas Salvajes',     ep:'Ep 4',  cat:'Series',       dur:'34 min', durSec:2040, mood:0, isNew:false, progress:62, syn:'Tres d\u00edas en las aguas bravas del Ebro siguiendo a las grandes carpas de r\u00edo al amanecer. Paciencia, t\u00e9cnica y la recompensa de un trofeo.'},
+    {id:1,  title:'Amanecer en el Ebro',            series:'Aguas Salvajes',     ep:'Ep 4',  season:1, cat:'Series',       dur:'34 min', durSec:2040, mood:0, isNew:false, progress:62, syn:'Tres d\u00edas en las aguas bravas del Ebro siguiendo a las grandes carpas de r\u00edo al amanecer. Paciencia, t\u00e9cnica y la recompensa de un trofeo.'},
     {id:2,  title:'La sesi\u00f3n de 72 horas',       series:null,                 ep:null,    cat:'Documentales', dur:'41 min', durSec:2460, mood:2, isNew:false, progress:25, syn:'Un maratoniano fin de semana a orillas del agua. Montaje del bivvy, estrategia de cebado y la espera que define al pescador de carpas.'},
     {id:3,  title:'Montajes para fondos duros',      series:'Escuela de Carp',    ep:'Ep 2',  cat:'T\u00e9cnicas',    dur:'22 min', durSec:1320, mood:4, isNew:false, progress:80, syn:'Gravas, arcilla y zonas con conchas: aprende a presentar el cebo de forma impecable sobre los fondos m\u00e1s exigentes.'},
     {id:4,  title:'Boilies caseros: la receta',      series:null,                 ep:null,    cat:'T\u00e9cnicas',    dur:'28 min', durSec:1680, mood:6, isNew:true,  progress:null, syn:'Del mezclado al rolado: una receta paso a paso de boilies de pescado con la que conseguir capturas constantes toda la temporada.'},
-    {id:5,  title:'Carpas trofeo en Mequinenza',     series:'Aguas Salvajes',     ep:'Ep 5',  cat:'Series',       dur:'38 min', durSec:2280, mood:3, isNew:true,  progress:null, syn:'El embalse de Mequinenza esconde algunas de las carpas m\u00e1s grandes de Espa\u00f1a. Salimos a buscarlas con equipo pesado.'},
+    {id:5,  title:'Carpas trofeo en Mequinenza',     series:'Aguas Salvajes',     ep:'Ep 5',  season:1, cat:'Series',       dur:'38 min', durSec:2280, mood:3, isNew:true,  progress:null, syn:'El embalse de Mequinenza esconde algunas de las carpas m\u00e1s grandes de Espa\u00f1a. Salimos a buscarlas con equipo pesado.'},
     {id:6,  title:'El arte del spod',                series:'Escuela de Carp',    ep:'Ep 3',  cat:'T\u00e9cnicas',    dur:'19 min', durSec:1140, mood:7, isNew:false, progress:null, syn:'Precisi\u00f3n a larga distancia. C\u00f3mo crear una alfombra de cebo perfecta con el spod sin espantar a los peces.'},
     {id:7,  title:'Pesca nocturna: equipo esencial', series:null,                 ep:null,    cat:'T\u00e9cnicas',    dur:'31 min', durSec:1860, mood:5, isNew:true,  progress:null, syn:'Avisadores, iluminaci\u00f3n y seguridad. Todo lo que necesitas para afrontar una noche entera a la orilla del agua.'},
     {id:8,  title:'Lagos de Francia: diario',        series:'Traves\u00edas',     ep:'Ep 1',  cat:'Documentales', dur:'45 min', durSec:2700, mood:1, isNew:false, progress:null, syn:'Un viaje a los m\u00edticos lagos franceses. Carpas hist\u00f3ricas, paisajes infinitos y una cultura de pesca \u00fanica.'},
     {id:9,  title:'Invierno y carpas',               series:'El Podcast del Carp',ep:'Ep 12', cat:'Podcast',      dur:'52 min', durSec:3120, mood:5, isNew:false, progress:null, syn:'Charla a fondo sobre c\u00f3mo localizar y tentar a las carpas cuando el agua baja de los 6 grados.'},
     {id:10, title:'El hilo invisible',               series:'Escuela de Carp',    ep:'Ep 4',  cat:'T\u00e9cnicas',    dur:'24 min', durSec:1440, mood:0, isNew:false, progress:null, syn:'Fluorocarbono, leadcore y tubos antienredo. Elige la l\u00ednea final adecuada para cada situaci\u00f3n.'},
-    {id:11, title:'Big fish del Delta',              series:'Aguas Salvajes',     ep:'Ep 6',  cat:'Series',       dur:'36 min', durSec:2160, mood:2, isNew:true,  progress:null, syn:'El Delta del Ebro y sus gigantes. Una jornada en busca de la captura de nuestra vida entre ca\u00f1averales.'},
+    {id:11, title:'Big fish del Delta',              series:'Aguas Salvajes',     ep:'Ep 6',  season:1, cat:'Series',       dur:'36 min', durSec:2160, mood:2, isNew:true,  progress:null, syn:'El Delta del Ebro y sus gigantes. Una jornada en busca de la captura de nuestra vida entre ca\u00f1averales.'},
     {id:12, title:'Refugios y bivvies',              series:null,                 ep:null,    cat:'T\u00e9cnicas',    dur:'17 min', durSec:1020, mood:4, isNew:false, progress:null, syn:'C\u00f3mo montar un campamento c\u00f3modo y eficiente para sesiones largas, llueva o haga sol.'},
     {id:13, title:'Localizando la carpa en oto\u00f1o',series:null,                ep:null,    cat:'Documentales', dur:'33 min', durSec:1980, mood:3, isNew:false, progress:45, syn:'El oto\u00f1o lo cambia todo. Leemos el agua, la temperatura y el viento para encontrar a los peces en movimiento.'},
     {id:14, title:'Cebado a larga distancia',        series:'Escuela de Carp',    ep:'Ep 5',  cat:'T\u00e9cnicas',    dur:'26 min', durSec:1560, mood:7, isNew:false, progress:null, syn:'Cobra, catapulta y barco cebador. Estrategias para mantener el cebo donde est\u00e1n las carpas grandes.'},
     {id:15, title:'El Delta al amanecer',            series:'Traves\u00edas',     ep:'Ep 2',  cat:'Documentales', dur:'40 min', durSec:2400, mood:0, isNew:true,  progress:null, syn:'La luz dorada del amanecer en el Delta y una sesi\u00f3n que comienza con la primera picada del d\u00eda.'},
     {id:16, title:'Mentalidad y paciencia',          series:'El Podcast del Carp',ep:'Ep 13', cat:'Podcast',      dur:'48 min', durSec:2880, mood:6, isNew:false, progress:null, syn:'La parte mental del carpfishing. Hablamos de constancia, frustraci\u00f3n y la disciplina del pescador de carpas.'},
-    {id:17, title:'Vadeando el Segre',               series:'Aguas Salvajes',     ep:'Ep 7',  cat:'Series',       dur:'35 min', durSec:2100, mood:5, isNew:false, progress:null, syn:'Aguas cristalinas y corriente. Una aproximaci\u00f3n m\u00f3vil y ligera para sorprender a las carpas del Segre.'},
+    {id:17, title:'Vadeando el Segre',               series:'Aguas Salvajes',     ep:'Ep 7',  season:2, cat:'Series',       dur:'35 min', durSec:2100, mood:5, isNew:false, progress:null, syn:'Aguas cristalinas y corriente. Una aproximaci\u00f3n m\u00f3vil y ligera para sorprender a las carpas del Segre.'},
     {id:18, title:'Montaje helic\u00f3ptero',         series:'Escuela de Carp',    ep:'Ep 6',  cat:'T\u00e9cnicas',    dur:'21 min', durSec:1260, mood:3, isNew:false, progress:null, syn:'El montaje m\u00e1s vers\u00e1til para fondos blandos y largas distancias, explicado nudo a nudo.'},
     {id:19, title:'R\u00e9cord en aguas profundas',   series:null,                 ep:null,    cat:'Documentales', dur:'44 min', durSec:2640, mood:2, isNew:false, progress:12, syn:'Sondeamos un lago profundo en busca de las carpas m\u00e1s esquivas, las que viven donde nadie pesca.'},
     {id:20, title:'Equipo de invierno',              series:'El Podcast del Carp',ep:'Ep 14', cat:'Podcast',      dur:'50 min', durSec:3000, mood:7, isNew:false, progress:null, syn:'Ropa t\u00e9rmica, calentadores y trucos para aguantar el fr\u00edo sin perder concentraci\u00f3n.'},
     {id:21, title:'Carpa com\u00fan vs royal',        series:'Escuela de Carp',    ep:'Ep 7',  cat:'T\u00e9cnicas',    dur:'23 min', durSec:1380, mood:4, isNew:true,  progress:null, syn:'Diferencias de comportamiento entre especies y c\u00f3mo adaptar tu enfoque a cada una de ellas.'},
-    {id:22, title:'Sesi\u00f3n en el embalse',        series:'Aguas Salvajes',     ep:'Ep 8',  cat:'Series',       dur:'37 min', durSec:2220, mood:1, isNew:false, progress:null, syn:'Una jornada completa en un gran embalse de monta\u00f1a, del montaje al atardecer.'}
+    {id:22, title:'Sesi\u00f3n en el embalse',        series:'Aguas Salvajes',     ep:'Ep 8',  season:2, cat:'Series',       dur:'37 min', durSec:2220, mood:1, isNew:false, progress:null, syn:'Una jornada completa en un gran embalse de monta\u00f1a, del montaje al atardecer.'}
   ];
 
   state = {
@@ -485,7 +592,9 @@ class Component extends DCLogic {
     notifs: { estrenos: true, recomendaciones: true, promos: false, push: true },
     ratingOpen: false, ratings: {},
     name: 'Diego Ram\u00edrez', email: 'diego@carppartners.tv',
-    editingProfile: false, editName: '', editFocus: '', profileSaved: false
+    editingProfile: false, editName: '', editFocus: '', profileSaved: false,
+    bioExpanded: false,
+    seasonMenuOpen: false, selectedSeason: null
   };
 
   componentDidMount() {
@@ -507,11 +616,15 @@ class Component extends DCLogic {
       bg: this.moods[i.mood],
       metaline: i.series ? (i.series + (i.ep ? ' \u00b7 ' + i.ep : '')) : i.cat,
       progressPct: (i.progress != null ? i.progress : 0) + '%',
-      showProgress: false, showNew: false, showRank: false, rank: null
+      showProgress: false, showNew: false, showRank: false, rank: null,
+      crewIds: this.crewByVideo[i.id] || []
     });
     v.open = () => this.openDetail(v);
     return v;
   };
+
+  openCrew = (person) => this.setState(s => ({ currentCrew: person, crewReturn: s.screen, screen: 'crew', menuOpen: false, bioExpanded: false }));
+  toggleBio = () => this.setState(s => ({ bioExpanded: !s.bioExpanded }));
 
   goHome = () => this.setState({ screen: 'home', menuOpen: false });
   goExplore = () => this.setState({ screen: 'explore', menuOpen: false });
@@ -547,9 +660,16 @@ class Component extends DCLogic {
   rateLike = () => this.rateVideo('like');
   rateLove = () => this.rateVideo('love');
 
-  openDetail = (v) => this.setState(s => ({ current: v, prevScreen: (s.screen === 'detail' || s.screen === 'player') ? s.prevScreen : s.screen, screen: 'detail', menuOpen: false }));
+  openDetail = (v) => this.setState(s => ({ current: v, prevScreen: (s.screen === 'detail' || s.screen === 'player') ? s.prevScreen : s.screen, screen: 'detail', menuOpen: false, seasonMenuOpen: false, selectedSeason: null }));
+  toggleSeasonMenu = () => this.setState(s => ({ seasonMenuOpen: !s.seasonMenuOpen }));
+  closeSeasonMenu = () => this.setState({ seasonMenuOpen: false });
+  selectSeason = (n) => this.setState({ selectedSeason: n, seasonMenuOpen: false });
   play = (v) => this.setState(s => ({ current: v, playerReturn: s.screen === 'player' ? s.playerReturn : s.screen, screen: 'player', playing: true, currentTime: 0, duration: v.durSec, menuOpen: false }));
-  back = () => this.setState(s => ({ screen: s.screen === 'player' ? (s.playerReturn || 'home') : (s.prevScreen || 'home') }));
+  back = () => this.setState(s => {
+    if (s.screen === 'player') return { screen: s.playerReturn || 'home' };
+    if (s.screen === 'crew') return { screen: s.crewReturn || 'home' };
+    return { screen: s.prevScreen || 'home' };
+  });
 
   toggleList = (v) => this.setState(s => ({ myList: s.myList.includes(v.id) ? s.myList.filter(x => x !== v.id) : s.myList.concat([v.id]) }));
 
@@ -613,9 +733,49 @@ class Component extends DCLogic {
     // related
     const related = cur ? this.catalog.filter(i => i.cat === cur.cat && i.id !== cur.id).slice(0, 8).map(i => this.view(i)) : [];
 
+    // crew shown on the current video's detail page
+    const curCrewList = cur ? (cur.crewIds || []).map(cid => this.crew.find(p => p.id === cid)).filter(Boolean) : [];
+    const curCrew = curCrewList.map(p => Object.assign({}, p, { role: this.crewTypeLabel[p.type] || '', open: () => this.openCrew(p) }));
+
+    // crew profile screen
+    const activeCrew = st.currentCrew;
+    const crewVideos = activeCrew ? this.catalog.filter(i => (this.crewByVideo[i.id] || []).includes(activeCrew.id)).map(i => this.view(i)) : [];
+
     // current meta
     const inList = cur ? st.myList.includes(cur.id) : false;
     const curRating = cur ? st.ratings[cur.id] : null;
+
+    // seasons / episodes
+    const seriesName = cur ? cur.series : null;
+    const seriesEpisodesAll = seriesName ? this.catalog.filter(i => i.series === seriesName) : [];
+    const seasonNums = [...new Set(seriesEpisodesAll.map(i => i.season || 1))].sort((a, b) => a - b);
+    const curHasSeasons = seriesEpisodesAll.length > 1;
+    const defaultSeason = cur ? (cur.season || 1) : 1;
+    const activeSeason = st.selectedSeason || defaultSeason;
+    const seasonEpNums = (i) => parseInt((i.ep || '0').replace(/\D/g, ''), 10) || 0;
+    const seasonEpisodes = seriesEpisodesAll
+      .filter(i => (i.season || 1) === activeSeason)
+      .sort((a, b) => seasonEpNums(a) - seasonEpNums(b))
+      .map((i, idx) => {
+        const isCurrent = cur && i.id === cur.id;
+        return {
+          num: idx + 1, title: i.title, dur: i.dur, syn: i.syn, bg: this.moods[i.mood],
+          isCurrent, showProgress: i.progress != null, progressPct: (i.progress || 0) + '%',
+          numColor: isCurrent ? accentBright : '#5f6f69',
+          titleColor: isCurrent ? accentBright : '#e9efeb',
+          titleWeight: isCurrent ? 700 : 600,
+          ringBorder: isCurrent ? ('1.5px solid ' + accentBright) : '1px solid rgba(255,255,255,0.06)',
+          playBg: isCurrent ? accentBright : 'rgba(255,255,255,0.16)',
+          playColor: isCurrent ? '#fff' : '#fff',
+          open: () => (isCurrent ? this.play(this.view(i)) : this.openDetail(this.view(i)))
+        };
+      });
+    const seasonOptions = seasonNums.map(n => ({
+      label: 'Temporada ' + n, select: () => this.selectSeason(n),
+      weight: n === activeSeason ? 700 : 500,
+      color: n === activeSeason ? '#fff' : '#c4d0cb',
+      bg: n === activeSeason ? 'rgba(104,20,11,0.14)' : 'transparent'
+    }));
 
     // player
     const pct = (st.currentTime / (st.duration || 1)) * 100;
@@ -625,7 +785,7 @@ class Component extends DCLogic {
 
     return {
       accent, accentBright, newLabel,
-      isHome: st.screen === 'home', isDetail: st.screen === 'detail', isExplore: st.screen === 'explore', isList: st.screen === 'list', isPlayer: st.screen === 'player', isProfile: st.screen === 'profile',
+      isHome: st.screen === 'home', isDetail: st.screen === 'detail', isExplore: st.screen === 'explore', isList: st.screen === 'list', isPlayer: st.screen === 'player', isProfile: st.screen === 'profile', isCrew: st.screen === 'crew',
       showChrome: st.screen !== 'player',
       navHome: st.screen === 'home' ? '#ffffff' : '#9aa9a3',
       navExplore: st.screen === 'explore' ? '#ffffff' : '#9aa9a3',
@@ -646,12 +806,34 @@ class Component extends DCLogic {
       curTitle: cur ? cur.title : '', curSyn: cur ? cur.syn : '',
       curKicker: cur ? (cur.series ? cur.series + (cur.ep ? ' \u00b7 ' + cur.ep : '') : cur.cat) : '',
       curCat: cur ? cur.cat : '', curDur: cur ? cur.dur : '', curSeries: cur ? (cur.series || '\u2014') : '\u2014',
+      curCrew, curHasCrew: curCrew.length > 0,
       playCurrent: () => cur && this.play(cur),
       toggleCurrentList: () => cur && this.toggleList(cur),
       listLabel: inList ? 'En tu lista' : 'Mi Lista',
       listIcon: inList ? 'check' : 'plus',
       listIconColor: inList ? accentBright : '#ffffff',
       related,
+
+      // seasons / episodes
+      curHasSeasons, seasonLabel: 'Temporada ' + activeSeason, seasonOptions,
+      seasonMenuOpen: st.seasonMenuOpen, toggleSeasonMenu: this.toggleSeasonMenu, closeSeasonMenu: this.closeSeasonMenu,
+      seasonEpisodes,
+
+      // crew profile
+      crewName: activeCrew ? activeCrew.name : '',
+      crewRole: activeCrew ? (this.crewTypeLabel[activeCrew.type] || '') : '',
+      crewBio: activeCrew ? activeCrew.bio : '',
+      crewAvatarBg: activeCrew ? activeCrew.avatarBg : 'linear-gradient(135deg,#2f5249,#16302b)',
+      crewVideos,
+      bioIsLong: !!(activeCrew && activeCrew.bio && activeCrew.bio.split(' ').length > 55),
+      bioClampStyle: (activeCrew && activeCrew.bio && activeCrew.bio.split(' ').length > 55 && !st.bioExpanded)
+        ? 'display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden'
+        : '',
+      toggleBio: this.toggleBio,
+      bioToggleLabel: st.bioExpanded ? 'Leer menos' : 'Leer m\u00e1s',
+      bioToggleIcon: st.bioExpanded ? 'chevron-up' : 'chevron-down',
+      crewVideosHeading: activeCrew ? ('V\u00eddeos con ' + activeCrew.name.split(' ')[0]) : '',
+      openCrew: this.openCrew,
 
       // rating dialog
       openRating: this.openRating, closeRating: this.closeRating, stopProp: this.stopProp,

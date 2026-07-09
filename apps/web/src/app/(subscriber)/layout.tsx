@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/context/SessionContext';
 import { Navbar } from '@/components/Navbar';
+import { ScrollToTop } from '@/components/ScrollToTop';
 
 /**
  * Layout protegido: exige sesión activa y suscripción vigente.
@@ -43,6 +44,7 @@ export default function SubscriberLayout({ children }: { children: React.ReactNo
 
   return (
     <>
+      <ScrollToTop />
       <Navbar />
       <main className="pt-16">{children}</main>
     </>

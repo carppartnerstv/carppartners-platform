@@ -4,11 +4,11 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import type { Video, Category, Series, WatchHistoryItem } from '@carp-partners/api-client';
-import { HeroBanner, VideoRow } from '@carp-partners/ui';
+import { HeroBanner, VideoRow, SeriesRow } from '@carp-partners/ui';
 
 interface CategoryRow {
   category: Category;
-  videos: Video[];
+  series: Series[];
 }
 
 export default function HomePage() {
@@ -51,17 +51,17 @@ export default function HomePage() {
         setContinueItems(continueWatching);
         setHero(featured);
 
-        // Cargamos vídeos de cada categoría en paralelo
+        // Cargamos las series/películas de cada categoría en paralelo
         const rowsData = await Promise.all(
           categories.map(async (cat) => {
-            const { videos } = await apiClient.getVideos({ category: cat.id, limit: 20 });
-            return { category: cat, videos };
+            const { series } = await apiClient.getSeries({ category: cat.id });
+            return { category: cat, series };
           }),
         );
 
         if (cancelled) return;
 
-        const validRows = rowsData.filter((r) => r.videos.length > 0);
+        const validRows = rowsData.filter((r) => r.series.length > 0);
         setRows(validRows);
       } catch (err) {
         if (err instanceof ApiError && err.code === 'SUBSCRIPTION_REQUIRED') {
@@ -140,13 +140,13 @@ export default function HomePage() {
           />
         )}
 
-        {/* Filas por categoría */}
-        {rows.map(({ category, videos }) => (
-          <VideoRow
+        {/* Filas por categoría: una tarjeta por serie/película, no vídeos sueltos */}
+        {rows.map(({ category, series }) => (
+          <SeriesRow
             key={category.id}
             title={category.name}
-            videos={videos}
-            onVideoClick={goToDetail}
+            items={series}
+            onItemClick={(s) => router.push(`/serie/${s.id}`)}
           />
         ))}
 

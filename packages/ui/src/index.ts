@@ -7,6 +7,12 @@ export type { VideoCardProps } from './VideoCard';
 export { VideoRow } from './VideoRow';
 export type { VideoRowProps } from './VideoRow';
 
+export { SeriesCard } from './SeriesCard';
+export type { SeriesCardProps } from './SeriesCard';
+
+export { SeriesRow } from './SeriesRow';
+export type { SeriesRowProps } from './SeriesRow';
+
 export { HeroBanner } from './HeroBanner';
 export type { HeroBannerProps } from './HeroBanner';
 

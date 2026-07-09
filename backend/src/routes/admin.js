@@ -21,50 +21,61 @@ import { stripe } from '../services/stripe.js';
 import { getVideoMetadata } from '../services/vimeo.js';
 import sanitizeHtml from 'sanitize-html';
 
-// ─── Configuración de subida de imágenes de avatar ───────────────────────────
+// ─── Configuración de subida de imágenes (avatares de crew, portadas de series) ─
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CREW_UPLOADS_DIR = path.resolve(__dirname, '../../uploads/crew');
+const CREW_UPLOADS_DIR   = path.resolve(__dirname, '../../uploads/crew');
+const SERIES_UPLOADS_DIR = path.resolve(__dirname, '../../uploads/series');
 fs.mkdirSync(CREW_UPLOADS_DIR, { recursive: true });
+fs.mkdirSync(SERIES_UPLOADS_DIR, { recursive: true });
 
-const ALLOWED_AVATAR_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const AVATAR_MAX_BYTES    = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const IMAGE_MAX_BYTES    = 5 * 1024 * 1024;
 
-const multerStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, CREW_UPLOADS_DIR),
-  filename:    (_req,  file, cb) => {
-    const ext    = path.extname(file.originalname).toLowerCase() || '.jpg';
-    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}${ext}`;
-    cb(null, unique);
-  },
-});
-
-const multerInstance = multer({
-  storage: multerStorage,
-  limits:  { fileSize: AVATAR_MAX_BYTES },
-  fileFilter: (_req, file, cb) => {
-    if (ALLOWED_AVATAR_MIME.has(file.mimetype)) return cb(null, true);
-    cb(new HttpError(400, 'Tipo no válido. Usa JPG, PNG o WebP.', 'INVALID_TYPE'));
-  },
-});
-
-// Convierte errores de multer al formato estándar de la API
-function avatarUpload(req, res, next) {
-  multerInstance.single('avatar')(req, res, (err) => {
-    if (!err) return next();
-    if (err.code === 'LIMIT_FILE_SIZE') {
-      return next(new HttpError(413, 'Imagen demasiado grande. Máximo 5 MB.', 'FILE_TOO_LARGE'));
-    }
-    return next(err instanceof HttpError ? err : new HttpError(400, err.message ?? 'Error de subida', 'UPLOAD_ERROR'));
+// Crea un middleware de subida de una sola imagen a `uploadsDir`, bajo el
+// campo `fieldName` del formulario. Mismas reglas para cualquier imagen del
+// panel (avatar de crew, portada de serie/película): JPG/PNG/WebP, máx 5 MB.
+function makeImageUpload(uploadsDir, fieldName) {
+  const storage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename:    (_req,  file, cb) => {
+      const ext    = path.extname(file.originalname).toLowerCase() || '.jpg';
+      const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}${ext}`;
+      cb(null, unique);
+    },
   });
+
+  const instance = multer({
+    storage,
+    limits:  { fileSize: IMAGE_MAX_BYTES },
+    fileFilter: (_req, file, cb) => {
+      if (ALLOWED_IMAGE_MIME.has(file.mimetype)) return cb(null, true);
+      cb(new HttpError(400, 'Tipo no válido. Usa JPG, PNG o WebP.', 'INVALID_TYPE'));
+    },
+  });
+
+  // Convierte errores de multer al formato estándar de la API
+  return function upload(req, res, next) {
+    instance.single(fieldName)(req, res, (err) => {
+      if (!err) return next();
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return next(new HttpError(413, 'Imagen demasiado grande. Máximo 5 MB.', 'FILE_TOO_LARGE'));
+      }
+      return next(err instanceof HttpError ? err : new HttpError(400, err.message ?? 'Error de subida', 'UPLOAD_ERROR'));
+    });
+  };
 }
+
+const avatarUpload = makeImageUpload(CREW_UPLOADS_DIR, 'avatar');
+const seriesCoverUpload = makeImageUpload(SERIES_UPLOADS_DIR, 'cover');
 
 function deleteFileIfExists(filePath) {
   fs.unlink(filePath, () => {}); // fire-and-forget; si no existe, sin error
 }
 
-// Etiquetas y atributos permitidos en el campo bio (HTML enriquecido)
-const BIO_SANITIZE_OPTIONS = {
+// Etiquetas y atributos permitidos en campos de texto enriquecido (bio de
+// crew, descripción de series/películas)
+const RICH_TEXT_SANITIZE_OPTIONS = {
   allowedTags: ['p', 'br', 'strong', 'b', 'em', 'i', 's', 'u', 'a', 'ul', 'ol', 'li'],
   allowedAttributes: { a: ['href', 'target', 'rel'] },
   allowedSchemes: ['http', 'https', 'mailto'],
@@ -540,16 +551,80 @@ adminRouter.delete(
 
 // =====================================================================
 // CRUD de series
+// Una serie puede tener una serie "padre" (parent_series_id) para modelar
+// temporadas: la mayoría de series son planas (sin padre ni hijas), pero
+// una serie puede agrupar varias "temporadas" que son a su vez filas de
+// `series` con parent_series_id apuntando a ella. Solo se permite UN nivel
+// de profundidad (una temporada no puede tener a su vez temporadas).
 // =====================================================================
 const seriesSchema = z.object({
-  title:       z.string().min(1),
-  slug:        z.string().min(1).regex(/^[a-z0-9-]+$/, 'slug solo puede contener a-z, 0-9 y guiones'),
-  description: z.string().optional(),
-  categoryId:  z.string().uuid().optional(),
-  seasonNum:   z.number().int().min(1).optional(),
-  coverUrl:    z.string().url().optional(),
-  orderIndex:  z.number().int().min(0).optional(),
+  title:          z.string().min(1),
+  slug:           z.string().min(1).regex(/^[a-z0-9-]+$/, 'slug solo puede contener a-z, 0-9 y guiones'),
+  description:    z.string().optional(),
+  categoryId:     z.string().uuid().optional(),
+  seasonNum:      z.number().int().min(1).optional(),
+  coverUrl:       z.string().url().optional(),
+  orderIndex:     z.number().int().min(0).optional(),
+  parentSeriesId: z.string().uuid().nullable().optional(),
 });
+
+// Valida que `parentSeriesId` pueda usarse como padre de `currentSeriesId`
+// (null si es una serie nueva): el padre debe existir, no ser la propia
+// serie, no ser a su vez una temporada (ya tiene padre), y la serie que
+// recibe el padre no debe tener ya temporadas propias (evita 2 niveles).
+async function assertValidParentSeries(parentSeriesId, currentSeriesId) {
+  if (!parentSeriesId) return;
+  if (currentSeriesId && parentSeriesId === currentSeriesId) {
+    throw badRequest('Una serie no puede ser temporada de sí misma', 'INVALID_PARENT_SERIES');
+  }
+  const parent = await queryOne(`SELECT id, parent_series_id FROM series WHERE id = $1`, [parentSeriesId]);
+  if (!parent) throw badRequest('La serie padre indicada no existe', 'INVALID_PARENT_SERIES');
+  if (parent.parent_series_id) {
+    throw badRequest(
+      'Solo se permite un nivel de temporadas: la serie padre no puede ser a su vez una temporada',
+      'INVALID_PARENT_SERIES',
+    );
+  }
+  if (currentSeriesId) {
+    const child = await queryOne(`SELECT id FROM series WHERE parent_series_id = $1 LIMIT 1`, [currentSeriesId]);
+    if (child) {
+      throw badRequest(
+        'Esta serie ya tiene temporadas propias y no puede convertirse en temporada de otra serie',
+        'INVALID_PARENT_SERIES',
+      );
+    }
+  }
+}
+
+// GET /admin/series — listado completo (incluye temporadas) para el panel.
+// Añade season_count (nº de temporadas hijas) y parent_title para poder
+// construir la UI de gestión sin peticiones adicionales.
+adminRouter.get(
+  '/series',
+  asyncHandler(async (req, res) => {
+    const { category } = req.query;
+    const categoryFilter = category ? 'AND s.category_id = $1' : '';
+    const params = category ? [category] : [];
+    const { rows } = await query(
+      `SELECT s.id, s.title, s.slug, s.description, s.category_id, s.season_num,
+              s.cover_url, s.order_index, s.parent_series_id, s.created_at,
+              c.name  AS category_name,
+              p.title AS parent_title,
+              COUNT(DISTINCT ch.id)::int AS season_count,
+              COUNT(DISTINCT v.id)::int  AS video_count
+         FROM series s
+         LEFT JOIN categories c ON c.id = s.category_id
+         LEFT JOIN series p     ON p.id = s.parent_series_id
+         LEFT JOIN series ch    ON ch.parent_series_id = s.id
+         LEFT JOIN videos v     ON v.series_id = s.id
+        WHERE 1 = 1 ${categoryFilter}
+        GROUP BY s.id, c.name, p.title
+        ORDER BY s.order_index, s.title`,
+      params,
+    );
+    res.json({ series: rows });
+  }),
+);
 
 adminRouter.post(
   '/series',
@@ -557,13 +632,15 @@ adminRouter.post(
     const parsed = seriesSchema.safeParse(req.body);
     if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
     const d = parsed.data;
+    await assertValidParentSeries(d.parentSeriesId, null);
+    const safeDescription = d.description ? sanitizeHtml(d.description, RICH_TEXT_SANITIZE_OPTIONS) : null;
 
     const series = await queryOne(
-      `INSERT INTO series (title, slug, description, category_id, season_num, cover_url, order_index)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      `INSERT INTO series (title, slug, description, category_id, season_num, cover_url, order_index, parent_series_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
       [
-        d.title, d.slug, d.description ?? null, d.categoryId ?? null,
-        d.seasonNum ?? 1, d.coverUrl ?? null, d.orderIndex ?? 0,
+        d.title, d.slug, safeDescription, d.categoryId ?? null,
+        d.seasonNum ?? 1, d.coverUrl ?? null, d.orderIndex ?? 0, d.parentSeriesId ?? null,
       ],
     );
     res.status(201).json({ series });
@@ -576,10 +653,21 @@ adminRouter.put(
     const parsed = seriesSchema.partial().safeParse(req.body);
     if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
 
+    if (parsed.data.parentSeriesId) {
+      await assertValidParentSeries(parsed.data.parentSeriesId, req.params.id);
+    }
+
+    if (parsed.data.description !== undefined) {
+      parsed.data.description = parsed.data.description
+        ? sanitizeHtml(parsed.data.description, RICH_TEXT_SANITIZE_OPTIONS)
+        : '';
+    }
+
     const map = {
       title: 'title', slug: 'slug', description: 'description',
       categoryId: 'category_id', seasonNum: 'season_num',
       coverUrl: 'cover_url', orderIndex: 'order_index',
+      parentSeriesId: 'parent_series_id',
     };
     const sets   = [];
     const params = [];
@@ -605,10 +693,59 @@ adminRouter.delete(
   '/series/:id',
   asyncHandler(async (req, res) => {
     const series = await queryOne(
-      `DELETE FROM series WHERE id = $1 RETURNING id`,
+      `DELETE FROM series WHERE id = $1 RETURNING id, cover_url`,
       [req.params.id],
     );
     if (!series) throw notFound('Serie no encontrada', 'SERIES_NOT_FOUND');
+    // Borra el archivo del disco si la portada era una imagen local
+    if (series.cover_url) {
+      const filename = path.basename(series.cover_url);
+      deleteFileIfExists(path.join(SERIES_UPLOADS_DIR, filename));
+    }
+    res.status(204).end();
+  }),
+);
+
+// POST /admin/series/:id/cover — sube o reemplaza la portada (16:9)
+adminRouter.post(
+  '/series/:id/cover',
+  seriesCoverUpload,
+  asyncHandler(async (req, res) => {
+    if (!req.file) throw badRequest('No se recibió ninguna imagen', 'NO_FILE');
+
+    const current = await queryOne('SELECT id, cover_url FROM series WHERE id = $1', [req.params.id]);
+    if (!current) {
+      deleteFileIfExists(req.file.path); // limpia el archivo recién subido
+      throw notFound('Serie no encontrada', 'SERIES_NOT_FOUND');
+    }
+
+    // Borra el archivo anterior si era una imagen local
+    if (current.cover_url) {
+      const oldFilename = path.basename(current.cover_url);
+      deleteFileIfExists(path.join(SERIES_UPLOADS_DIR, oldFilename));
+    }
+
+    const coverUrl = `${req.protocol}://${req.get('host')}/uploads/series/${req.file.filename}`;
+    const series = await queryOne(
+      'UPDATE series SET cover_url = $1 WHERE id = $2 RETURNING *',
+      [coverUrl, req.params.id],
+    );
+    res.json({ series });
+  }),
+);
+
+// DELETE /admin/series/:id/cover — elimina la portada
+adminRouter.delete(
+  '/series/:id/cover',
+  asyncHandler(async (req, res) => {
+    const current = await queryOne('SELECT id, cover_url FROM series WHERE id = $1', [req.params.id]);
+    if (!current) throw notFound('Serie no encontrada', 'SERIES_NOT_FOUND');
+
+    if (current.cover_url) {
+      const filename = path.basename(current.cover_url);
+      deleteFileIfExists(path.join(SERIES_UPLOADS_DIR, filename));
+    }
+    await queryOne('UPDATE series SET cover_url = NULL WHERE id = $1 RETURNING id', [req.params.id]);
     res.status(204).end();
   }),
 );
@@ -642,7 +779,7 @@ adminRouter.post(
     const parsed = crewSchema.safeParse(req.body);
     if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
     const d = parsed.data;
-    const safeBio = d.bio ? sanitizeHtml(d.bio, BIO_SANITIZE_OPTIONS) : null;
+    const safeBio = d.bio ? sanitizeHtml(d.bio, RICH_TEXT_SANITIZE_OPTIONS) : null;
     const member = await queryOne(
       `INSERT INTO crew_members (name, slug, role, bio, avatar_url, order_index)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
@@ -661,7 +798,7 @@ adminRouter.put(
     // Sanitiza el HTML de bio antes de mapear los campos
     if (parsed.data.bio !== undefined) {
       parsed.data.bio = parsed.data.bio
-        ? sanitizeHtml(parsed.data.bio, BIO_SANITIZE_OPTIONS)
+        ? sanitizeHtml(parsed.data.bio, RICH_TEXT_SANITIZE_OPTIONS)
         : '';
     }
 

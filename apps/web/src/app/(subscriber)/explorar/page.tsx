@@ -3,8 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { Category, Video } from '@carp-partners/api-client';
-import { VideoCard } from '@carp-partners/ui';
+import type { Category, Video, Series } from '@carp-partners/api-client';
+import { VideoCard, SeriesCard } from '@carp-partners/ui';
 
 export default function ExplorarPage() {
   const router = useRouter();
@@ -16,6 +16,10 @@ export default function ExplorarPage() {
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | 'all'>('all');
 
+  // Sin búsqueda activa: se navega por tarjetas de serie/película (una por serie).
+  // Con texto de búsqueda: se listan vídeos sueltos que coincidan (como hasta ahora).
+  const browsing = debouncedQuery === '';
+  const [seriesResults, setSeriesResults] = useState<Series[]>([]);
   const [results, setResults] = useState<Video[]>([]);
   const [resultsLoading, setResultsLoading] = useState(true);
 
@@ -34,18 +38,19 @@ export default function ExplorarPage() {
     return () => clearTimeout(t);
   }, [query]);
 
-  // Busca en el catálogo real cada vez que cambia el término o la categoría
+  // Sin búsqueda: navega por series/películas (tarjetas). Con búsqueda: busca vídeos sueltos.
   useEffect(() => {
     let cancelled = false;
     setResultsLoading(true);
+    const categoryFilter = activeCategory === 'all' ? undefined : activeCategory;
 
-    apiClient
-      .getVideos({
-        q: debouncedQuery || undefined,
-        category: activeCategory === 'all' ? undefined : activeCategory,
-        limit: 100,
-      })
-      .then(({ videos }) => { if (!cancelled) setResults(videos); })
+    const request = browsing
+      ? apiClient.getSeries(categoryFilter ? { category: categoryFilter } : undefined)
+          .then(({ series }) => { if (!cancelled) setSeriesResults(series); })
+      : apiClient.getVideos({ q: debouncedQuery, category: categoryFilter, limit: 100 })
+          .then(({ videos }) => { if (!cancelled) setResults(videos); });
+
+    request
       .catch((err) => {
         if (cancelled) return;
         if (err instanceof ApiError && err.code === 'SUBSCRIPTION_REQUIRED') {
@@ -55,10 +60,11 @@ export default function ExplorarPage() {
       .finally(() => { if (!cancelled) setResultsLoading(false); });
 
     return () => { cancelled = true; };
-  }, [debouncedQuery, activeCategory, router]);
+  }, [debouncedQuery, activeCategory, browsing, router]);
 
-  const resultCount = `${results.length} ${results.length === 1 ? 'resultado' : 'resultados'}`;
-  const showEmpty = !resultsLoading && results.length === 0;
+  const resultList = browsing ? seriesResults : results;
+  const resultCount = `${resultList.length} ${resultList.length === 1 ? 'resultado' : 'resultados'}`;
+  const showEmpty = !resultsLoading && resultList.length === 0;
 
   return (
     <div className="min-h-screen bg-surface px-6 md:px-12 py-10">
@@ -122,9 +128,13 @@ export default function ExplorarPage() {
           className="grid gap-[24px_18px]"
           style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(252px, 1fr))' }}
         >
-          {results.map((v) => (
-            <VideoCard key={v.id} video={v} onClick={(v) => router.push(`/watch/${v.id}`)} />
-          ))}
+          {browsing
+            ? seriesResults.map((s) => (
+                <SeriesCard key={s.id} series={s} onClick={(s) => router.push(`/serie/${s.id}`)} />
+              ))
+            : results.map((v) => (
+                <VideoCard key={v.id} video={v} onClick={(v) => router.push(`/watch/${v.id}`)} />
+              ))}
         </div>
       )}
     </div>

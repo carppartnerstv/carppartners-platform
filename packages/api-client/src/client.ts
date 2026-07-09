@@ -5,6 +5,8 @@ import type {
   RelatedVideo,
   Category,
   Series,
+  SeriesDetail,
+  AdminSeries,
   WatchHistoryItem,
   WatchlistItem,
   AuthResponse,
@@ -346,6 +348,10 @@ export class ApiClient {
     return this.request('GET', '/series', { query: params });
   }
 
+  async getSeriesDetail(id: string): Promise<SeriesDetail> {
+    return this.request('GET', `/series/${id}`);
+  }
+
   // ─── Historial ─────────────────────────────────────────────────────────────
 
   async saveProgress(videoId: string, progressSec: number, completed?: boolean): Promise<void> {
@@ -454,6 +460,10 @@ export class ApiClient {
 
   // ── Admin: series ──────────────────────────────────────────────────────────
 
+  async getAdminSeries(params?: { category?: string }): Promise<{ series: AdminSeries[] }> {
+    return this.request('GET', '/admin/series', { query: params });
+  }
+
   async createAdminSeries(data: SeriesInput): Promise<{ series: Series }> {
     return this.request('POST', '/admin/series', { body: data });
   }
@@ -464,6 +474,16 @@ export class ApiClient {
 
   async deleteAdminSeries(id: string): Promise<void> {
     return this.request('DELETE', `/admin/series/${id}`);
+  }
+
+  async uploadSeriesCover(id: string, file: File): Promise<{ series: Series }> {
+    const fd = new FormData();
+    fd.append('cover', file);
+    return this.requestMultipart('POST', `/admin/series/${id}/cover`, fd);
+  }
+
+  async deleteSeriesCover(id: string): Promise<void> {
+    return this.request('DELETE', `/admin/series/${id}/cover`);
   }
 
   async getCrew(): Promise<{ crew: CrewMember[] }> {
