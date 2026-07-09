@@ -4,6 +4,7 @@ export type {
   User,
   Subscription,
   Video,
+  RelatedVideo,
   Category,
   Series,
   WatchHistoryItem,

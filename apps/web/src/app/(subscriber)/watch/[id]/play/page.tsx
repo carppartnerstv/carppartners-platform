@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { Video, Category, Series } from '@carp-partners/api-client';
+import type { Video, RelatedVideo, Category, Series } from '@carp-partners/api-client';
 
 const PROGRESS_INTERVAL_MS = 15_000;
 const SPEEDS = [1, 1.25, 1.5, 2, 0.5];
@@ -26,7 +26,7 @@ export default function PlayPage() {
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [video, setVideo] = useState<Video | null>(null);
-  const [related, setRelated] = useState<Video[]>([]);
+  const [related, setRelated] = useState<RelatedVideo[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [series, setSeries] = useState<Series[]>([]);
   const [loadingMeta, setLoadingMeta] = useState(true);
@@ -54,7 +54,11 @@ export default function PlayPage() {
   const saveProgress = useCallback((videoId: string, completed = false) => {
     const el = videoRef.current;
     if (!el || isNaN(el.currentTime)) return;
-    apiClient.saveProgress(videoId, Math.floor(el.currentTime), completed).catch(() => null);
+    apiClient
+      .saveProgress(videoId, Math.floor(el.currentTime), completed)
+      // No interrumpimos la reproducción si falla, pero lo dejamos visible en
+      // consola — antes se silenciaba del todo y era imposible depurarlo.
+      .catch((err) => console.error('[watch-history] No se pudo guardar el progreso', err));
   }, []);
 
   // ── Efecto 1: carga metadatos + obtiene URL HLS ──────────────────────────────
@@ -292,11 +296,14 @@ export default function PlayPage() {
     }
   };
 
-  // El reproductor solo se alcanza empujando esta ruta encima del detalle
-  // (botón "Reproducir") o de otro reproductor (tarjeta "A continuación"),
-  // así que ir "atrás" en el historial siempre desvuelve al detalle correcto
-  // sin apilar entradas duplicadas (a diferencia de un push/replace explícito).
-  const backToDetail = () => router.back();
+  // El reproductor se alcanza de dos formas distintas: reemplazando el detalle
+  // (botón "Reproducir"/"Reanudar") o saltando aquí directamente desde una
+  // tarjeta de "Continuar viendo" (sin pasar por el detalle). En ambos casos
+  // "volver" debe llevar siempre al detalle de ESTE vídeo — por eso navegamos
+  // explícitamente en vez de usar router.back(), que dependería de por dónde
+  // se llegó. Usamos replace (no push) para no apilar detalle+reproductor y
+  // que, a su vez, el propio botón de volver del detalle no rebote aquí.
+  const backToDetail = () => router.replace(`/watch/${id}`);
 
   // ── Metadatos para la cabecera ────────────────────────────────────────────────
   const videoCategory = video ? categories.find((c) => c.id === video.category_id) : undefined;
@@ -409,7 +416,7 @@ export default function PlayPage() {
           {/* Tarjeta "A continuación" — continúa la reproducción sin pasar por el detalle */}
           {showNextCard && nextVideo && (
             <div
-              onClick={() => router.push(`/watch/${nextVideo.id}/play`)}
+              onClick={() => router.replace(`/watch/${nextVideo.id}/play`)}
               className="absolute right-8 z-10 w-[300px] p-3.5 rounded-xl cursor-pointer flex items-center gap-3"
               style={{
                 bottom: 128,

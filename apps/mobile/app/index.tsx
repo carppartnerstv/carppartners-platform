@@ -8,6 +8,7 @@ import {
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { colors, textStyles, spacing } from '../theme';
 import {
   Button,
@@ -28,6 +29,7 @@ export default function Gallery() {
   const [inputValue, setInputValue] = useState('');
   const [showModal, setShowModal] = useState(false);
   const { toastProps, show: showToast } = useToast();
+  const router = useRouter();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -38,6 +40,17 @@ export default function Gallery() {
       >
         <Text style={styles.pageTitle}>Carp Partners TV</Text>
         <Text style={styles.pageSubtitle}>Galería de componentes · Fase 1</Text>
+
+        {/* ── Temporal: acceso directo a la ficha de vídeo + Reparto ────────── */}
+        {/* No hay Home real todavía — esto es solo para probar la navegación. */}
+        <Section title="Reparto · pruébalo aquí">
+          <Button variant="primary" size="md" onPress={() => router.push('/video/v-9')}>
+            Ficha: DESENFRENO | Rio Guadiana | Parte 2
+          </Button>
+          <Button variant="primary" size="md" onPress={() => router.push('/video/v-10')}>
+            Ficha: Meet + Fran
+          </Button>
+        </Section>
 
         {/* ── Buttons ─────────────────────────────────────────────────────── */}
         <Section title="Button">

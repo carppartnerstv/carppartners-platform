@@ -163,11 +163,14 @@ Centered: 76–80px circle icon (Mi Lista uses `bookmark` in `brand-bright` on r
 ### Reproductor — see §5 Player. Returns to the screen it was launched from.
 
 ### Perfil
-- **Purpose:** account management, reached from the navbar avatar dropdown ("Perfil" or "Ajustes").
+- **Purpose:** account management, reached from the navbar avatar dropdown (single "Perfil" entry — no separate settings screen).
 - **Layout:** left sidebar (avatar + name + email + "Editar perfil", then 3 tab items + "Cerrar sesión") + right content pane with 3 tabs:
   - **Cuenta y suscripción** — current plan card (badge, price, renewal date, "Gestionar suscripción" → Stripe Customer Portal) + account data (email, change-password link, masked payment method).
+- **Layout:** left sidebar (avatar + name + email, "Editar perfil", then 3 tab items + "Cerrar sesión") + right content pane with 3 tabs:
+  - **Cuenta y suscripción** — current plan card (badge, price, renewal date, "Gestionar suscripción" → Stripe Customer Portal) + account data (email read-only, change-password link, masked payment method).
   - **Historial** — recently-watched list: thumbnail, title, relative date, duration.
   - **Notificaciones** — 4 toggle rows (estrenos, recomendaciones, promos, push) with a working on/off switch component (42×24px pill, sliding 20px knob, `brand-bright` when on).
+- **Editar perfil:** toggles the sidebar card into an inline form editing **name and photo only**. Email is intentionally locked — it's the identifier tied to the Stripe subscription/billing record, so changing it here would desync payment records; the form shows a small lock note explaining this instead of an input. Saving updates the name everywhere (sidebar, navbar avatar initials, dropdown header) and shows a brief confirmation.
 
 ### Explorar
 - **Purpose:** search + discovery.
@@ -224,8 +227,7 @@ The prototype covers the **core subscriber loop**. The following are specified i
 - **Establecer contraseña** (migrated users) — new password + confirm, strength meter (meter component already designed in Registro). *(to build)*
 
 **Subscriber:**
-- **Perfil** — avatar + name + email, plan + renewal date, "Gestionar suscripción" (Stripe), recent history, notification settings, logout. (Dropdown stub exists in navbar.)
- **Perfil** — ✅ built (Cuenta y suscripción / Historial / Notificaciones tabs). See §6.
+- **Perfil** — ✅ built (single screen: Cuenta y suscripción / Historial / Notificaciones tabs + inline name/photo editing). See §6.
 
 **Onboarding:**
 - **Bienvenida** — name, welcome, category preview, "Empezar a ver".
@@ -264,8 +266,8 @@ design_handoff_carp_partners_tv/
 │   ├── carp-partners-logo.png         ← web-optimized wordmark
 │   └── logo-original-full.png         ← original full-res logo
 └── prototype/
-       ├── Carp Partners TV.dc.html       ← main app (Home, Detail, Player, Explorar, Mi Lista) + logic & state├
-       ── Carp Partners TV.dc.html       ← subscriber app (Home, Detail, Player, Explorar, Mi Lista) + logic & state
+        ── Carp Partners TV.dc.html       ← main app (Home, Detail, Player, Explorar, Mi Lista) + logic & state├
+    ├── Carp Partners TV.dc.html       ← subscriber app (Home, Detail, Player, Explorar, Mi Lista) + logic & state
     ├── Carp Partners — Landing.dc.html ← public site (Landing, Login, Registro) + logic & state
     ├── VideoCard.dc.html              ← reusable video card component
     └── support.js                     ← tiny runtime so the HTML opens in a browser (reference only)

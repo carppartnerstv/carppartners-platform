@@ -8,3 +8,5 @@ export { VideoCard } from './VideoCard';
 export { Row } from './Row';
 export { Toast, useToast } from './Toast';
 export { Modal } from './Modal';
+export { CastRow } from './CastRow';
+export { ReadMoreText } from './ReadMoreText';

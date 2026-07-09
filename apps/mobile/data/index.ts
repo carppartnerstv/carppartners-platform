@@ -14,6 +14,14 @@ import {
 } from './mock/videos';
 import { MOCK_CATEGORIES, type MockCategory } from './mock/categories';
 import { MOCK_USER, MOCK_SUBSCRIPTION, type MockUser, type MockSubscription } from './mock/user';
+import { MOCK_CREW, type MockCrewMember, type CrewRole } from './mock/crew';
+
+// Etiqueta visible a partir de `role` — única fuente de verdad, no hay texto
+// libre por persona. Mismo mapa que usa (o debe usar) el resto del proyecto.
+export const ROLE_LABELS: Record<CrewRole, string> = {
+  socio: 'Socio',
+  crew: 'Miembro de la crew',
+};
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -63,11 +71,28 @@ export async function getVideos(params?: {
   return results.slice(offset, offset + limit);
 }
 
-export async function getVideo(id: string): Promise<{ video: MockVideo; related: MockVideo[] }> {
+export async function getVideo(
+  id: string,
+): Promise<{ video: MockVideo; related: MockVideo[]; crew: MockCrewMember[] }> {
   await delay(300);
   const video = MOCK_VIDEOS.find((v) => v.id === id) ?? MOCK_VIDEOS[0];
   const related = MOCK_VIDEOS.filter((v) => v.id !== id && v.category_id === video.category_id).slice(0, 6);
-  return { video, related };
+  const crew = (video.crew ?? [])
+    .map((crewId) => MOCK_CREW.find((c) => c.id === crewId))
+    .filter((c): c is MockCrewMember => c != null);
+  return { video, related, crew };
+}
+
+// ── Reparto ───────────────────────────────────────────────────────────────────
+
+export async function getCrewMember(slug: string): Promise<MockCrewMember | null> {
+  await delay(200);
+  return MOCK_CREW.find((c) => c.slug === slug) ?? null;
+}
+
+export async function getVideosForCrewMember(crewId: string): Promise<MockVideo[]> {
+  await delay(300);
+  return MOCK_VIDEOS.filter((v) => v.crew?.includes(crewId));
 }
 
 export async function getStreamUrl(_id: string): Promise<string> {

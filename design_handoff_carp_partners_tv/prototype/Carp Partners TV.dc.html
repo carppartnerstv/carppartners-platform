@@ -46,18 +46,17 @@
     <div onClick="{{ goExplore }}" style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#cdd6d2;transition:background .2s" style-hover="background:rgba(255,255,255,0.08)"><i class="ti ti-search" style="font-size:20px"></i></div>
     <div style="position:relative">
       <div onClick="{{ toggleMenu }}" style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#5a241d,#2a1411);border:1px solid rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center;font-family:Sora,sans-serif;font-weight:600;font-size:13px;color:#d4e4dd">DR</div>
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#5a241d,#2a1411);border:1px solid rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center;font-family:Sora,sans-serif;font-weight:600;font-size:13px;color:#d4e4dd">{{ initials }}</div>
         <i class="ti ti-chevron-down" style="font-size:15px;color:#9aa9a3"></i>
       </div>
       <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
         <div style="position:absolute;top:48px;right:0;width:230px;background:#0e151a;border:1px solid rgba(255,255,255,0.1);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,0.6);overflow:hidden;animation:cpfade .18s ease">
           <div style="padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.07)">
-            <div style="font-size:13.5px;font-weight:600;color:#eef3f0">Diego R.</div>
-            <div style="font-size:11.5px;color:#7d8d86;margin-top:2px">diego@carppartners.tv</div>
+            <div style="font-size:13.5px;font-weight:600;color:#eef3f0">{{ displayName }}</div>
+            <div style="font-size:11.5px;color:#7d8d86;margin-top:2px">{{ displayEmail }}</div>
             <div style="display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:3px 8px;border-radius:5px;background:rgba(104,20,11,0.2);color:{{ accentBright }};font-size:10.5px;font-weight:600"><i class="ti ti-circle-check-filled" style="font-size:12px"></i>Plan Anual activo</div>
           </div>
           <div onClick="{{ goProfile }}" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;color:#cdd6d2;cursor:pointer" style-hover="background:rgba(255,255,255,0.05)"><i class="ti ti-user" style="font-size:17px;color:#85958e"></i>Perfil</div>
-          <div onClick="{{ goProfile }}" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;color:#cdd6d2;cursor:pointer" style-hover="background:rgba(255,255,255,0.05)"><i class="ti ti-settings" style="font-size:17px;color:#85958e"></i>Ajustes</div>
           <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;color:#cdd6d2;cursor:pointer;border-top:1px solid rgba(255,255,255,0.07)" style-hover="background:rgba(255,255,255,0.05)"><i class="ti ti-logout" style="font-size:17px;color:#85958e"></i>Cerrar sesi&oacute;n</div>
         </div>
       </sc-if>
@@ -262,14 +261,40 @@
 
       <div>
         <div style="padding:28px 26px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);margin-bottom:20px">
-          <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
-            <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#5a241d,#2a1411);border:1px solid rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center;font-family:Sora,sans-serif;font-weight:600;font-size:19px;color:#d4e4dd">DR</div>
-            <div style="min-width:0">
-              <div style="font-family:Sora,sans-serif;font-size:17px;font-weight:600;color:#eef3f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Diego Ram&iacute;rez</div>
-              <div style="font-size:12.5px;color:#85958e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">diego@carppartners.tv</div>
+
+          <sc-if value="{{ editingProfile }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+              <div style="position:relative">
+                <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#5a241d,#2a1411);border:1px solid rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center;font-family:Sora,sans-serif;font-weight:600;font-size:19px;color:#d4e4dd">{{ initials }}</div>
+                <div style="position:absolute;bottom:-2px;right:-2px;width:22px;height:22px;border-radius:50%;background:{{ accent }};border:2px solid #0e151a;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:{{ accentBright }}"><i class="ti ti-camera" style="font-size:11px;color:#fff"></i></div>
+              </div>
+              <div style="font-size:11.5px;color:#7d8d86;line-height:1.45">Foto de perfil<br><span style="color:#5f6f69">JPG o PNG, m&aacute;x. 4&nbsp;MB</span></div>
             </div>
-          </div>
-          <button style="width:100%;padding:11px;border:1px solid rgba(255,255,255,0.16);border-radius:9px;background:rgba(255,255,255,0.05);color:#e9efeb;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:rgba(255,255,255,0.1)">Editar perfil</button>
+            <label style="display:block;font-size:12px;font-weight:600;color:#b3c0ba;margin-bottom:7px">Nombre completo</label>
+            <div style="display:flex;align-items:center;gap:9px;padding:0 12px;border-radius:9px;background:rgba(255,255,255,0.04);border:1px solid {{ editNameBorder }};margin-bottom:16px;transition:border-color .2s">
+              <i class="ti ti-user" style="font-size:16px;color:#6a7a73"></i>
+              <input value="{{ editName }}" onChange="{{ setEditName }}" onFocus="{{ focusEditName }}" onBlur="{{ blurEditField }}" style="flex:1;min-width:0;background:transparent;border:none;outline:none;color:#eef3f0;font-family:Inter,sans-serif;font-size:13.5px;padding:11px 0" />
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:9px 0 16px;font-size:11.5px;color:#6a7a73"><i class="ti ti-lock" style="font-size:14px"></i>El correo no se puede editar aqu&iacute;: est&aacute; vinculado a tu suscripci&oacute;n en Stripe.</div>
+            <div style="display:flex;gap:10px">
+              <button onClick="{{ saveProfile }}" style="flex:1;padding:11px;border:none;border-radius:9px;background:{{ accent }};color:#fff;font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 6px 18px rgba(104,20,11,0.4)">Guardar</button>
+              <button onClick="{{ cancelEditProfile }}" style="flex:1;padding:11px;border:1px solid rgba(255,255,255,0.16);border-radius:9px;background:transparent;color:#cdd6d2;font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer" style-hover="background:rgba(255,255,255,0.06)">Cancelar</button>
+            </div>
+            <sc-if value="{{ profileSaved }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:14px;font-size:12.5px;color:{{ accentBright }};display:flex;align-items:center;gap:6px"><i class="ti ti-check" style="font-size:15px"></i>Perfil actualizado</div>
+            </sc-if>
+          </sc-if>
+
+          <sc-if value="{{ notEditingProfile }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+              <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#5a241d,#2a1411);border:1px solid rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center;font-family:Sora,sans-serif;font-weight:600;font-size:19px;color:#d4e4dd">{{ initials }}</div>
+              <div style="min-width:0">
+                <div style="font-family:Sora,sans-serif;font-size:17px;font-weight:600;color:#eef3f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ displayName }}</div>
+                <div style="font-size:12.5px;color:#85958e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ displayEmail }}</div>
+              </div>
+            </div>
+            <button onClick="{{ startEditProfile }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border:1px solid rgba(255,255,255,0.16);border-radius:9px;background:rgba(255,255,255,0.05);color:#e9efeb;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:rgba(255,255,255,0.1)"><i class="ti ti-pencil" style="font-size:15px"></i>Editar perfil</button>
+          </sc-if>
         </div>
 
         <div style="padding:8px 4px;display:flex;flex-direction:column">
@@ -298,7 +323,7 @@
             <div style="display:flex;flex-direction:column;gap:0">
               <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
                 <span style="font-size:13.5px;color:#85958e">Correo electr&oacute;nico</span>
-                <span style="font-size:13.5px;color:#e9efeb">diego@carppartners.tv</span>
+                <span style="font-size:13.5px;color:#e9efeb">{{ displayEmail }}</span>
               </div>
               <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
                 <span style="font-size:13.5px;color:#85958e">Contrase&ntilde;a</span>
@@ -458,7 +483,9 @@ class Component extends DCLogic {
     myList: [], query: '', filterCat: 'Todo', menuOpen: false,
     profileTab: 'account',
     notifs: { estrenos: true, recomendaciones: true, promos: false, push: true },
-    ratingOpen: false, ratings: {}
+    ratingOpen: false, ratings: {},
+    name: 'Diego Ram\u00edrez', email: 'diego@carppartners.tv',
+    editingProfile: false, editName: '', editFocus: '', profileSaved: false
   };
 
   componentDidMount() {
@@ -496,6 +523,16 @@ class Component extends DCLogic {
   setTabHistory = () => this.setState({ profileTab: 'history' });
   setTabNotifs = () => this.setState({ profileTab: 'notifs' });
   toggleNotif = (key) => this.setState(s => ({ notifs: Object.assign({}, s.notifs, { [key]: !s.notifs[key] }) }));
+
+  startEditProfile = () => this.setState(s => ({ editingProfile: true, editName: s.name, profileSaved: false }));
+  cancelEditProfile = () => this.setState({ editingProfile: false, editFocus: '' });
+  setEditName = (e) => this.setState({ editName: e.target.value });
+  focusEditName = () => this.setState({ editFocus: 'name' });
+  blurEditField = () => this.setState({ editFocus: '' });
+  saveProfile = () => this.setState(s => ({
+    name: s.editName.trim() ? s.editName.trim() : s.name,
+    editingProfile: false, editFocus: '', profileSaved: true
+  }));
 
   openRating = () => this.setState({ ratingOpen: true });
   closeRating = () => this.setState({ ratingOpen: false });
@@ -655,7 +692,18 @@ class Component extends DCLogic {
       listItems, listEmpty: listItems.length === 0, listHasItems: listItems.length > 0,
       listCount: listItems.length === 0 ? 'A\u00fan no has guardado nada' : (listItems.length + (listItems.length === 1 ? ' v\u00eddeo guardado' : ' v\u00eddeos guardados')),
 
-      // profile
+      // profile (identity + edit name/photo only \u2014 email is locked to Stripe billing)
+      displayName: st.name, displayEmail: st.email,
+      initials: st.name.split(' ').filter(Boolean).slice(0,2).map(w => w[0].toUpperCase()).join(''),
+      editingProfile: st.editingProfile, notEditingProfile: !st.editingProfile,
+      startEditProfile: this.startEditProfile, cancelEditProfile: this.cancelEditProfile, saveProfile: this.saveProfile,
+      editName: st.editName,
+      setEditName: this.setEditName,
+      focusEditName: this.focusEditName, blurEditField: this.blurEditField,
+      editNameBorder: st.editFocus === 'name' ? 'rgba(207,74,53,0.6)' : 'rgba(255,255,255,0.1)',
+      profileSaved: st.profileSaved,
+
+      // profile tabs (account/subscription, history, notifications)
       setTabAccount: this.setTabAccount, setTabHistory: this.setTabHistory, setTabNotifs: this.setTabNotifs,
       tabIsAccount: st.profileTab === 'account', tabIsHistory: st.profileTab === 'history', tabIsNotifs: st.profileTab === 'notifs',
       tabAccountBg: st.profileTab === 'account' ? 'rgba(104,20,11,0.16)' : 'transparent',

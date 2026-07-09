@@ -75,8 +75,12 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | GET | `/auth/me` | JWT | `{user, subscription}` |
 | POST | `/auth/set-password` | token | `{ok}` |
 | POST | `/auth/change-password` `{currentPassword,newPassword}` | JWT | `{ok}` — cambio de contraseña desde Perfil estando ya logueado (añadido 2026-07, ver Perfil) |
+| PUT | `/auth/me` `{name}` | JWT | `{user}` — "Editar perfil"; el email NO es editable aquí (ligado a Stripe) |
+| POST | `/auth/me/avatar` `multipart/form-data; field=avatar` | JWT | `{user}` — sube/reemplaza la foto propia (JPG/PNG/WebP, máx 5 MB) |
+| DELETE | `/auth/me/avatar` | JWT | 204 |
 | GET | `/videos?limit&offset&category&series&q` | JWT + suscripción | `{videos, limit, offset}` |
-| GET | `/videos/:id` | JWT + suscripción | `{video, related}` |
+| GET | `/videos/featured` | JWT + suscripción | `{video}` — destacado de portada de Home: el marcado manualmente (`is_featured`) o, si no hay ninguno, fallback al criterio automático (primera categoría por `order_index` · primer vídeo). Registrada antes de `/videos/:id` en el router |
+| GET | `/videos/:id` | JWT + suscripción | `{video, related}` — cada `related` incluye `progress_sec`/`completed` del usuario actual, para pintar su línea de tiempo en "Más como esto" |
 | GET | `/videos/:id/stream` | JWT + suscripción | `{hlsUrl, expiresInSec}` |
 | POST | `/videos/:id/rating` `{rating: -1\|1\|2}` | JWT + suscripción | `{rating}` — UPSERT del voto (-1 no es para mí, 1 me gusta, 2 me encanta) |
 | GET | `/videos/:id/rating` | JWT + suscripción | `{rating: -1\|1\|2\|null}` — valoración del usuario actual para ese vídeo |
@@ -94,7 +98,8 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | GET | `/admin/users?status&q&limit&offset` | JWT + admin | `{users}` |
 | GET | `/admin/payments` | JWT + admin | `{payments}` |
 | POST/PUT/DELETE | `/admin/videos[/:id]` | JWT + admin | vídeo / 204 |
-| GET | `/admin/videos?published&category&series&q&sort&limit&offset` | JWT + admin | `{videos,limit,offset}` — incluye borradores. `sort=rated` ordena por nº de votos desc. Cada vídeo incluye `ratings: {love,like,down,total,avg}` |
+| GET | `/admin/videos?published&category&series&q&sort&limit&offset` | JWT + admin | `{videos,limit,offset}` — incluye borradores. `sort=rated` ordena por nº de votos desc. Cada vídeo incluye `ratings: {love,like,down,total,avg}` e `is_featured` |
+| POST/PUT | `/admin/videos[/:id]` con `{isFeatured: boolean}` | JWT + admin | `{video}` — marca/desmarca el destacado de portada (mismo endpoint que el resto de campos). Solo puede haber uno activo: al marcar `true`, el backend desmarca automáticamente cualquier otro dentro de la misma transacción (reforzado además por un índice único parcial en BD) |
 | POST | `/admin/categories` `{name,slug,description?,coverUrl?,orderIndex?}` | JWT + admin | `{category}` 201 |
 | PUT | `/admin/categories/:id` | JWT + admin | `{category}` |
 | DELETE | `/admin/categories/:id` | JWT + admin | 204 |
@@ -133,9 +138,9 @@ de planes, no mostrar un error genérico.
 | `/login` | Login + registro | pública |
 | `/home` | Home tipo Netflix: hero + filas por categoría | suscriptores |
 | `/explorar` | Búsqueda y filtros (categoría, serie, duración) | suscriptores |
-| `/watch/[id]` | Reproductor a pantalla completa + relacionados | suscriptores |
-| `/watch/[id]` | Detalle del vídeo (sinopsis, Mi Lista, relacionados) — clic en cualquier tarjeta lleva aquí | suscriptores |
-| `/watch/[id]/play` | Reproductor a pantalla completa — solo se llega pulsando "Reproducir" desde el detalle | suscriptores |
+| `/watch/[id]` | Detalle del vídeo (sinopsis, Reparto, Mi Lista, relacionados) — clic en cualquier tarjeta lleva aquí | suscriptores |
+| `/watch/[id]/play` | Reproductor a pantalla completa — solo se llega pulsando "Reproducir"/"Reanudar" desde el detalle | suscriptores |
+| `/crew/[slug]` | Perfil de miembro de la crew (bio, "Vídeos con {nombre}") — se abre desde el Reparto del detalle | suscriptores |
 | `/mi-lista` | Vídeos guardados | suscriptores |
 | `/perfil` | Datos, plan activo, enlace a Customer Portal de Stripe | suscriptores |
 | `/admin` | Panel de administración | solo admin |
@@ -165,17 +170,19 @@ de planes, no mostrar un error genérico.
 - Tailwind con tokens de color centralizados; nada de estilos mágicos repetidos.
 - Componentes de UI reutilizables en `/packages/ui`; las apps solo componen.
 
-## Subida de archivos (avatars de crew)
+## Subida de archivos (avatars de crew y de usuarios)
 
-- Las imágenes se guardan en **`backend/uploads/crew/`** con nombre único
-  (`<timestamp>-<random>.<ext>`).
+- Las imágenes se guardan en **`backend/uploads/crew/`** (crew) o
+  **`backend/uploads/avatars/`** (foto de perfil del propio usuario, subida
+  desde Perfil → Editar perfil) con nombre único (`<timestamp>-<random>.<ext>`).
+  Cada tipo tiene su propio middleware `multer`, pero con la misma validación.
 - La carpeta **`backend/uploads/`** está en `.gitignore** y **debe incluirse en
   las copias de seguridad del servidor** (no está en el repositorio).
 - El backend las sirve de forma estática en la ruta `/uploads/*` mediante
   `express.static` (solo esa carpeta, `index: false, dotfiles: 'deny'`).
-- La URL pública almacenada en `crew_members.avatar_url` usa el host del
-  request (`req.protocol + '://' + req.get('host')`):
-  - Dev: `http://localhost:3001/uploads/crew/<filename>`
+- La URL pública almacenada en `crew_members.avatar_url` / `users.avatar_url`
+  usa el host del request (`req.protocol + '://' + req.get('host')`):
+  - Dev: `http://localhost:3001/uploads/crew/<filename>` o `/uploads/avatars/<filename>`
   - Producción: requiere que Nginx tenga un `location /uploads/ { proxy_pass http://localhost:3001; }`.
 - Al reemplazar o eliminar un avatar, el endpoint borra el archivo anterior del
   disco. Al eliminar un miembro (DELETE `/admin/crew/:id`), también se borra su

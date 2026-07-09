@@ -1,15 +1,22 @@
 // =====================================================================
 // Rutas de autenticación.  (Briefing 4.1, 4.2)
-//   POST /auth/register      registro
-//   POST /auth/login         login -> access + refresh
-//   POST /auth/refresh       renueva access usando refresh
-//   POST /auth/logout        revoca el refresh token
-//   GET  /auth/me            datos del usuario + estado de suscripción
-//   POST /auth/set-password  flujo "establece tu contraseña" (migración WP)
-//   POST /auth/change-password  cambio de contraseña estando ya autenticado
+//   POST   /auth/register      registro
+//   POST   /auth/login         login -> access + refresh
+//   POST   /auth/refresh       renueva access usando refresh
+//   POST   /auth/logout        revoca el refresh token
+//   GET    /auth/me            datos del usuario + estado de suscripción
+//   POST   /auth/set-password  flujo "establece tu contraseña" (migración WP)
+//   POST   /auth/change-password  cambio de contraseña estando ya autenticado
+//   PUT    /auth/me            edita el nombre propio ("Editar perfil")
+//   POST   /auth/me/avatar     sube/reemplaza la foto de perfil propia
+//   DELETE /auth/me/avatar     elimina la foto de perfil propia
 // =====================================================================
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import multer from 'multer';
 import { z } from 'zod';
 import { query, queryOne } from '../config/db.js';
 import {
@@ -22,8 +29,49 @@ import {
   signRefreshToken,
   verifyRefreshToken,
 } from '../utils/tokens.js';
-import { asyncHandler, badRequest, unauthorized } from '../utils/errors.js';
+import { asyncHandler, badRequest, unauthorized, HttpError } from '../utils/errors.js';
 import { requireAuth } from '../middleware/auth.js';
+
+// ─── Subida de la foto de perfil propia (mismo patrón que el avatar de crew,
+// pero en su propia carpeta: backend/uploads/avatars/) ───────────────────────
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const USER_AVATAR_DIR = path.resolve(__dirname, '../../uploads/avatars');
+fs.mkdirSync(USER_AVATAR_DIR, { recursive: true });
+
+const ALLOWED_AVATAR_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+
+const avatarStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, USER_AVATAR_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}${ext}`;
+    cb(null, unique);
+  },
+});
+
+const avatarMulter = multer({
+  storage: avatarStorage,
+  limits: { fileSize: AVATAR_MAX_BYTES },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_AVATAR_MIME.has(file.mimetype)) return cb(null, true);
+    cb(new HttpError(400, 'Tipo no válido. Usa JPG, PNG o WebP.', 'INVALID_TYPE'));
+  },
+});
+
+function avatarUpload(req, res, next) {
+  avatarMulter.single('avatar')(req, res, (err) => {
+    if (!err) return next();
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return next(new HttpError(413, 'Imagen demasiado grande. Máximo 5 MB.', 'FILE_TOO_LARGE'));
+    }
+    return next(err instanceof HttpError ? err : new HttpError(400, err.message ?? 'Error de subida', 'UPLOAD_ERROR'));
+  });
+}
+
+function deleteFileIfExists(filePath) {
+  fs.unlink(filePath, () => {}); // fire-and-forget; si no existe, sin error
+}
 
 export const authRouter = Router();
 
@@ -211,5 +259,60 @@ authRouter.post(
     const passwordHash = await bcrypt.hash(newPassword, 12);
     await query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, req.user.id]);
     res.json({ ok: true });
+  }),
+);
+
+// --- Editar perfil propio ("Editar perfil" en Perfil) -----------------
+// El email NO es editable aquí: está ligado a la facturación de Stripe.
+authRouter.put(
+  '/me',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const schema = z.object({ name: z.string().min(1, 'El nombre no puede estar vacío') });
+    const { name } = parse(schema, req.body);
+
+    const user = await queryOne(
+      `UPDATE users SET name = $1 WHERE id = $2
+       RETURNING id, email, name, role, avatar_url, stripe_customer_id`,
+      [name, req.user.id],
+    );
+    res.json({ user });
+  }),
+);
+
+authRouter.post(
+  '/me/avatar',
+  requireAuth,
+  avatarUpload,
+  asyncHandler(async (req, res) => {
+    if (!req.file) throw badRequest('No se recibió ninguna imagen', 'NO_FILE');
+
+    const current = await queryOne('SELECT avatar_url FROM users WHERE id = $1', [req.user.id]);
+    if (current?.avatar_url) {
+      const oldFilename = path.basename(current.avatar_url);
+      deleteFileIfExists(path.join(USER_AVATAR_DIR, oldFilename));
+    }
+
+    const avatarUrl = `${req.protocol}://${req.get('host')}/uploads/avatars/${req.file.filename}`;
+    const user = await queryOne(
+      `UPDATE users SET avatar_url = $1 WHERE id = $2
+       RETURNING id, email, name, role, avatar_url, stripe_customer_id`,
+      [avatarUrl, req.user.id],
+    );
+    res.json({ user });
+  }),
+);
+
+authRouter.delete(
+  '/me/avatar',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const current = await queryOne('SELECT avatar_url FROM users WHERE id = $1', [req.user.id]);
+    if (current?.avatar_url) {
+      const filename = path.basename(current.avatar_url);
+      deleteFileIfExists(path.join(USER_AVATAR_DIR, filename));
+    }
+    await query('UPDATE users SET avatar_url = NULL WHERE id = $1', [req.user.id]);
+    res.status(204).end();
   }),
 );

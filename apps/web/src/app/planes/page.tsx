@@ -117,7 +117,7 @@ function PlanesContent() {
       {/* Header */}
       <header className="relative flex items-center px-6 md:px-14 py-6">
         <Image
-          src="/logo.png"
+          src="/carp-partners-logo blanc.png"
           alt="Carp Partners TV"
           width={110} height={19}
           className="h-6 w-auto cursor-pointer"

@@ -2,6 +2,7 @@ import type {
   User,
   Subscription,
   Video,
+  RelatedVideo,
   Category,
   Series,
   WatchHistoryItem,
@@ -172,9 +173,13 @@ export class ApiClient {
       body?: unknown;
       auth?: boolean;
       query?: Record<string, string | number | boolean | undefined>;
+      /** Permite que la petición sobreviva a que el usuario navegue fuera de la
+       *  página (cierre de pestaña, recarga) — usado por saveProgress para no
+       *  perder el último tramo de progreso al salir del reproductor. */
+      keepalive?: boolean;
     },
   ): Promise<T> {
-    const { body, auth = true, query } = options ?? {};
+    const { body, auth = true, query, keepalive } = options ?? {};
 
     let url = `${this.baseUrl}${path}`;
     if (query) {
@@ -196,6 +201,7 @@ export class ApiClient {
       method,
       headers: makeHeaders(),
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      ...(keepalive ? { keepalive: true } : {}),
     });
 
     let res = await fetch(url, fetchOptions());
@@ -276,6 +282,20 @@ export class ApiClient {
     });
   }
 
+  async updateProfile(name: string): Promise<{ user: User }> {
+    return this.request('PUT', '/auth/me', { body: { name } });
+  }
+
+  async uploadAvatar(file: File): Promise<{ user: User }> {
+    const fd = new FormData();
+    fd.append('avatar', file);
+    return this.requestMultipart('POST', '/auth/me/avatar', fd);
+  }
+
+  async deleteAvatar(): Promise<void> {
+    return this.request('DELETE', '/auth/me/avatar');
+  }
+
   // ─── Catálogo ──────────────────────────────────────────────────────────────
 
   async getVideos(params?: {
@@ -284,12 +304,20 @@ export class ApiClient {
     category?: string;
     series?: string;
     q?: string;
+    /** Filtra por slug de un miembro de la crew — "Vídeos con {nombre}" */
+    crew?: string;
   }): Promise<{ videos: Video[]; limit: number; offset: number }> {
     return this.request('GET', '/videos', { query: params });
   }
 
-  async getVideo(id: string): Promise<{ video: Video; related: Video[] }> {
+  async getVideo(id: string): Promise<{ video: Video; related: RelatedVideo[] }> {
     return this.request('GET', `/videos/${id}`);
+  }
+
+  /** Vídeo destacado en portada (hero de Home): el marcado manualmente en admin,
+   *  o si no hay ninguno, el mismo criterio de siempre (primera categoría · primer vídeo). */
+  async getFeaturedVideo(): Promise<{ video: Video | null }> {
+    return this.request('GET', '/videos/featured');
   }
 
   async getVideoStream(id: string): Promise<{ hlsUrl: string; expiresInSec: number }> {
@@ -323,6 +351,7 @@ export class ApiClient {
   async saveProgress(videoId: string, progressSec: number, completed?: boolean): Promise<void> {
     return this.request('POST', '/watch-history', {
       body: { videoId, progressSec, ...(completed !== undefined ? { completed } : {}) },
+      keepalive: true,
     });
   }
 

@@ -7,7 +7,7 @@ import { Button, Pagination } from '@carp-partners/ui';
 import { AdminModal } from '@/components/admin/AdminModal';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
-import { AvatarUploader } from '@/components/admin/AvatarUploader';
+import { AvatarUploader } from '@/components/AvatarUploader';
 import { useToast } from '@/context/ToastContext';
 
 function toSlug(s: string) {

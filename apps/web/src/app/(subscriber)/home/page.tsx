@@ -36,17 +36,20 @@ export default function HomePage() {
 
     async function load() {
       try {
-        // Cargamos categorías, series y "Continuar viendo" en paralelo
-        const [{ categories }, { series: allSeries }, { items: continueWatching }] = await Promise.all([
-          apiClient.getCategories(),
-          apiClient.getSeries(),
-          apiClient.getContinueWatching(),
-        ]);
+        // Cargamos categorías, series, "Continuar viendo" y el destacado de portada en paralelo
+        const [{ categories }, { series: allSeries }, { items: continueWatching }, { video: featured }] =
+          await Promise.all([
+            apiClient.getCategories(),
+            apiClient.getSeries(),
+            apiClient.getContinueWatching(),
+            apiClient.getFeaturedVideo(),
+          ]);
 
         if (cancelled) return;
         setCategories(categories);
         setSeries(allSeries);
         setContinueItems(continueWatching);
+        setHero(featured);
 
         // Cargamos vídeos de cada categoría en paralelo
         const rowsData = await Promise.all(
@@ -60,10 +63,6 @@ export default function HomePage() {
 
         const validRows = rowsData.filter((r) => r.videos.length > 0);
         setRows(validRows);
-
-        // Hero: primer vídeo de la primera fila con contenido
-        const allVideos = validRows.flatMap((r) => r.videos);
-        if (allVideos.length > 0) setHero(allVideos[0]);
       } catch (err) {
         if (err instanceof ApiError && err.code === 'SUBSCRIPTION_REQUIRED') {
           router.replace('/planes');
@@ -131,13 +130,13 @@ export default function HomePage() {
 
       {/* Filas de vídeo */}
       <div className="px-6 md:px-12 pt-6 pb-16">
-        {/* Continuar viendo */}
+        {/* Continuar viendo — clic reanuda directamente, no pasa por el detalle */}
         {continueVideos.length > 0 && (
           <VideoRow
             title="Continuar viendo"
             videos={continueVideos}
             progressMap={progressMap}
-            onVideoClick={goToDetail}
+            onVideoClick={goToPlay}
           />
         )}
 

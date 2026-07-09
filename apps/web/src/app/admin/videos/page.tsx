@@ -323,6 +323,19 @@ export default function AdminVideosPage() {
     }
   };
 
+  // ── Toggle destacado en portada (hero de Home) ─────────────────────────────
+  // Solo puede haber uno activo a la vez; el backend desmarca el anterior.
+
+  const toggleFeatured = async (v: AdminVideo) => {
+    try {
+      await apiClient.updateAdminVideo(v.id, { isFeatured: !v.is_featured });
+      await load();
+      toast('success', v.is_featured ? 'Ya no es el destacado de portada' : `"${v.title}" es ahora el destacado de portada`);
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'No se pudo cambiar el destacado');
+    }
+  };
+
   // ── Eliminar ────────────────────────────────────────────────────────────────
 
   const handleDelete = async () => {
@@ -416,6 +429,18 @@ export default function AdminVideosPage() {
               <tr key={v.id} className="hover:bg-white/3 transition-colors">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => toggleFeatured(v)}
+                      title={v.is_featured ? 'Destacado en portada — pulsa para quitarlo' : 'Marcar como destacado en portada'}
+                      className={`shrink-0 p-1 rounded transition-colors ${
+                        v.is_featured ? 'text-amber-400' : 'text-white/25 hover:text-white/60'
+                      }`}
+                    >
+                      <svg className="w-[18px] h-[18px]" fill={v.is_featured ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round"
+                          d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                      </svg>
+                    </button>
                     {v.thumbnail_url ? (
                       <img src={v.thumbnail_url} alt="" className="w-14 aspect-video rounded object-cover bg-surface-raised shrink-0" />
                     ) : (
@@ -423,7 +448,11 @@ export default function AdminVideosPage() {
                     )}
                     <div className="min-w-0">
                       <p className="text-white font-medium truncate max-w-[220px]">{v.title}</p>
-                      <p className="text-white/40 text-xs mt-0.5 font-mono truncate max-w-[220px]">{v.vimeo_id}</p>
+                      {v.is_featured ? (
+                        <p className="text-amber-400 text-[10px] font-semibold uppercase tracking-wide mt-0.5">Destacado en portada</p>
+                      ) : (
+                        <p className="text-white/40 text-xs mt-0.5 font-mono truncate max-w-[220px]">{v.vimeo_id}</p>
+                      )}
                     </div>
                   </div>
                 </td>
@@ -441,7 +470,7 @@ export default function AdminVideosPage() {
                       </span>
                     ))}
                     {(v.crew ?? []).length > 3 && (
-                      <span className="text-[10px] text-white/30">+{v.crew.length - 3}</span>
+                      <span className="text-[10px] text-white/30">+{(v.crew ?? []).length - 3}</span>
                     )}
                   </div>
                 </td>

@@ -29,7 +29,20 @@ export interface Video {
   episode_num: number | null;
   created_at: string;
   /** Presente en /videos y /videos/:id; ausente en vídeos "sintéticos" derivados de historial/watchlist */
-  crew?: Pick<CrewMember, 'id' | 'name' | 'slug' | 'role'>[];
+  crew?: Pick<CrewMember, 'id' | 'name' | 'slug' | 'role' | 'avatar_url'>[];
+}
+
+// Forma real (más reducida que Video) que devuelve /videos/:id en "related",
+// con el progreso de visionado del usuario actual para esa tarjeta.
+export interface RelatedVideo {
+  id: string;
+  title: string;
+  slug: string;
+  thumbnail_url: string | null;
+  duration_sec: number;
+  episode_num: number | null;
+  progress_sec: number | null;
+  completed: boolean | null;
 }
 
 export interface Category {
@@ -127,6 +140,8 @@ export interface AdminVideoInput {
   published?: boolean;
   publishedAt?: string | null;
   crewMemberIds?: string[];
+  /** Destacado en la portada (hero) de Home. Solo un vídeo puede estarlo a la vez. */
+  isFeatured?: boolean;
 }
 
 export interface RatingsSummary {
@@ -146,8 +161,9 @@ export interface AdminVideo extends Video {
   updated_at: string;
   category_name: string | null;
   series_title: string | null;
-  crew: Pick<CrewMember, 'id' | 'name' | 'slug' | 'role'>[];
+  // crew hereda de Video (incluye avatar_url)
   ratings: RatingsSummary;
+  is_featured: boolean;
 }
 
 export interface CrewMember {

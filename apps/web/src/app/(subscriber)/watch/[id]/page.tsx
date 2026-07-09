@@ -3,8 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { Video, Category, Series } from '@carp-partners/api-client';
-import { VideoCard, RatingDialog, RATING_META, RATING_LABELS } from '@carp-partners/ui';
+import type { Video, RelatedVideo, Category, Series } from '@carp-partners/api-client';
+import { VideoCard, RatingDialog, RATING_META, RATING_LABELS, CastRow } from '@carp-partners/ui';
 import type { RatingValue } from '@carp-partners/ui';
 import { ToastProvider, useToast } from '@/context/ToastContext';
 
@@ -31,7 +31,7 @@ function DetailContent() {
   const { toast } = useToast();
 
   const [video, setVideo] = useState<Video | null>(null);
-  const [related, setRelated] = useState<Video[]>([]);
+  const [related, setRelated] = useState<RelatedVideo[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [series, setSeries] = useState<Series[]>([]);
   const [inList, setInList] = useState(false);
@@ -42,6 +42,7 @@ function DetailContent() {
   const [rating, setRating] = useState<RatingValue | null>(null);
   const [ratingOpen, setRatingOpen] = useState(false);
   const [ratingSaving, setRatingSaving] = useState(false);
+  const [resumeProgress, setResumeProgress] = useState<number | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -51,13 +52,16 @@ function DetailContent() {
 
     async function load() {
       try {
-        const [{ video, related }, { categories }, { series: allSeries }, { items: watchlist }, { rating: myRating }] =
-          await Promise.all([
+        const [
+          { video, related }, { categories }, { series: allSeries },
+          { items: watchlist }, { rating: myRating }, { items: continueItems },
+        ] = await Promise.all([
             apiClient.getVideo(id),
             apiClient.getCategories(),
             apiClient.getSeries(),
             apiClient.getWatchlist(),
             apiClient.getVideoRating(id),
+            apiClient.getContinueWatching(),
           ]);
 
         if (cancelled) return;
@@ -67,6 +71,7 @@ function DetailContent() {
         setSeries(allSeries);
         setInList(watchlist.some((i) => i.id === id));
         setRating(myRating != null ? RATING_TO_VALUE[myRating] : null);
+        setResumeProgress(continueItems.find((i) => i.id === id)?.progress_sec ?? null);
       } catch (err) {
         if (cancelled) return;
         if (err instanceof ApiError) {
@@ -170,9 +175,27 @@ function DetailContent() {
     ? `${videoSeries.title}${video.episode_num != null ? ` · Ep ${video.episode_num}` : ''}`
     : videoCategory?.name ?? '';
   const chips = [videoCategory?.name, videoSeries?.title].filter(Boolean) as string[];
-  const presenta = video.crew && video.crew.length > 0
-    ? video.crew.map((c) => c.name).join(', ')
-    : 'Carp Partners';
+
+  // Progreso de visionado del usuario para pintar la línea de tiempo en "Más como esto"
+  const relatedProgress: Record<string, number> = {};
+  for (const r of related) {
+    if (r.completed) relatedProgress[r.id] = 100;
+    else if (r.progress_sec && r.duration_sec > 0) {
+      relatedProgress[r.id] = Math.round((r.progress_sec / r.duration_sec) * 100);
+    }
+  }
+  const toVideo = (r: RelatedVideo): Video => ({
+    id: r.id,
+    title: r.title,
+    slug: r.slug,
+    thumbnail_url: r.thumbnail_url,
+    duration_sec: r.duration_sec,
+    episode_num: r.episode_num,
+    description: null,
+    category_id: null,
+    series_id: null,
+    created_at: video.created_at,
+  });
 
   return (
     <div className="min-h-screen bg-surface">
@@ -230,12 +253,12 @@ function DetailContent() {
         <div>
           <div className="flex items-center gap-3.5 flex-wrap mb-7">
             <button
-              onClick={() => router.push(`/watch/${video.id}/play`)}
+              onClick={() => router.replace(`/watch/${video.id}/play`)}
               className="inline-flex items-center gap-[9px] px-[30px] py-[13px] rounded-[9px] bg-brand text-white font-bold text-[15px] transition-transform hover:scale-[1.03]"
               style={{ boxShadow: '0 6px 22px rgba(104,20,11,0.55)' }}
             >
               <i className="ti ti-player-play-filled text-[19px]" />
-              Reproducir
+              {resumeProgress ? 'Reanudar' : 'Reproducir'}
             </button>
             <button
               onClick={toggleList}
@@ -279,7 +302,7 @@ function DetailContent() {
           )}
 
           {chips.length > 0 && (
-            <div className="flex gap-2.5 flex-wrap">
+            <div className="flex gap-2.5 flex-wrap mb-8">
               {chips.map((c) => (
                 <span
                   key={c}
@@ -291,13 +314,15 @@ function DetailContent() {
               ))}
             </div>
           )}
+
+          {/* Reparto — solo aparece si el vídeo tiene personas asignadas */}
+          <CastRow crew={video.crew ?? []} onSelect={(m) => router.push(`/crew/${m.slug}`)} />
         </div>
 
         <div className="text-[13px] leading-[1.9]" style={{ color: '#85958e' }}>
           <MetaRow label="Serie" value={videoSeries?.title ?? '—'} />
           <MetaRow label="Categoría" value={videoCategory?.name ?? '—'} />
-          <MetaRow label="Duración" value={formatDuration(video.duration_sec)} />
-          <MetaRow label="Presenta" value={presenta} last />
+          <MetaRow label="Duración" value={formatDuration(video.duration_sec)} last />
         </div>
       </div>
 
@@ -307,7 +332,12 @@ function DetailContent() {
           <h2 className="font-display text-[19px] font-semibold text-white mb-4">Más como esto</h2>
           <div className="grid gap-[22px_18px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(252px, 1fr))' }}>
             {related.map((v) => (
-              <VideoCard key={v.id} video={v} onClick={(v) => router.push(`/watch/${v.id}`)} />
+              <VideoCard
+                key={v.id}
+                video={toVideo(v)}
+                progress={relatedProgress[v.id]}
+                onClick={(v) => router.push(`/watch/${v.id}`)}
+              />
             ))}
           </div>
         </div>

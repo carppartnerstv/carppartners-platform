@@ -17,3 +17,6 @@ export { Logo } from './Logo';
 
 export { Pagination } from './Pagination';
 export type { PaginationProps } from './Pagination';
+
+export { CastRow } from './CastRow';
+export type { CastRowProps, CastMember } from './CastRow';

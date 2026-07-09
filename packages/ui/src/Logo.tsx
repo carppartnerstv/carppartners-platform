@@ -13,7 +13,7 @@ export function Logo({ iconSize = 28, iconOnly = false, className = '' }: LogoPr
     return (
       <div className={`flex items-center select-none ${className}`}>
         <img
-          src="/carp-partners-logo.png"
+          src="/carp-partners-logo blanc.png"
           alt="Carp Partners TV"
           style={{ height, width: 'auto', objectFit: 'contain' }}
         />
@@ -24,7 +24,7 @@ export function Logo({ iconSize = 28, iconOnly = false, className = '' }: LogoPr
   return (
     <div className={`flex items-center select-none ${className}`}>
       <img
-        src="/carp-partners-logo.png"
+        src="/carp-partners-logo blanc.png"
         alt="Carp Partners TV"
         style={{ height, width: 'auto', objectFit: 'contain' }}
       />

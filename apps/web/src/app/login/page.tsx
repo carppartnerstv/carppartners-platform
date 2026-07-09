@@ -119,7 +119,7 @@ function LoginContent() {
       {/* Header: logo izquierda · volver derecha */}
       <div className="absolute top-0 left-0 right-0 flex items-center px-8 py-6">
         <Image
-          src="/logo.png"
+          src="/carp-partners-logo blanc.png"
           alt="Carp Partners TV"
           width={110} height={19}
           className="h-6 w-auto cursor-pointer"

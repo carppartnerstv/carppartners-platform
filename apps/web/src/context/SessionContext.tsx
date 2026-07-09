@@ -15,6 +15,8 @@ interface SessionContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Actualiza el usuario en memoria tras editar el perfil (nombre/avatar) */
+  setUser: (user: User) => void;
   /** True si la suscripción da acceso (active | trialing | past_due vigente) */
   hasSubscription: boolean;
 }
@@ -85,7 +87,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       new Date(subscription.period_end) > new Date());
 
   return (
-    <SessionContext.Provider value={{ user, subscription, status, login, register, logout, hasSubscription }}>
+    <SessionContext.Provider value={{ user, subscription, status, login, register, logout, setUser, hasSubscription }}>
       {children}
     </SessionContext.Provider>
   );

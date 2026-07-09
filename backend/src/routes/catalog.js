@@ -24,9 +24,10 @@ export const catalogRouter = Router();
 const VISIBLE = `v.published = true AND (v.published_at IS NULL OR v.published_at <= now())`;
 
 // Subquery de crew reutilizable (requiere alias v para la tabla videos)
+// Incluye avatar_url para poder pintar la sección "Reparto" en el detalle.
 const CREW_SUBQUERY = `
   COALESCE(
-    (SELECT json_agg(json_build_object('id', cm.id, 'name', cm.name, 'slug', cm.slug, 'role', cm.role)
+    (SELECT json_agg(json_build_object('id', cm.id, 'name', cm.name, 'slug', cm.slug, 'role', cm.role, 'avatar_url', cm.avatar_url)
             ORDER BY cm.order_index, cm.name)
        FROM video_crew vc JOIN crew_members cm ON cm.id = vc.crew_member_id
       WHERE vc.video_id = v.id),
@@ -82,6 +83,44 @@ catalogRouter.get(
   }),
 );
 
+// --- Vídeo destacado en portada (hero de Home) ------------------------
+// Registrada ANTES de /videos/:id a propósito: si fuera después, Express
+// intentaría resolver "featured" como el parámetro :id.
+catalogRouter.get(
+  '/videos/featured',
+  requireAuth,
+  requireSubscription,
+  asyncHandler(async (req, res) => {
+    // 1. Vídeo marcado manualmente como destacado (si sigue visible)
+    let video = await queryOne(
+      `SELECT v.id, v.title, v.slug, v.description, v.duration_sec, v.thumbnail_url,
+              v.category_id, v.series_id, v.episode_num, v.created_at,
+              ${CREW_SUBQUERY}
+         FROM videos v
+        WHERE v.is_featured = true AND ${VISIBLE}
+        LIMIT 1`,
+    );
+
+    // 2. Fallback si no hay ninguno marcado (o el marcado ya no es visible):
+    //    mismo criterio que usaba antes el frontend — primer vídeo de la
+    //    primera categoría (por order_index) que tenga contenido visible.
+    if (!video) {
+      video = await queryOne(
+        `SELECT v.id, v.title, v.slug, v.description, v.duration_sec, v.thumbnail_url,
+                v.category_id, v.series_id, v.episode_num, v.created_at,
+                ${CREW_SUBQUERY}
+           FROM videos v
+           JOIN categories c ON c.id = v.category_id
+          WHERE ${VISIBLE}
+          ORDER BY c.order_index, c.name, v.series_id NULLS LAST, v.episode_num NULLS LAST, v.created_at DESC
+          LIMIT 1`,
+      );
+    }
+
+    res.json({ video });
+  }),
+);
+
 // --- Detalle de vídeo -------------------------------------------------
 catalogRouter.get(
   '/videos/:id',
@@ -98,15 +137,18 @@ catalogRouter.get(
     );
     if (!video) throw notFound('Vídeo no encontrado', 'VIDEO_NOT_FOUND');
 
-    // Vídeos relacionados (misma serie o categoría)
+    // Vídeos relacionados (misma serie o categoría), con el progreso de visionado
+    // del usuario actual para poder pintar la línea de tiempo en sus tarjetas.
     const { rows: related } = await query(
-      `SELECT id, title, slug, thumbnail_url, duration_sec, episode_num
+      `SELECT v.id, v.title, v.slug, v.thumbnail_url, v.duration_sec, v.episode_num,
+              wh.progress_sec, wh.completed
          FROM videos v
-        WHERE ${VISIBLE} AND id <> $1
-          AND (series_id = $2 OR category_id = $3)
-        ORDER BY episode_num NULLS LAST, created_at DESC
+         LEFT JOIN watch_history wh ON wh.video_id = v.id AND wh.user_id = $4
+        WHERE ${VISIBLE} AND v.id <> $1
+          AND (v.series_id = $2 OR v.category_id = $3)
+        ORDER BY v.episode_num NULLS LAST, v.created_at DESC
         LIMIT 12`,
-      [video.id, video.series_id, video.category_id],
+      [video.id, video.series_id, video.category_id, req.user.id],
     );
 
     res.json({ video, related });

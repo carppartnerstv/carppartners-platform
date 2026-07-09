@@ -219,7 +219,7 @@ async function syncVideoCrew(client, videoId, crewMemberIds) {
 // Subquery reutilizable para obtener la crew de un vídeo como array JSON
 const CREW_SUBQUERY = `
   COALESCE(
-    (SELECT json_agg(json_build_object('id', cm.id, 'name', cm.name, 'slug', cm.slug, 'role', cm.role)
+    (SELECT json_agg(json_build_object('id', cm.id, 'name', cm.name, 'slug', cm.slug, 'role', cm.role, 'avatar_url', cm.avatar_url)
             ORDER BY cm.order_index, cm.name)
        FROM video_crew vc JOIN crew_members cm ON cm.id = vc.crew_member_id
       WHERE vc.video_id = v.id),
@@ -256,6 +256,7 @@ const videoSchema = z.object({
     'publishedAt debe ser una fecha ISO 8601 válida',
   ),
   crewMemberIds: z.array(z.string().uuid()).optional(),
+  isFeatured: z.boolean().optional(),
 });
 
 adminRouter.post(
@@ -274,16 +275,21 @@ adminRouter.post(
       : (v.published ? new Date() : null);
 
     const video = await withTransaction(async (client) => {
+      // Solo puede haber un vídeo destacado a la vez.
+      if (v.isFeatured === true) {
+        await client.query('UPDATE videos SET is_featured = false WHERE is_featured = true');
+      }
+
       const { rows } = await client.query(
         `INSERT INTO videos
           (title, slug, description, vimeo_id, duration_sec, thumbnail_url,
-           category_id, series_id, episode_num, published, published_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+           category_id, series_id, episode_num, published, published_at, is_featured)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
          RETURNING *`,
         [
           v.title, v.slug, v.description ?? null, v.vimeoId, v.durationSec ?? 0,
           v.thumbnailUrl ?? null, v.categoryId ?? null, v.seriesId ?? null,
-          v.episodeNum ?? null, v.published ?? false, publishedAt,
+          v.episodeNum ?? null, v.published ?? false, publishedAt, v.isFeatured ?? false,
         ],
       );
       const created = rows[0];
@@ -319,12 +325,17 @@ adminRouter.put(
     }
 
     // publishedAt: valor explícito → úsalo; published=true sin fecha → auto-asigna now() si aún es null
-    const { publishedAt, crewMemberIds } = parsed.data;
+    const { publishedAt, crewMemberIds, isFeatured } = parsed.data;
     if (publishedAt !== undefined) {
       params.push(publishedAt ? new Date(publishedAt) : null);
       sets.push(`published_at = $${params.length}`);
     } else if (parsed.data.published === true) {
       sets.push(`published_at = COALESCE(published_at, now())`);
+    }
+
+    if (isFeatured !== undefined) {
+      params.push(isFeatured);
+      sets.push(`is_featured = $${params.length}`);
     }
 
     const hasMetaChanges = sets.length > 0;
@@ -333,6 +344,15 @@ adminRouter.put(
     }
 
     const video = await withTransaction(async (client) => {
+      // Solo puede haber un vídeo destacado a la vez: al marcar este,
+      // desmarcamos cualquier otro que lo estuviera.
+      if (isFeatured === true) {
+        await client.query(
+          'UPDATE videos SET is_featured = false WHERE is_featured = true AND id <> $1',
+          [req.params.id],
+        );
+      }
+
       let updated;
       if (hasMetaChanges) {
         params.push(req.params.id);
@@ -423,7 +443,7 @@ adminRouter.get(
       `SELECT v.id, v.title, v.slug, v.description, v.vimeo_id,
               v.duration_sec, v.thumbnail_url, v.category_id,
               v.series_id, v.episode_num, v.published, v.published_at,
-              v.created_at, v.updated_at,
+              v.is_featured, v.created_at, v.updated_at,
               c.name AS category_name,
               s.title AS series_title,
               CASE

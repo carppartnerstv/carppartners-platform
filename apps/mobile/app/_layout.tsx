@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Slot, SplashScreen } from 'expo-router';
+import { Stack, SplashScreen } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
@@ -48,7 +48,9 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <StatusBar style="light" backgroundColor={colors.bg} />
         <View style={styles.root}>
-          <Slot />
+          {/* Cabecera nativa oculta: cada pantalla dibuja la suya propia,
+              consistente con el resto del sistema de diseño (fully custom UI). */}
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
         </View>
       </SafeAreaProvider>
     </GestureHandlerRootView>

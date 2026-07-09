@@ -103,7 +103,7 @@ function LandingContent() {
           borderBottom: scrolled ? '1px solid rgba(255,255,255,0.07)' : '1px solid transparent',
         }}
       >
-        <Image src="/logo.png" alt="Carp Partners TV" width={140} height={24} className="h-[26px] w-auto cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
+        <Image src="/carp-partners-logo blanc.png" alt="Carp Partners TV" width={140} height={24} className="h-[26px] w-auto cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
         <div className="flex-1" />
         <nav className="hidden md:flex items-center gap-8 mr-8">
           {[['Catálogo', scrollTo(catRef)], ['Planes', scrollTo(plansRef)], ['Preguntas', scrollTo(faqRef)]].map(([label, fn]) => (
@@ -343,7 +343,7 @@ function LandingContent() {
       <footer className="px-6 md:px-14 pt-[50px] pb-10" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
         <div className="max-w-[1100px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-10">
           <div>
-            <Image src="/logo.png" alt="Carp Partners TV" width={100} height={17} className="h-6 w-auto mb-4" />
+            <Image src="/carp-partners-logo blanc.png" alt="Carp Partners TV" width={100} height={17} className="h-6 w-auto mb-4" />
             <p className="text-[13.5px] leading-relaxed mb-[18px] max-w-[260px]" style={{ color: '#7d8d86' }}>
               La primera plataforma de streaming especializada en carpfishing. Hecha en España.
             </p>
