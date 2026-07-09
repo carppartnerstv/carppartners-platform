@@ -26,3 +26,6 @@ export type { PaginationProps } from './Pagination';
 
 export { CastRow } from './CastRow';
 export type { CastRowProps, CastMember } from './CastRow';
+
+export { CrewCard } from './CrewCard';
+export type { CrewCardProps, CrewCardMember } from './CrewCard';

@@ -12,6 +12,8 @@ export interface CastMember {
 export interface CastRowProps {
   crew: CastMember[];
   onSelect?: (member: CastMember) => void;
+  /** Encabezado sobre la fila. `null` la oculta (p. ej. al reutilizar en una parrilla de exploración). */
+  title?: string | null;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -19,19 +21,22 @@ const ROLE_LABELS: Record<string, string> = {
   crew: 'Miembro de la crew',
 };
 
-// Sección "Reparto" de la ficha de vídeo. No se renderiza si el vídeo no
-// tiene nadie asignado.
-export function CastRow({ crew, onSelect }: CastRowProps) {
+// Sección "Reparto" de la ficha de vídeo. No se renderiza si no hay nadie
+// asignado (crew vacío). También se reutiliza (con title={null}) como
+// parrilla de miembros en el buscador de Explorar.
+export function CastRow({ crew, onSelect, title = 'Reparto' }: CastRowProps) {
   if (!crew || crew.length === 0) return null;
 
   return (
     <div>
-      <div
-        className="text-[12.5px] font-semibold uppercase tracking-[0.04em] mb-4"
-        style={{ color: '#7d8d86' }}
-      >
-        Reparto
-      </div>
+      {title && (
+        <div
+          className="text-[12.5px] font-semibold uppercase tracking-[0.04em] mb-4"
+          style={{ color: '#7d8d86' }}
+        >
+          {title}
+        </div>
+      )}
       <div className="flex gap-[22px] flex-wrap">
         {crew.map((member) => {
           const initials = member.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase();
