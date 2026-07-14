@@ -1,28 +1,17 @@
 import React from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
+import { PublicHeader } from './PublicHeader';
+import { PublicFooter } from './PublicFooter';
 
-// Cabecera + contenedor de lectura compartidos por las páginas fijas
-// públicas (Sobre nosotros, legales, Contacto...). Coherente con la estética
-// oscura de la landing: mismo fondo, logo y tipografía.
+// Cabecera + pie compartidos con la landing (mismo PublicHeader/PublicFooter)
+// y contenedor de lectura para las páginas fijas públicas (Sobre nosotros,
+// legales, Contacto...). Coherente con la estética oscura de la web pública.
 export function StaticPageLayout({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="min-h-screen" style={{ background: '#06090c' }}>
-      <header className="px-6 md:px-14 py-6 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-        <Link href="/">
-          <Image src="/carp-partners-logo blanc.png" alt="Carp Partners TV" width={110} height={19} className="h-6 w-auto" />
-        </Link>
-        <Link
-          href="/"
-          className="inline-flex items-center gap-[7px] text-[13px] transition-colors hover:text-white"
-          style={{ color: '#9aa9a3' }}
-        >
-          <i className="ti ti-arrow-left text-[17px]" />
-          Volver al inicio
-        </Link>
-      </header>
+    <div className="min-h-screen flex flex-col" style={{ background: '#06090c' }}>
+      <PublicHeader />
 
-      <main className="max-w-[760px] mx-auto px-6 md:px-0 py-[56px]">
+      {/* pt-[110px] deja hueco al header, que va fixed */}
+      <main className="flex-1 max-w-[760px] mx-auto w-full px-6 md:px-0 pt-[110px] pb-[56px]">
         <h1
           className="font-display font-bold text-white mb-8"
           style={{ fontSize: 36, letterSpacing: '-0.02em' }}
@@ -31,6 +20,8 @@ export function StaticPageLayout({ title, children }: { title: string; children:
         </h1>
         {children}
       </main>
+
+      <PublicFooter />
     </div>
   );
 }

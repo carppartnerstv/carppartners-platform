@@ -1,10 +1,11 @@
 'use client';
 
 import React, { Suspense, useState, useEffect, useRef, useCallback } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/context/SessionContext';
+import { PublicHeader } from '@/components/PublicHeader';
+import { PublicFooter } from '@/components/PublicFooter';
 
 // ─── Datos del diseño ─────────────────────────────────────────────────────────
 
@@ -49,35 +50,12 @@ const FAQS = [
   { q: '¿Hay contenido gratuito?', a: 'Sí. Al registrarte gratis tienes acceso a tráilers, avances y un vídeo completo gratuito al mes para que conozcas la plataforma.' },
 ];
 
-const FOOTER_COLS: { title: string; links: { label: string; href?: string }[] }[] = [
-  { title: 'Plataforma', links: [
-    { label: 'Catálogo' }, { label: 'Series' }, { label: 'Documentales' }, { label: 'Planes' },
-  ] },
-  { title: 'Empresa', links: [
-    { label: 'Sobre nosotros', href: '/sobre-carp-partners' },
-    { label: 'Blog' },
-    { label: 'Contacto', href: '/contacto' },
-    { label: 'Trabaja con nosotros' },
-  ] },
-  { title: 'Ayuda', links: [
-    { label: 'Centro de ayuda' }, { label: 'Cuenta' }, { label: 'Dispositivos' }, { label: 'Estado' },
-  ] },
-];
-
-const LEGAL_LINKS = [
-  { label: 'Privacidad', href: '/politica-de-privacidad' },
-  { label: 'Términos', href: '/terminos-de-uso' },
-  { label: 'Cookies', href: '/politica-de-cookies' },
-  { label: 'Aviso legal', href: '/aviso-legal' },
-];
-
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 function LandingContent() {
   const { user, status, hasSubscription } = useSession();
   const router = useRouter();
 
-  const [scrolled, setScrolled]   = useState(false);
   const [openFaq, setOpenFaq]     = useState<number | null>(null);
 
   const catRef   = useRef<HTMLElement>(null);
@@ -90,13 +68,6 @@ function LandingContent() {
     if (user?.role === 'admin') router.replace('/admin');
     else if (hasSubscription) router.replace('/home');
   }, [status, user, hasSubscription, router]);
-
-  // Navbar translúcida → sólida al hacer scroll
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 30);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
   const scrollTo = useCallback((ref: React.RefObject<HTMLElement | null>) => () => {
     if (!ref.current) return;
@@ -111,30 +82,10 @@ function LandingContent() {
       style={{ background: '#06090c', fontFamily: 'Inter, sans-serif', color: '#e9efeb' }}
     >
       {/* ═══════════════ NAVBAR ═══════════════ */}
-      <header
-        className="fixed top-0 left-0 right-0 z-50 flex items-center px-6 md:px-14 py-[18px] transition-all duration-300"
-        style={{
-          background: scrolled ? 'rgba(6,9,12,0.92)' : 'rgba(6,9,12,0)',
-          backdropFilter: scrolled ? 'blur(10px)' : 'none',
-          borderBottom: scrolled ? '1px solid rgba(255,255,255,0.07)' : '1px solid transparent',
-        }}
-      >
-        <Image src="/carp-partners-logo blanc.png" alt="Carp Partners TV" width={140} height={24} className="h-[26px] w-auto cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-        <div className="flex-1" />
-        <nav className="hidden md:flex items-center gap-8 mr-8">
-          {[['Catálogo', scrollTo(catRef)], ['Planes', scrollTo(plansRef)], ['Preguntas', scrollTo(faqRef)]].map(([label, fn]) => (
-            <button key={label as string} onClick={fn as () => void} className="text-[13.5px] font-medium text-white/60 hover:text-white transition-colors cursor-pointer">
-              {label as string}
-            </button>
-          ))}
-        </nav>
-        <Link href="/login" className="mr-2.5 px-[18px] py-[9px] rounded-lg border border-white/20 text-white text-[13.5px] font-semibold hover:bg-white/8 transition-colors">
-          Iniciar sesión
-        </Link>
-        <Link href="/login?mode=register" className="px-5 py-[9px] rounded-lg text-white text-[13.5px] font-bold transition-transform hover:scale-[1.04]" style={{ background: '#68140b', boxShadow: '0 4px 16px rgba(104,20,11,0.45)' }}>
-          Suscríbete
-        </Link>
-      </header>
+      <PublicHeader
+        transparentOnTop
+        onNavClick={{ catalogo: scrollTo(catRef), planes: scrollTo(plansRef), preguntas: scrollTo(faqRef) }}
+      />
 
       {/* ═══════════════ HERO ═══════════════ */}
       <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 pt-[120px] pb-20 overflow-hidden">
@@ -201,7 +152,7 @@ function LandingContent() {
       </section>
 
       {/* ═══════════════ CATALOG PREVIEW ═══════════════ */}
-      <section ref={catRef} className="pb-[90px] pt-10">
+      <section ref={catRef} id="catalogo" className="pb-[90px] pt-10">
         <div className="text-center px-6 md:px-14 mb-10">
           <div className="text-[12.5px] font-semibold tracking-[0.12em] uppercase mb-[14px]" style={{ color: '#cf4a35' }}>Un vistazo al catálogo</div>
           <h2 className="font-display font-bold text-white" style={{ fontSize: 'clamp(28px,4vw,42px)', letterSpacing: '-0.02em' }}>Cientos de horas esperándote</h2>
@@ -231,7 +182,7 @@ function LandingContent() {
       </section>
 
       {/* ═══════════════ PLANS ═══════════════ */}
-      <section ref={plansRef} className="px-6 md:px-14 py-[70px] md:py-[90px]" style={{ background: 'linear-gradient(180deg,#080d11 0%,#06090c 100%)' }}>
+      <section ref={plansRef} id="planes" className="px-6 md:px-14 py-[70px] md:py-[90px]" style={{ background: 'linear-gradient(180deg,#080d11 0%,#06090c 100%)' }}>
         <div className="max-w-[920px] mx-auto text-center">
           <div className="text-[12.5px] font-semibold tracking-[0.12em] uppercase mb-[14px]" style={{ color: '#cf4a35' }}>Planes</div>
           <h2 className="font-display font-bold text-white mb-[44px]" style={{ fontSize: 'clamp(28px,4vw,42px)', letterSpacing: '-0.02em' }}>Elige cómo quieres ver</h2>
@@ -314,7 +265,7 @@ function LandingContent() {
       </section>
 
       {/* ═══════════════ FAQ ═══════════════ */}
-      <section ref={faqRef} className="px-6 md:px-14 py-[70px] md:py-[90px]">
+      <section ref={faqRef} id="preguntas" className="px-6 md:px-14 py-[70px] md:py-[90px]">
         <div className="max-w-[760px] mx-auto">
           <div className="text-center mb-12">
             <div className="text-[12.5px] font-semibold tracking-[0.12em] uppercase mb-[14px]" style={{ color: '#cf4a35' }}>Preguntas frecuentes</div>
@@ -356,41 +307,7 @@ function LandingContent() {
       </section>
 
       {/* ═══════════════ FOOTER ═══════════════ */}
-      <footer className="px-6 md:px-14 pt-[50px] pb-10" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-        <div className="max-w-[1100px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-10">
-          <div>
-            <Image src="/carp-partners-logo blanc.png" alt="Carp Partners TV" width={100} height={17} className="h-6 w-auto mb-4" />
-            <p className="text-[13.5px] leading-relaxed mb-[18px] max-w-[260px]" style={{ color: '#7d8d86' }}>
-              La primera plataforma de streaming especializada en carpfishing. Hecha en España.
-            </p>
-            <div className="flex gap-2.5">
-              {['brand-youtube', 'brand-instagram', 'brand-facebook'].map(icon => (
-                <div key={icon} className="w-[38px] h-[38px] rounded-[10px] flex items-center justify-center cursor-pointer transition-colors hover:text-white" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#9aa9a3' }}>
-                  <i className={`ti ti-${icon} text-[19px]`} />
-                </div>
-              ))}
-            </div>
-          </div>
-          {FOOTER_COLS.map(col => (
-            <div key={col.title}>
-              <div className="text-[13px] font-semibold mb-4" style={{ color: '#cdd6d2' }}>{col.title}</div>
-              {col.links.map(l => l.href ? (
-                <Link key={l.label} href={l.href} className="block text-[13.5px] py-1.5 transition-colors hover:text-white/70" style={{ color: '#7d8d86' }}>{l.label}</Link>
-              ) : (
-                <div key={l.label} className="text-[13.5px] py-1.5 cursor-pointer transition-colors hover:text-white/70" style={{ color: '#7d8d86' }}>{l.label}</div>
-              ))}
-            </div>
-          ))}
-        </div>
-        <div className="max-w-[1100px] mx-auto mt-9 pt-6 flex items-center justify-between flex-wrap gap-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="text-[12.5px]" style={{ color: '#6a7a73' }}>© 2026 Carp Partners TV. Todos los derechos reservados.</div>
-          <div className="flex gap-[22px] text-[12.5px]" style={{ color: '#6a7a73' }}>
-            {LEGAL_LINKS.map(l => (
-              <Link key={l.label} href={l.href} className="hover:text-white/50 transition-colors">{l.label}</Link>
-            ))}
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }
