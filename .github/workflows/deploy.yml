@@ -51,4 +51,5 @@ jobs:
             echo "==> healthcheck"
             sleep 3
             curl -fsS http://127.0.0.1:3001/health
+            curl -fsS http://127.0.0.1:3000/ > /dev/null
             echo "\nDeploy OK"
