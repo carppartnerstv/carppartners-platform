@@ -36,14 +36,14 @@ jobs:
             echo "==> git pull"
             git pull origin main
 
-            echo "==> backend deps"
-            cd backend && npm ci --omit=dev && cd ..
+            echo "==> instalar dependencias (monorepo completo, una sola vez desde la raíz)"
+            npm ci --include=dev
 
-            echo "==> web deps + build"
-            cd apps/web && npm ci && npm run build && cd ../..
+            echo "==> build de la web"
+            npm run build:web
 
             echo "==> migraciones de base de datos"
-            cd backend && npm run migrate && cd ..
+            npm run migrate
 
             echo "==> reload pm2 (zero-downtime)"
             pm2 reload ecosystem.config.cjs

@@ -24,9 +24,15 @@ module.exports = {
     {
       name: 'carp-web',
       cwd: './apps/web',
-      // Next.js en modo standalone tras `next build`
-      script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 3000',
+      // Arranca vía "npm start" (= `next start`, definido en apps/web/package.json)
+      // en vez de apuntar a node_modules/next/dist/bin/next directamente: en un
+      // monorepo con workspaces, `next` se hoistea al node_modules de la raíz
+      // (no vive dentro de apps/web/node_modules), así que una ruta fija ahí
+      // se rompe. Con "npm start" es npm quien resuelve el binario, haya o no
+      // hoisting.
+      script: 'npm',
+      args: 'start -- -p 3000',
+      interpreter: 'none',
       instances: 1,
       exec_mode: 'fork',
       max_memory_restart: '500M',
