@@ -23,6 +23,9 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { asyncHandler, badRequest, notFound, HttpError } from '../utils/errors.js';
 import { stripe } from '../services/stripe.js';
 import { getVideoMetadata } from '../services/vimeo.js';
+import { sendMail } from '../services/mail.js';
+import { setPasswordEmail } from '../services/mailTemplates.js';
+import { config } from '../config/index.js';
 import sanitizeHtml from 'sanitize-html';
 
 // ─── Configuración de subida de imágenes (avatares de crew, portadas de series,
@@ -253,6 +256,13 @@ adminRouter.post(
        RETURNING id, email, name, role, avatar_url, created_at`,
       [email, d.name ?? null, passwordHash, setPasswordToken, setPasswordExpires],
     );
+
+    if (setPasswordToken) {
+      const setUrl = `${config.publicWebUrl}/set-password?token=${setPasswordToken}`;
+      // No se espera: el admin ya recibe el enlace en la respuesta como respaldo,
+      // así que un SMTP lento no debe retrasarla.
+      sendMail({ to: user.email, ...setPasswordEmail({ name: user.name, setUrl }) });
+    }
 
     res.status(201).json({ user, setPasswordToken });
   }),
@@ -1187,6 +1197,71 @@ adminRouter.delete(
       deleteFileIfExists(path.join(PAGES_UPLOADS_DIR, filename));
     }
     await queryOne('UPDATE pages SET og_image = NULL WHERE slug = $1 RETURNING id', [req.params.slug]);
+    res.status(204).end();
+  }),
+);
+
+// =====================================================================
+// Bandeja de mensajes del formulario de contacto (guardados por POST /contact,
+// endpoint público en routes/contact.js).
+// =====================================================================
+
+// GET /admin/contact-messages?read=true|false&limit&offset
+adminRouter.get(
+  '/contact-messages',
+  asyncHandler(async (req, res) => {
+    const limit = Math.min(parseInt(req.query.limit ?? '50', 10), 200);
+    const offset = Math.max(parseInt(req.query.offset ?? '0', 10), 0);
+    const { read } = req.query;
+
+    const filters = [];
+    const params = [];
+    if (read === 'true') filters.push('read_at IS NOT NULL');
+    else if (read === 'false') filters.push('read_at IS NULL');
+    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
+    const countRow = await queryOne(`SELECT COUNT(*)::int AS total FROM contact_messages ${where}`, params);
+    const unreadRow = await queryOne(`SELECT COUNT(*)::int AS n FROM contact_messages WHERE read_at IS NULL`);
+
+    params.push(limit, offset);
+    const { rows } = await query(
+      `SELECT id, name, email, subject, message, read_at, created_at
+         FROM contact_messages
+        ${where}
+        ORDER BY created_at DESC
+        LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params,
+    );
+    res.json({ messages: rows, limit, offset, total: countRow.total, unread: unreadRow.n });
+  }),
+);
+
+// PUT /admin/contact-messages/:id  { read: boolean } — marca leído/no leído
+adminRouter.put(
+  '/contact-messages/:id',
+  asyncHandler(async (req, res) => {
+    const schema = z.object({ read: z.boolean() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+
+    const message = await queryOne(
+      `UPDATE contact_messages SET read_at = $1 WHERE id = $2 RETURNING *`,
+      [parsed.data.read ? new Date() : null, req.params.id],
+    );
+    if (!message) throw notFound('Mensaje no encontrado', 'MESSAGE_NOT_FOUND');
+    res.json({ message });
+  }),
+);
+
+// DELETE /admin/contact-messages/:id
+adminRouter.delete(
+  '/contact-messages/:id',
+  asyncHandler(async (req, res) => {
+    const message = await queryOne(
+      `DELETE FROM contact_messages WHERE id = $1 RETURNING id`,
+      [req.params.id],
+    );
+    if (!message) throw notFound('Mensaje no encontrado', 'MESSAGE_NOT_FOUND');
     res.status(204).end();
   }),
 );

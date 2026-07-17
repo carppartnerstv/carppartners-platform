@@ -28,6 +28,8 @@ import type {
   AdminPage,
   AdminPageSummary,
   PageInput,
+  ContactInput,
+  ContactMessage,
 } from './types.js';
 
 // ─── Error tipado ────────────────────────────────────────────────────────────
@@ -282,6 +284,13 @@ export class ApiClient {
   async setPassword(token: string, password: string): Promise<{ ok: boolean }> {
     return this.request('POST', '/auth/set-password', {
       body: { token, password },
+      auth: false,
+    });
+  }
+
+  async forgotPassword(email: string): Promise<{ ok: boolean }> {
+    return this.request('POST', '/auth/forgot-password', {
+      body: { email },
       auth: false,
     });
   }
@@ -574,6 +583,28 @@ export class ApiClient {
 
   async deletePageImage(slug: string): Promise<void> {
     return this.request('DELETE', `/admin/pages/${slug}/image`);
+  }
+
+  // ── Contacto ──────────────────────────────────────────────────────────────
+
+  async submitContact(data: ContactInput): Promise<{ ok: boolean }> {
+    return this.request('POST', '/contact', { body: data, auth: false });
+  }
+
+  async getAdminContactMessages(params?: {
+    read?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ messages: ContactMessage[]; limit: number; offset: number; total: number; unread: number }> {
+    return this.request('GET', '/admin/contact-messages', { query: params });
+  }
+
+  async markContactMessageRead(id: string, read: boolean): Promise<{ message: ContactMessage }> {
+    return this.request('PUT', `/admin/contact-messages/${id}`, { body: { read } });
+  }
+
+  async deleteAdminContactMessage(id: string): Promise<void> {
+    return this.request('DELETE', `/admin/contact-messages/${id}`);
   }
 }
 

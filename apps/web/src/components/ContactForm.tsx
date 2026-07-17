@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { apiClient, ApiError } from '@carp-partners/api-client';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -14,26 +15,39 @@ const inputStyle: React.CSSProperties = {
   outline: 'none',
 };
 
-// Maquetación del formulario de contacto. El envío real (a un endpoint del
-// backend, email, etc.) queda pendiente de conectar más adelante — de
-// momento simula una confirmación local tras validar los campos.
+// Maquetación del formulario de contacto, conectada a POST /contact (guarda
+// la consulta, avisa a MAIL_ADMIN y manda acuse de recibo al usuario).
 export function ContactForm() {
   const [name, setName]       = useState('');
   const [email, setEmail]     = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError]     = useState('');
+  const [sending, setSending] = useState(false);
   const [sent, setSent]       = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (!name.trim() || !email.trim() || !message.trim()) {
       setError('Rellena tu nombre, correo y mensaje.');
       return;
     }
-    // TODO: conectar con el backend real (endpoint de contacto) cuando exista.
-    setSent(true);
+
+    setSending(true);
+    try {
+      await apiClient.submitContact({
+        name: name.trim(),
+        email: email.trim(),
+        subject: subject.trim() || undefined,
+        message: message.trim(),
+      });
+      setSent(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'No se pudo enviar el mensaje. Inténtalo de nuevo.');
+    } finally {
+      setSending(false);
+    }
   };
 
   if (sent) {
@@ -83,10 +97,11 @@ export function ContactForm() {
 
       <button
         type="submit"
-        className="inline-flex items-center gap-[9px] px-[26px] py-[13px] rounded-[11px] text-white font-bold text-[14.5px] transition-transform hover:scale-[1.02]"
+        disabled={sending}
+        className="inline-flex items-center gap-[9px] px-[26px] py-[13px] rounded-[11px] text-white font-bold text-[14.5px] transition-transform hover:scale-[1.02] disabled:opacity-60 disabled:cursor-not-allowed"
         style={{ background: '#68140b', boxShadow: '0 8px 24px rgba(104,20,11,0.45)', border: 'none' }}
       >
-        Enviar mensaje
+        {sending ? 'Enviando…' : 'Enviar mensaje'}
         <i className="ti ti-send text-[17px]" />
       </button>
     </form>

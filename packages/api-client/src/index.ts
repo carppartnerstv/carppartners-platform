@@ -31,4 +31,6 @@ export type {
   AdminPage,
   AdminPageSummary,
   PageInput,
+  ContactInput,
+  ContactMessage,
 } from './types';

@@ -6,9 +6,11 @@ import { createApp } from './app.js';
 import { config } from './config/index.js';
 import { connectRedis, closeRedis } from './config/redis.js';
 import { closePool } from './config/db.js';
+import { verifyMailConnection } from './services/mail.js';
 
 async function main() {
   await connectRedis();
+  await verifyMailConnection(); // nunca lanza — un SMTP caído no debe impedir arrancar
 
   const app = createApp();
   const server = app.listen(config.port, () => {

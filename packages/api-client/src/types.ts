@@ -229,6 +229,23 @@ export interface PageInput {
   metaDescription?: string;
 }
 
+export interface ContactInput {
+  name: string;
+  email: string;
+  subject?: string;
+  message: string;
+}
+
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  subject: string | null;
+  message: string;
+  read_at: string | null;
+  created_at: string;
+}
+
 export interface Payment {
   id: string;
   amount: number;

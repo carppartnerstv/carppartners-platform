@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#e7e9ea}
+  a{color:#68140b}
+</style>
+</helmet>
+<div style="min-height:100vh;background:#e7e9ea;font-family:Inter,Arial,sans-serif;padding:40px 0">
+
+  <div style="max-width:640px;margin:0 auto 22px;padding:0 16px;display:flex;gap:8px;flex-wrap:wrap">
+    <span onClick="{{ setWelcome }}" style="padding:8px 14px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;background:{{ tabWelcomeBg }};color:{{ tabWelcomeColor }};font-family:Inter,sans-serif">Bienvenida</span>
+    <span onClick="{{ setReset }}" style="padding:8px 14px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;background:{{ tabResetBg }};color:{{ tabResetColor }};font-family:Inter,sans-serif">Recuperar contrase&ntilde;a</span>
+    <span onClick="{{ setContact }}" style="padding:8px 14px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;background:{{ tabContactBg }};color:{{ tabContactColor }};font-family:Inter,sans-serif">Respuesta de contacto</span>
+  </div>
+
+  <!-- EMAIL (table-based, client-safe) -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;margin:0 auto;background:#0e151a;border-radius:14px;overflow:hidden;border:1px solid #1c262c">
+    <tr>
+      <td style="background:#06090c;padding:28px 40px;text-align:center;border-bottom:1px solid #1c262c">
+        <img src="assets/carp-partners-logo.png" alt="Carp Partners TV" width="160" style="display:inline-block;height:auto" />
+      </td>
+    </tr>
+
+    <!-- HERO IMAGE (optional per email) -->
+    <tr>
+      <td style="background:{{ heroBg }};height:180px;text-align:center;vertical-align:middle;font-family:monospace;font-size:11px;color:rgba(255,255,255,0.55);letter-spacing:0.04em">{{ heroCaption }}</td>
+    </tr>
+
+    <tr>
+      <td style="padding:44px 44px 8px;text-align:center">
+        <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:rgba(104,20,11,0.18);color:#cf4a35;font-family:Inter,sans-serif;font-size:11.5px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:22px">{{ eyebrow }}</div>
+        <h1 style="font-family:Sora,Arial,sans-serif;font-weight:800;font-size:26px;line-height:1.25;letter-spacing:-0.01em;color:#ffffff;margin:0 0 16px">{{ heading }}</h1>
+        <p style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.7;color:#c4d0cb;margin:0 0 8px;text-align:left">{{ bodyText1 }}</p>
+        <sc-if value="{{ hasBodyText2 }}" hint-placeholder-val="{{ false }}">
+          <p style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.7;color:#c4d0cb;margin:14px 0 0;text-align:left">{{ bodyText2 }}</p>
+        </sc-if>
+      </td>
+    </tr>
+
+    <!-- QUOTED MESSAGE BLOCK (contact reply only) -->
+    <sc-if value="{{ showQuoteBlock }}" hint-placeholder-val="{{ false }}">
+      <tr>
+        <td style="padding:0 44px 8px">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-left:3px solid #68140b;border-radius:8px">
+            <tr><td style="padding:16px 18px">
+              <div style="font-family:Inter,sans-serif;font-size:11.5px;font-weight:600;color:#7d8d86;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">Tu mensaje original</div>
+              <div style="font-family:Inter,sans-serif;font-size:14px;line-height:1.6;color:#a9b8b1;font-style:italic">{{ quoteText }}</div>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+    </sc-if>
+
+    <!-- PRIMARY CTA BUTTON -->
+    <sc-if value="{{ showButton }}" hint-placeholder-val="{{ true }}">
+      <tr>
+        <td style="padding:26px 44px 10px;text-align:center">
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto"><tr><td style="border-radius:9px;background:#68140b">
+            <a href="#" style="display:inline-block;padding:14px 32px;font-family:Inter,Arial,sans-serif;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:9px">{{ buttonLabel }}</a>
+          </td></tr></table>
+        </td>
+      </tr>
+    </sc-if>
+
+    <!-- SECONDARY LINK FALLBACK (for reset / verification links) -->
+    <sc-if value="{{ showLinkFallback }}" hint-placeholder-val="{{ false }}">
+      <tr>
+        <td style="padding:14px 44px 0;text-align:center">
+          <p style="font-family:Inter,Arial,sans-serif;font-size:12.5px;line-height:1.6;color:#6a7a73;margin:0">{{ linkFallbackLabel }}<br/><a href="#" style="color:#cf4a35;word-break:break-all">{{ linkFallbackUrl }}</a></p>
+        </td>
+      </tr>
+    </sc-if>
+
+    <!-- EXPIRY / SECURITY NOTE -->
+    <sc-if value="{{ showNote }}" hint-placeholder-val="{{ false }}">
+      <tr>
+        <td style="padding:22px 44px 0;text-align:center">
+          <p style="font-family:Inter,Arial,sans-serif;font-size:12.5px;line-height:1.6;color:#7d8d86;margin:0">{{ noteText }}</p>
+        </td>
+      </tr>
+    </sc-if>
+
+    <!-- FEATURE / PERK LIST (welcome only) -->
+    <sc-if value="{{ showPerks }}" hint-placeholder-val="{{ false }}">
+      <tr>
+        <td style="padding:34px 44px 6px">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <sc-for list="{{ perks }}" as="p" hint-placeholder-count="3">
+              <tr><td style="padding:10px 0;border-top:1px solid rgba(255,255,255,0.07)">
+                <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+                  <td style="width:26px;vertical-align:top;padding-top:2px;font-family:Inter,sans-serif;font-size:14px;color:#cf4a35;font-weight:700">&#10003;</td>
+                  <td style="font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.6;color:#dfe7e3">{{ p }}</td>
+                </tr></table>
+              </td></tr>
+            </sc-for>
+          </table>
+        </td>
+      </tr>
+    </sc-if>
+
+    <tr><td style="padding:34px 44px 44px">
+      <div style="height:1px;background:rgba(255,255,255,0.08)"></div>
+    </td></tr>
+
+    <!-- SIGN-OFF -->
+    <tr>
+      <td style="padding:0 44px 40px;text-align:center">
+        <p style="font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.6;color:#9aa9a3;margin:0 0 4px">{{ signOffLine1 }}</p>
+        <p style="font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.6;color:#9aa9a3;margin:0">{{ signOffLine2 }}</p>
+      </td>
+    </tr>
+
+    <!-- FOOTER -->
+    <tr>
+      <td style="background:#080d11;padding:30px 44px;text-align:center;border-top:1px solid #1c262c">
+        <div style="display:flex;justify-content:center;gap:14px;margin-bottom:16px">
+          <div style="width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,0.06);display:inline-flex;align-items:center;justify-content:center;font-family:monospace;font-size:9px;color:#6a7a73">yt</div>
+          <div style="width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,0.06);display:inline-flex;align-items:center;justify-content:center;font-family:monospace;font-size:9px;color:#6a7a73">ig</div>
+          <div style="width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,0.06);display:inline-flex;align-items:center;justify-content:center;font-family:monospace;font-size:9px;color:#6a7a73">fb</div>
+        </div>
+        <p style="font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.7;color:#6a7a73;margin:0 0 6px">Carp Partners TV &middot; La plataforma del carpfishing en Espa&ntilde;a</p>
+        <p style="font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.7;color:#4f5c57;margin:0">
+          <a href="#" style="color:#7d8d86;text-decoration:underline">Gestionar preferencias</a> &middot;
+          <a href="#" style="color:#7d8d86;text-decoration:underline">Darse de baja</a> &middot;
+          <a href="#" style="color:#7d8d86;text-decoration:underline">Ayuda</a>
+        </p>
+        <p style="font-family:Inter,Arial,sans-serif;font-size:11px;color:#424d49;margin:14px 0 0">&copy; 2026 Carp Partners TV. Todos los derechos reservados.</p>
+      </td>
+    </tr>
+  </table>
+
+  <p style="max-width:640px;margin:18px auto 0;padding:0 16px;font-family:Inter,sans-serif;font-size:11.5px;color:#8b9a94;text-align:center">Este es un dise&ntilde;o de referencia para el equipo de desarrollo &mdash; un solo layout, el contenido cambia seg&uacute;n el tipo de correo.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 720, &quot;height&quot;: 900}}">
+class Component extends DCLogic {
+  state = { kind: 'welcome' };
+
+  setWelcome = () => this.setState({ kind: 'welcome' });
+  setReset = () => this.setState({ kind: 'reset' });
+  setContact = () => this.setState({ kind: 'contact' });
+
+  renderVals() {
+    const k = this.state.kind;
+    const tab = (active) => ({
+      bg: active ? '#68140b' : 'rgba(255,255,255,0.5)',
+      color: active ? '#fff' : '#4a5a54'
+    });
+    const tw = tab(k === 'welcome'), tr = tab(k === 'reset'), tc = tab(k === 'contact');
+
+    const content = {
+      welcome: {
+        eyebrow: 'Bienvenido a bordo',
+        heading: '\u00a1Bienvenido a Carp Partners TV, Diego!',
+        bodyText1: 'Tu cuenta ya est\u00e1 lista. A partir de ahora tienes acceso a series, documentales y t\u00e9cnicas de carpfishing en alta definici\u00f3n, con contenido nuevo cada semana.',
+        hasBodyText2: true,
+        bodyText2: 'Para empezar, te recomendamos ver el primer episodio de Aguas Salvajes, nuestra serie insignia.',
+        heroBg: 'linear-gradient(135deg,#1a2f36,#0c1518)', heroCaption: '[ imagen de bienvenida / catálogo destacado — 640×180 ]',
+        showQuoteBlock: false, quoteText: '',
+        showButton: true, buttonLabel: 'Empezar a ver',
+        showLinkFallback: false, linkFallbackLabel: '', linkFallbackUrl: '',
+        showNote: false, noteText: '',
+        showPerks: true, perks: ['Cat\u00e1logo completo sin l\u00edmites', 'Estrenos cada semana', 'Calidad hasta 4K UHD'],
+        signOffLine1: 'Buena pesca,', signOffLine2: 'El equipo de Carp Partners TV'
+      },
+      reset: {
+        eyebrow: 'Seguridad de la cuenta',
+        heading: 'Restablece tu contrase\u00f1a',
+        bodyText1: 'Hemos recibido una solicitud para restablecer la contrase\u00f1a de tu cuenta. Pulsa el bot\u00f3n de abajo para crear una nueva.',
+        hasBodyText2: false, bodyText2: '',
+        heroBg: '#06090c', heroCaption: '',
+        showQuoteBlock: false, quoteText: '',
+        showButton: true, buttonLabel: 'Crear nueva contrase\u00f1a',
+        showLinkFallback: true, linkFallbackLabel: 'Si el bot\u00f3n no funciona, copia y pega este enlace en tu navegador:', linkFallbackUrl: 'https://carppartners.tv/reset?token=8f2a1c...',
+        showNote: true, noteText: 'Este enlace caduca en 30 minutos. Si no has solicitado este cambio, puedes ignorar este correo \u2014 tu contrase\u00f1a seguir\u00e1 siendo la misma.',
+        showPerks: false, perks: [],
+        signOffLine1: '\u00bfNecesitas ayuda? Escr\u00edbenos a soporte@carppartners.tv', signOffLine2: ''
+      },
+      contact: {
+        eyebrow: 'Hemos recibido tu mensaje',
+        heading: 'Gracias por escribirnos, Diego',
+        bodyText1: 'Nuestro equipo ha recibido tu consulta a trav\u00e9s del formulario de contacto y te responderemos en un plazo m\u00e1ximo de 48 horas laborables.',
+        hasBodyText2: false, bodyText2: '',
+        heroBg: '#06090c', heroCaption: '',
+        showQuoteBlock: true, quoteText: '"Hola, tengo un problema para acceder al v\u00eddeo de la serie Aguas Salvajes desde la app de iOS, se queda cargando..."',
+        showButton: true, buttonLabel: 'Ver estado de mi consulta',
+        showLinkFallback: false, linkFallbackLabel: '', linkFallbackUrl: '',
+        showNote: false, noteText: '',
+        showPerks: false, perks: [],
+        signOffLine1: 'Un saludo,', signOffLine2: 'Atenci\u00f3n al cliente de Carp Partners TV'
+      }
+    }[k];
+
+    return Object.assign({
+      tabWelcomeBg: tw.bg, tabWelcomeColor: tw.color,
+      tabResetBg: tr.bg, tabResetColor: tr.color,
+      tabContactBg: tc.bg, tabContactColor: tc.color,
+      setWelcome: this.setWelcome, setReset: this.setReset, setContact: this.setContact
+    }, content);
+  }
+}
+</script>
+</body>
+</html>

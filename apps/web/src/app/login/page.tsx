@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from '@/context/SessionContext';
-import { ApiError } from '@carp-partners/api-client';
+import { apiClient, ApiError } from '@carp-partners/api-client';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +43,8 @@ function LoginContent() {
   const [apiError, setApiError]   = useState('');
   const [loading, setLoading]     = useState(false);
   const [lastAction, setLastAction] = useState<'register' | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent]       = useState(false);
 
   // Redirigir si ya autenticado
   useEffect(() => {
@@ -52,7 +54,7 @@ function LoginContent() {
     else router.replace(lastAction === 'register' ? '/planes?bienvenido=1' : '/planes');
   }, [status, user, hasSubscription, router, lastAction]);
 
-  const go = (s: Screen) => { setScreen(s); setFocus(''); setApiError(''); };
+  const go = (s: Screen) => { setScreen(s); setFocus(''); setApiError(''); setResent(false); };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,10 +84,35 @@ function LoginContent() {
     }
   };
 
-  const handleSendReset = (e: React.FormEvent) => {
+  const handleSendReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSentEmail(email.trim() || 'tu correo');
-    setScreen('sent');
+    setApiError('');
+    if (!email.trim()) { setApiError('El correo es obligatorio.'); return; }
+
+    setLoading(true);
+    try {
+      await apiClient.forgotPassword(email.trim());
+      setSentEmail(email.trim());
+      setScreen('sent');
+    } catch (err) {
+      setApiError(err instanceof ApiError ? err.message : 'Ha ocurrido un error inesperado.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!sentEmail || resending) return;
+    setResending(true);
+    try {
+      await apiClient.forgotPassword(sentEmail);
+      setResent(true);
+      setTimeout(() => setResent(false), 4000);
+    } catch {
+      /* respuesta genérica igualmente — no revela si el envío falló por el email */
+    } finally {
+      setResending(false);
+    }
   };
 
   const strength = pwStrength(pass);
@@ -308,12 +335,19 @@ function LoginContent() {
                   style={inputStyle}
                 />
               </FieldWrap>
+
+              {apiError && <ErrorBanner message={apiError} />}
+
               <button
                 type="submit"
-                className="w-full flex items-center justify-center gap-[9px] py-[15px] rounded-[11px] text-white font-bold text-[15px] transition-transform hover:scale-[1.02]"
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-[9px] py-[15px] rounded-[11px] text-white font-bold text-[15px] transition-transform hover:scale-[1.02] disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{ background: '#68140b', boxShadow: '0 8px 24px rgba(104,20,11,0.45)', border: 'none' }}
               >
-                Enviar enlace de recuperación <i className="ti ti-send text-[18px]" />
+                {loading
+                  ? <><i className="ti ti-loader-2 animate-spin text-[18px]" />Enviando…</>
+                  : <>Enviar enlace de recuperación <i className="ti ti-send text-[18px]" /></>
+                }
               </button>
               <button
                 type="button"
@@ -354,11 +388,12 @@ function LoginContent() {
               <div className="mt-[18px]" style={{ fontSize: 13, color: '#6a7a73' }}>
                 ¿No te ha llegado?{' '}
                 <button
-                  onClick={() => go('forgot')}
-                  className="font-semibold hover:underline"
-                  style={{ color: '#cf4a35', background: 'none', border: 'none', cursor: 'pointer' }}
+                  onClick={handleResend}
+                  disabled={resending}
+                  className="font-semibold hover:underline disabled:opacity-60 disabled:cursor-not-allowed"
+                  style={{ color: resent ? '#3e9d6b' : '#cf4a35', background: 'none', border: 'none', cursor: 'pointer' }}
                 >
-                  Reenviar enlace
+                  {resending ? 'Reenviando…' : resent ? 'Enlace reenviado ✓' : 'Reenviar enlace'}
                 </button>
               </div>
             </div>

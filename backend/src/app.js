@@ -18,6 +18,7 @@ import { catalogRouter } from './routes/catalog.js';
 import { userRouter } from './routes/user.js';
 import { adminRouter } from './routes/admin.js';
 import { pagesRouter } from './routes/pages.js';
+import { contactRouter } from './routes/contact.js';
 import { stripeWebhookRouter } from './routes/stripe.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
@@ -59,7 +60,16 @@ export function createApp() {
     legacyHeaders: false,
   });
 
+  // Rate limit en contacto: es pública y envía emails, hay que frenar el spam.
+  const contactLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: config.isProd ? 10 : 200,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
   app.use('/auth', authLimiter, authRouter);
+  app.use('/', contactLimiter, contactRouter); // /contact — pública, sin login
   app.use('/', pagesRouter); // /pages/:slug — pública, sin login
   app.use('/', catalogRouter); // /videos, /categories, /series
   app.use('/', userRouter); // /watch-history, /watchlist, /push-tokens, /billing

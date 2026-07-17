@@ -73,12 +73,14 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | POST | `/auth/refresh` | pública (refreshToken en body) | `{user, accessToken, refreshToken}` |
 | POST | `/auth/logout` | pública | 204 |
 | GET | `/auth/me` | JWT | `{user, subscription}` |
-| POST | `/auth/set-password` | token | `{ok}` |
+| POST | `/auth/forgot-password` `{email}` | pública | `{ok}` — siempre responde igual, exista o no la cuenta (no revela emails registrados); genera un `password_set_token` de 30 min y envía `passwordResetEmail` sin esperar a que el email salga |
+| POST | `/auth/set-password` | token | `{ok}` — mismo endpoint para migración WP, alta manual desde el panel y recuperar contraseña (todos usan `password_set_token`/`password_set_expires`) |
 | POST | `/auth/change-password` `{currentPassword,newPassword}` | JWT | `{ok}` — cambio de contraseña desde Perfil estando ya logueado (añadido 2026-07, ver Perfil) |
 | PUT | `/auth/me` `{name}` | JWT | `{user}` — "Editar perfil"; el email NO es editable aquí (ligado a Stripe) |
 | POST | `/auth/me/avatar` `multipart/form-data; field=avatar` | JWT | `{user}` — sube/reemplaza la foto propia (JPG/PNG/WebP, máx 5 MB) |
 | DELETE | `/auth/me/avatar` | JWT | 204 |
 | GET | `/pages/:slug` | pública | `{page}` — contenido + SEO (`meta_title`,`meta_description`,`og_image`) de una página fija (Sobre nosotros, legales, Contacto...); usada por las rutas públicas homónimas de `apps/web` |
+| POST | `/contact` `{name,email,subject?,message}` | pública (rate-limited) | `{ok}` 201 — guarda en `contact_messages`, avisa a `MAIL_ADMIN` y manda acuse de recibo al remitente (ninguno de los dos correos se espera antes de responder) |
 | GET | `/videos?limit&offset&category&series&q` | JWT + suscripción | `{videos, limit, offset}` |
 | GET | `/videos/featured` | JWT + suscripción | `{video}` — destacado de portada de Home: el marcado manualmente (`is_featured`) o, si no hay ninguno, fallback al criterio automático (primera categoría por `order_index` · primer vídeo). Registrada antes de `/videos/:id` en el router |
 | GET | `/videos/:id` | JWT + suscripción | `{video, related}` — cada `related` incluye `progress_sec`/`completed` del usuario actual, para pintar su línea de tiempo en "Más como esto" |
@@ -121,6 +123,9 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | DELETE | `/admin/pages/:id` | JWT + admin | 204 — borra también la imagen social del disco si era local |
 | POST | `/admin/pages/:slug/image` `multipart/form-data; field=image` | JWT + admin | `{page}` — sube/reemplaza la imagen social (`og_image`, JPG/PNG/WebP, máx 5 MB) |
 | DELETE | `/admin/pages/:slug/image` | JWT + admin | 204 — borra el archivo de disco y pone `og_image = NULL` |
+| GET | `/admin/contact-messages?read&limit&offset` | JWT + admin | `{messages, total, unread}` — bandeja de `POST /contact`; `read=true\|false` filtra por leído/no leído |
+| PUT | `/admin/contact-messages/:id` `{read: boolean}` | JWT + admin | `{message}` — marca leído/no leído (`read_at`) |
+| DELETE | `/admin/contact-messages/:id` | JWT + admin | 204 |
 | GET | `/admin/crew` | JWT + admin | `{crew}` |
 | POST | `/admin/crew` `{name,slug,role?,bio?,avatarUrl?,orderIndex?}` | JWT + admin | `{member}` 201 |
 | PUT | `/admin/crew/:id` | JWT + admin | `{member}` |
@@ -176,7 +181,7 @@ manualmente desde `/admin/series` cuando el usuario lo decida, no por script.
 |------|----------|--------|
 | `/` | Landing (propuesta de valor, planes, login) | pública |
 | `/login` | Login + registro | pública |
-| `/set-password?token=...` | Establece contraseña con un token de un solo uso (`POST /auth/set-password`) — usada tanto por la migración desde WordPress como por el alta manual de suscriptores desde el panel (`POST /admin/users` sin `password`) | pública |
+| `/set-password?token=...` | Establece contraseña con un token de un solo uso (`POST /auth/set-password`) — usada por la migración desde WordPress, el alta manual desde el panel (`POST /admin/users` sin `password`) y "olvidé mi contraseña" (`POST /auth/forgot-password`, botón "¿Olvidaste tu contraseña?" en `/login`, con "Reenviar enlace" funcional) | pública |
 | `/home` | Home tipo Netflix: hero + filas por categoría, una tarjeta por serie/película (no vídeos sueltos) | suscriptores |
 | `/explorar` | Pestañas por categoría real + "Crew". En categorías: sin búsqueda, tarjetas de serie/película (filtradas por categoría); con texto, se filtran esas mismas tarjetas por título (siempre a nivel de serie/película, nunca vídeos sueltos). En "Crew": parrilla de miembros (`GET /crew`) filtrable por nombre; clic → `/crew/[slug]` | suscriptores |
 | `/serie/[id]` | Detalle de una serie o película (portada, sinopsis, metadatos) + lista de episodios. Si la serie tiene temporadas (`GET /series/:id` → `seasons.length > 0`), muestra selector de temporada (por defecto la primera) y lista los episodios de la temporada elegida vía `GET /videos?series=<seasonId>`; si no, lista sus vídeos directamente vía `GET /videos?series=<id>`. Ruta única para series y películas (mismo modelo de datos). Clic en un episodio → `/watch/[id]` | suscriptores |
@@ -257,6 +262,70 @@ manualmente desde `/admin/series` cuando el usuario lo decida, no por script.
   igualar la tipografía del contexto) — así ya se hace en `/crew/[slug]` (bio),
   en `/serie/[id]` (descripción de la serie/película) y en las páginas fijas
   vía `StaticPageContent` (`apps/web/src/components/StaticPageLayout.tsx`).
+
+## Envío de emails (SMTP)
+
+- Backend: `backend/src/services/mail.js` (transporte Nodemailer + `sendMail`/
+  `verifyMailConnection`, sin cambios en esta capa) + dos capas de plantillas:
+  - `backend/src/services/mailLayout.js` — **motor de maquetación**, una única
+    función `renderEmailLayout({...})` que genera el HTML (tabla + estilos
+    inline, sin flexbox/grid, para que se vea bien en Gmail/Outlook) común a
+    todos los emails. Bloques, todos opcionales salvo el header y el
+    eyebrow/título/cuerpo: hero (`heroImageUrl`), cita del mensaje original
+    (`quoteText`, solo en la respuesta a contacto), botón CTA (`button`),
+    enlace de respaldo en texto plano (`linkFallback`), nota de
+    caducidad/seguridad (`note`), lista de ventajas con check (`perks`, solo
+    en bienvenida), despedida de 2 líneas y footer (redes, enlaces legales,
+    baja). También exporta `escapeHtml`. El logo se sirve siempre desde
+    `https://app.carppartners.tv/carp-partners-logo blanc.png` (fijo a
+    producción, nunca `PUBLIC_WEB_URL`: un cliente de correo real no puede
+    cargar una imagen en `localhost`).
+  - `backend/src/services/mailTemplates.js` — **contenido**, una función por
+    tipo de email que llama a `renderEmailLayout` con sus textos: `welcomeEmail`,
+    `passwordResetEmail`, `setPasswordEmail`, `contactAdminNotification`,
+    `contactAcknowledgmentEmail` (con `subject`/`message` opcionales para
+    pintar el bloque de cita — sin botón, decisión explícita: no existe
+    pantalla de seguimiento de consultas), y tres variantes redactadas pero
+    **sin disparador todavía** (ver más abajo): `emailVerificationEmail`,
+    `paymentFailedEmail`, `subscriptionCancelledEmail`.
+  Es **SMTP de una cuenta de correo normal** (`info@carppartners.tv` en
+  hosting externo), no un proveedor tipo Resend/SendGrid.
+- Todo el bloque `mail` de `config/index.js` es **opcional** (no `required()`):
+  si falta `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS`, el backend arranca igual,
+  `verifyMailConnection()` solo loguea un aviso, y `sendMail()` omite el envío
+  (loguea y devuelve `{ sent: false }`) en vez de lanzar. Ningún flujo de la
+  app (registro, contacto, alta de suscriptor...) debe depender de que el
+  email realmente salga para completar su respuesta al usuario.
+- Variables de entorno nuevas (ver `backend/.env.example`): `SMTP_HOST`,
+  `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`,
+  `MAIL_ADMIN`, y `PUBLIC_WEB_URL` (para construir los enlaces de los emails;
+  distinta de `PUBLIC_URL`, que sigue usándose para CORS/Stripe — en
+  producción `PUBLIC_WEB_URL=https://app.carppartners.tv`).
+- Las plantillas escapan siempre los campos que pueden venir de un usuario
+  (nombre, mensaje de contacto...) antes de interpolarlos en HTML —
+  ver `escapeHtml` en `mailLayout.js` (reexportado desde `mailTemplates.js`).
+  Si añades una plantilla nueva con datos de usuario, no lo olvides.
+- Disparadores actuales (todos "fire-and-forget": no se espera el envío antes
+  de responder al cliente): `welcomeEmail` en `POST /auth/register`;
+  `passwordResetEmail` en `POST /auth/forgot-password`; `setPasswordEmail` en
+  `POST /admin/users` cuando se crea sin `password` (el token también se
+  sigue devolviendo en la respuesta, como respaldo manual); `contactAdminNotification`
+  (a `MAIL_ADMIN`) + `contactAcknowledgmentEmail` (al remitente) en `POST /contact`.
+  `emailVerificationEmail`, `paymentFailedEmail` y `subscriptionCancelledEmail`
+  existen como funciones listas para usar pero **no están conectadas a ningún
+  evento real** (no hay flujo de verificación de email al registrarse; el
+  webhook de Stripe en `services/subscriptions.js` no envía avisos de pago
+  fallido ni de cancelación) — conéctalas solo si se pide explícitamente.
+
+## Formulario de contacto y bandeja admin
+
+- `contact_messages` (migración 011): `name, email, subject?, message, read_at, created_at`.
+  `POST /contact` (público, rate-limited en `app.js`) guarda la fila y dispara
+  los dos emails de arriba; `read_at` empieza `NULL`.
+- Panel admin `/admin/mensajes`: pestañas "Todos"/"No leídos", clic en una fila
+  abre el detalle y lo marca leído automáticamente (`PUT /admin/contact-messages/:id`);
+  desde el detalle se puede volver a marcar no leído, eliminar, o responder
+  por email directo (`mailto:`).
 
 ## Reglas para el agente
 

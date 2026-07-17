@@ -5,7 +5,9 @@
 //   POST   /auth/refresh       renueva access usando refresh
 //   POST   /auth/logout        revoca el refresh token
 //   GET    /auth/me            datos del usuario + estado de suscripción
-//   POST   /auth/set-password  flujo "establece tu contraseña" (migración WP)
+//   POST   /auth/forgot-password  solicita enlace de recuperación (por email)
+//   POST   /auth/set-password  flujo "establece tu contraseña" (migración WP,
+//                               alta manual desde el panel, y recuperación)
 //   POST   /auth/change-password  cambio de contraseña estando ya autenticado
 //   PUT    /auth/me            edita el nombre propio ("Editar perfil")
 //   POST   /auth/me/avatar     sube/reemplaza la foto de perfil propia
@@ -13,12 +15,14 @@
 // =====================================================================
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import { z } from 'zod';
 import { query, queryOne } from '../config/db.js';
+import { config } from '../config/index.js';
 import {
   storeRefreshToken,
   isRefreshTokenValid,
@@ -31,6 +35,10 @@ import {
 } from '../utils/tokens.js';
 import { asyncHandler, badRequest, unauthorized, HttpError } from '../utils/errors.js';
 import { requireAuth } from '../middleware/auth.js';
+import { sendMail } from '../services/mail.js';
+import { welcomeEmail, passwordResetEmail } from '../services/mailTemplates.js';
+
+const FORGOT_PASSWORD_TTL_MS = 30 * 60 * 1000; // 30 minutos
 
 // ─── Subida de la foto de perfil propia (mismo patrón que el avatar de crew,
 // pero en su propia carpeta: backend/uploads/avatars/) ───────────────────────
@@ -114,6 +122,8 @@ authRouter.post(
     );
 
     const tokens = await issueTokens(user);
+    // No se espera (fire-and-forget): un SMTP lento no debe retrasar el alta.
+    sendMail({ to: user.email, ...welcomeEmail({ name: user.name }) });
     res.status(201).json({ user, ...tokens });
   }),
 );
@@ -206,6 +216,38 @@ authRouter.get(
       [req.user.id],
     );
     res.json({ user: req.user, subscription: sub });
+  }),
+);
+
+// --- Solicitar enlace de recuperación de contraseña -------------------
+// Reutiliza password_set_token/password_set_expires (misma columna que el
+// alta manual desde el panel y la migración de WordPress) con una caducidad
+// más corta. Responde SIEMPRE igual, exista o no la cuenta — no revela si un
+// email está registrado — y no espera al envío del correo (evita también que
+// la latencia del SMTP filtre esa misma información por temporización).
+authRouter.post(
+  '/forgot-password',
+  asyncHandler(async (req, res) => {
+    const schema = z.object({ email: z.string().email() });
+    const { email } = parse(schema, req.body);
+
+    const user = await queryOne(
+      'SELECT id, name FROM users WHERE email = $1',
+      [email.toLowerCase()],
+    );
+
+    if (user) {
+      const token = crypto.randomBytes(32).toString('hex');
+      const expires = new Date(Date.now() + FORGOT_PASSWORD_TTL_MS);
+      await query(
+        `UPDATE users SET password_set_token = $1, password_set_expires = $2 WHERE id = $3`,
+        [token, expires, user.id],
+      );
+      const resetUrl = `${config.publicWebUrl}/set-password?token=${token}`;
+      sendMail({ to: email.toLowerCase(), ...passwordResetEmail({ name: user.name, resetUrl }) });
+    }
+
+    res.json({ ok: true });
   }),
 );
 
