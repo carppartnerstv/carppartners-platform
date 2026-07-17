@@ -10,12 +10,16 @@ import { verifyMailConnection } from './services/mail.js';
 
 async function main() {
   await connectRedis();
-  await verifyMailConnection(); // nunca lanza — un SMTP caído no debe impedir arrancar
 
   const app = createApp();
   const server = app.listen(config.port, () => {
     console.log(`[server] Carp Partners TV API escuchando en :${config.port} (${config.env})`);
   });
+
+  // Se lanza DESPUÉS de escuchar y sin await: un SMTP caído o con el puerto
+  // bloqueado por firewall no debe retrasar ni impedir el arranque (nunca
+  // lanza — ver mail.js — y ahora además tiene timeout corto).
+  verifyMailConnection();
 
   const shutdown = async (signal) => {
     console.log(`[server] ${signal} recibido, cerrando...`);

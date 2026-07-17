@@ -6,7 +6,6 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -21,6 +20,7 @@ import { pagesRouter } from './routes/pages.js';
 import { contactRouter } from './routes/contact.js';
 import { stripeWebhookRouter } from './routes/stripe.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { adminLimiter } from './middleware/rateLimit.js';
 
 export function createApp() {
   const app = express();
@@ -51,29 +51,16 @@ export function createApp() {
   // Healthcheck (lo usa el deploy y Nginx para comprobar que está vivo)
   app.get('/health', (_req, res) => res.json({ status: 'ok', ts: Date.now() }));
 
-  // Rate limit en auth para frenar fuerza bruta de login.
-  // En desarrollo se sube a 200 para no bloquear pruebas.
-  const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: config.isProd ? 30 : 200,
-    standardHeaders: true,
-    legacyHeaders: false,
-  });
-
-  // Rate limit en contacto: es pública y envía emails, hay que frenar el spam.
-  const contactLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: config.isProd ? 10 : 200,
-    standardHeaders: true,
-    legacyHeaders: false,
-  });
-
-  app.use('/auth', authLimiter, authRouter);
-  app.use('/', contactLimiter, contactRouter); // /contact — pública, sin login
+  // Los límites de fuerza bruta/spam (login, registro, recuperar contraseña,
+  // formulario de contacto) se aplican a nivel de ruta concreta dentro de
+  // cada router (auth.js, contact.js) — nunca aquí montados en '/', porque
+  // eso aplicaría el límite a TODA la API, no solo a esa ruta.
+  app.use('/auth', authRouter);
+  app.use('/', contactRouter); // /contact — pública, sin login
   app.use('/', pagesRouter); // /pages/:slug — pública, sin login
   app.use('/', catalogRouter); // /videos, /categories, /series
   app.use('/', userRouter); // /watch-history, /watchlist, /push-tokens, /billing
-  app.use('/admin', adminRouter);
+  app.use('/admin', adminLimiter, adminRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

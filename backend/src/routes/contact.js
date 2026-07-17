@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { queryOne } from '../config/db.js';
 import { config } from '../config/index.js';
 import { asyncHandler, badRequest } from '../utils/errors.js';
+import { contactLimiter } from '../middleware/rateLimit.js';
 import { sendMail } from '../services/mail.js';
 import { contactAdminNotification, contactAcknowledgmentEmail } from '../services/mailTemplates.js';
 
@@ -21,6 +22,7 @@ const contactSchema = z.object({
 
 contactRouter.post(
   '/contact',
+  contactLimiter,
   asyncHandler(async (req, res) => {
     const parsed = contactSchema.safeParse(req.body);
     if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');

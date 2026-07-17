@@ -35,6 +35,7 @@ import {
 } from '../utils/tokens.js';
 import { asyncHandler, badRequest, unauthorized, HttpError } from '../utils/errors.js';
 import { requireAuth } from '../middleware/auth.js';
+import { authSensitiveLimiter } from '../middleware/rateLimit.js';
 import { sendMail } from '../services/mail.js';
 import { welcomeEmail, passwordResetEmail } from '../services/mailTemplates.js';
 
@@ -107,6 +108,7 @@ async function issueTokens(user) {
 // --- Registro --------------------------------------------------------
 authRouter.post(
   '/register',
+  authSensitiveLimiter,
   asyncHandler(async (req, res) => {
     const { email, password, name } = parse(credsSchema, req.body);
 
@@ -131,6 +133,7 @@ authRouter.post(
 // --- Login -----------------------------------------------------------
 authRouter.post(
   '/login',
+  authSensitiveLimiter,
   asyncHandler(async (req, res) => {
     const { email, password } = parse(credsSchema.pick({ email: true, password: true }), req.body);
 
@@ -227,6 +230,7 @@ authRouter.get(
 // la latencia del SMTP filtre esa misma información por temporización).
 authRouter.post(
   '/forgot-password',
+  authSensitiveLimiter,
   asyncHandler(async (req, res) => {
     const schema = z.object({ email: z.string().email() });
     const { email } = parse(schema, req.body);
@@ -254,6 +258,7 @@ authRouter.post(
 // --- Establecer contraseña (usuarios migrados desde WordPress) -------
 authRouter.post(
   '/set-password',
+  authSensitiveLimiter,
   asyncHandler(async (req, res) => {
     const schema = z.object({
       token: z.string().min(10),

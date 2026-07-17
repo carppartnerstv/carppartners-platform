@@ -9,12 +9,23 @@ import { config } from '../config/index.js';
 
 const hasSmtpConfig = !!(config.mail.smtpHost && config.mail.smtpUser && config.mail.smtpPass);
 
+// Timeouts cortos: si el puerto SMTP está bloqueado por un firewall (sin
+// RST, el paquete simplemente se pierde), sin esto nodemailer espera su
+// timeout por defecto (2 minutos) tanto en verify() como en sendMail() —
+// aquí lo acotamos a unos segundos para que un SMTP inalcanzable degrade
+// rápido en vez de dejar la petición/verificación colgada.
+const SMTP_CONNECTION_TIMEOUT_MS = 8_000;
+const SMTP_SOCKET_TIMEOUT_MS = 15_000;
+
 export const transporter = hasSmtpConfig
   ? nodemailer.createTransport({
       host: config.mail.smtpHost,
       port: config.mail.smtpPort,
       secure: config.mail.smtpSecure,
       auth: { user: config.mail.smtpUser, pass: config.mail.smtpPass },
+      connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
+      greetingTimeout: SMTP_CONNECTION_TIMEOUT_MS,
+      socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
     })
   : null;
 
