@@ -27,18 +27,24 @@ export async function upsertSubscriptionFromStripe(sub) {
   const periodStart = sub.current_period_start ? new Date(sub.current_period_start * 1000) : null;
   const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
   const cancelledAt = sub.canceled_at ? new Date(sub.canceled_at * 1000) : null;
+  // Cancelar desde el Customer Portal no cambia `status` de inmediato (Stripe
+  // la deja 'active' hasta que termina el periodo ya pagado) — solo pone
+  // este flag. Sin guardarlo no había forma de avisar al usuario de que ya
+  // ha cancelado hasta que la baja fuera definitiva.
+  const cancelAtPeriodEnd = !!sub.cancel_at_period_end;
 
   await query(
     `INSERT INTO subscriptions
-        (user_id, stripe_sub_id, plan, status, period_start, period_end, cancelled_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+        (user_id, stripe_sub_id, plan, status, period_start, period_end, cancelled_at, cancel_at_period_end)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (stripe_sub_id) DO UPDATE SET
-        plan         = EXCLUDED.plan,
-        status       = EXCLUDED.status,
-        period_start = EXCLUDED.period_start,
-        period_end   = EXCLUDED.period_end,
-        cancelled_at = EXCLUDED.cancelled_at`,
-    [user.id, sub.id, plan, status, periodStart, periodEnd, cancelledAt],
+        plan                 = EXCLUDED.plan,
+        status               = EXCLUDED.status,
+        period_start         = EXCLUDED.period_start,
+        period_end           = EXCLUDED.period_end,
+        cancelled_at         = EXCLUDED.cancelled_at,
+        cancel_at_period_end = EXCLUDED.cancel_at_period_end`,
+    [user.id, sub.id, plan, status, periodStart, periodEnd, cancelledAt, cancelAtPeriodEnd],
   );
 
   return { userId: user.id, status };

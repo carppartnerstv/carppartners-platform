@@ -19,6 +19,8 @@ interface SessionContextValue {
   setUser: (user: User) => void;
   /** True si la suscripción da acceso (active | trialing | past_due, con period_end vigente o sin caducidad) */
   hasSubscription: boolean;
+  /** Vuelve a pedir /auth/me — lo usa /planes/activada mientras espera al webhook de Stripe */
+  refresh: () => Promise<{ user: User; subscription: Subscription | null }>;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -79,6 +81,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setStatus('unauthenticated');
   }, []);
 
+  const refresh = useCallback(async () => {
+    const me = await apiClient.getMe();
+    setUser(me.user);
+    setSubscription(me.subscription);
+    return me;
+  }, []);
+
   // Mismo criterio que requireSubscription en el backend: period_end NULL =
   // sin caducidad, si no, tiene que ser una fecha futura. No basta con el
   // status — si no, una cortesía o un plan de pago caducado seguiría dando
@@ -89,7 +98,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     (subscription.status === 'active' || subscription.status === 'trialing' || subscription.status === 'past_due');
 
   return (
-    <SessionContext.Provider value={{ user, subscription, status, login, register, logout, setUser, hasSubscription }}>
+    <SessionContext.Provider value={{ user, subscription, status, login, register, logout, setUser, hasSubscription, refresh }}>
       {children}
     </SessionContext.Provider>
   );

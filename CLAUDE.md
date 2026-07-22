@@ -42,7 +42,7 @@ carp-partners-tv/
 ├── backend/              API REST  ← YA EXISTE Y FUNCIONA, no reescribir
 │   ├── src/{config,middleware,routes,services,utils,app.js,server.js}
 │   └── db/{migrations,migrate.js,seed.dev.sql}
-├── scripts/              migración Stripe, resolver price_ids
+├── scripts/              migración Stripe, resolver price_ids, config. Customer Portal
 ├── apps/web/             Next.js   ← TRABAJO ACTUAL
 ├── apps/mobile/          Expo      ← siguiente
 ├── apps/admin/           panel admin (puede vivir como ruta /admin de web)
@@ -97,6 +97,7 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | POST | `/watchlist/:videoId` | JWT | 201 |
 | DELETE | `/watchlist/:videoId` | JWT | 204 |
 | POST | `/push-tokens` `{token,platform}` | JWT | 201 |
+| POST | `/billing/checkout` `{plan: 'monthly'\|'annual'}` | JWT | `{url}` 200 — crea la Stripe Checkout Session (modo `subscription`) para dar de alta un plan nuevo; crea el Customer de Stripe si el usuario no tenía uno y lo persiste en `users.stripe_customer_id` ANTES de crear la sesión (lo necesita el webhook para resolver el usuario). `400 ALREADY_SUBSCRIBED` si ya tiene una suscripción vigente (usa `/billing/portal` para gestionarla, no un checkout nuevo) |
 | POST | `/billing/portal` | JWT | `{url}` |
 | GET | `/admin/dashboard` | JWT + admin | `{activeSubscribers,publishedVideos,playsToday,mrr}` |
 | GET | `/admin/users?status&q&limit&offset` | JWT + admin | `{users}` — cada usuario incluye `source: 'stripe'\|'courtesy'\|null` de su suscripción más reciente |
@@ -152,6 +153,62 @@ de planes, no mostrar un error genérico. `requireSubscription` exige además qu
 `active`/`trialing`/`past_due` — no basta con el `status`, aplica también a
 suscripciones de pago (protege contra un webhook de Stripe retrasado).
 
+**Alta de suscripción (Stripe Checkout):** `POST /billing/checkout` (`backend/src/routes/user.js`)
+crea/reutiliza el Customer (`services/stripe.js: getOrCreateStripeCustomer`, persiste
+`users.stripe_customer_id` ANTES de crear la sesión — imprescindible para que el
+webhook pueda resolver el usuario), resuelve el `price_id` activo del plan
+(`resolvePriceIdForPlan`: usa `STRIPE_PRICE_MONTHLY/ANNUAL` si están configurados,
+si no busca el precio activo del `STRIPE_PRODUCT_MONTHLY/ANNUAL` correspondiente vía
+la API de Stripe) y crea la Checkout Session en modo `subscription` con
+`success_url=${PUBLIC_URL}/planes/activada` y `cancel_url=${PUBLIC_URL}/planes`.
+**El acceso lo activa el webhook, nunca el redirect de éxito** (el usuario podría
+cerrar la pestaña antes de volver): `routes/stripe.js` procesa
+`checkout.session.completed` (vía rápida) y `customer.subscription.created/updated`
+(respaldo) llamando a `upsertSubscriptionFromStripe`, que hace
+`INSERT ... ON CONFLICT (stripe_sub_id) DO UPDATE` — reprocesar el mismo evento
+(reintentos de Stripe, o los dos eventos anteriores llegando por el mismo pago) nunca
+duplica la fila. `invoice.payment_failed` → `past_due`; `customer.subscription.deleted`
+→ `cancelled`. El endpoint rechaza con `400 ALREADY_SUBSCRIBED` si ya hay una
+suscripción vigente (evita un segundo cobro accidental).
+
+**Probar el Checkout en local:** con `STRIPE_SECRET_KEY`/`STRIPE_PRODUCT_MONTHLY`/
+`STRIPE_PRODUCT_ANNUAL` de modo TEST en `backend/.env`, hace falta además reenviar los
+webhooks a tu máquina (Stripe no puede llamar a `localhost` directamente):
+```
+stripe listen --api-key "$(grep '^STRIPE_SECRET_KEY=' backend/.env | cut -d= -f2-)" \
+  --forward-to localhost:3001/stripe/webhook
+```
+(nota: en local es `/stripe/webhook` sin el prefijo `/api/` — ese prefijo solo existe
+en producción, donde Nginx lo reescribe antes de reenviar al backend). El comando
+imprime un `whsec_...` propio de esa sesión de `stripe listen`, distinto del de
+producción — hay que ponerlo en `STRIPE_WEBHOOK_SECRET` en el `.env` LOCAL (nunca en
+`.env.example` ni tocar el de producción) y reiniciar el backend para que lo recargue
+(`node --watch` no vigila cambios de `.env`). Con eso corriendo, el flujo real
+funciona de principio a fin en el navegador con la tarjeta de pruebas
+`4242 4242 4242 4242`.
+
+**Cancelación y cambio de plan (Customer Portal):** `POST /billing/portal`
+(`backend/src/routes/user.js`) abre el Customer Portal de Stripe — ahí es donde el
+usuario cancela (al final del periodo, no al momento) o cambia entre mensual/anual;
+no hay endpoints propios para ninguna de las dos cosas, todo vive en el portal
+hospedado. El cambio de plan **hay que activarlo explícitamente en la
+configuración de la cuenta de Stripe** (no viene activado por defecto): ejecuta
+`node scripts/configure-stripe-portal.js` una vez por modo (test/live) — activa
+`features.subscription_update` con los dos productos/precios y
+`proration_behavior: 'create_prorations'` (cobra/abona la diferencia al momento del
+cambio); es idempotente, lo puedes volver a ejecutar sin duplicar nada.
+Cancelar desde el portal **no cambia `status` de inmediato** — Stripe la deja
+`'active'` hasta que termina el periodo ya pagado y solo marca
+`cancel_at_period_end=true` en la suscripción; por eso existe la columna
+`subscriptions.cancel_at_period_end` (migración 012), que rellena
+`upsertSubscriptionFromStripe` en cada `customer.subscription.updated`. La UI de
+`/perfil` (`apps/web/src/app/(subscriber)/perfil/page.tsx`) usa ese campo para
+mostrar "Cancelación programada · Acceso hasta el [fecha]" en vez de "Se renueva
+el [fecha]" en cuanto el usuario cancela, sin esperar a que la baja sea
+definitiva. El control de acceso (`requireSubscription`) no depende de este
+campo — sigue basándose solo en `status`/`period_end`, que es lo que de verdad
+determina si hay acceso.
+
 **Suscripciones de cortesía (migración 009):** `subscriptions.source` distingue
 `'stripe'` (con `stripe_sub_id`) de `'courtesy'` (regalo/familiar, sin
 `stripe_sub_id`, `plan='courtesy'`). Se crean/extienden desde
@@ -180,7 +237,9 @@ manualmente desde `/admin/series` cuando el usuario lo decida, no por script.
 | Ruta | Pantalla | Acceso |
 |------|----------|--------|
 | `/` | Landing (propuesta de valor, planes, login) | pública |
-| `/login` | Login + registro | pública |
+| `/login` | Login + registro. Tras registrarse redirige a `/planes?bienvenido=1`; tras login sin suscripción, a `/planes` | pública |
+| `/planes` | Elegir plan (mensual/anual) y pagar. Si ya está logueado y sin suscripción, el botón de plan llama a `POST /billing/checkout` y redirige a Stripe Checkout (hospedado); si no hay sesión, redirige a `/login?mode=register`. Si ya tiene suscripción activa, redirige a `/home` | pública (contenido) / requiere sesión para pagar |
+| `/planes/activada` | `success_url` del Checkout. El acceso lo activa el WEBHOOK, no este redirect (el usuario podría no volver aquí) — así que hace polling corto a `GET /auth/me` (cada 1,5s, máx. ~12s) hasta ver la suscripción activa y entonces redirige a `/home`; si tarda más, muestra un aviso con botón "Comprobar de nuevo" en vez de dejar al usuario colgado | suscriptores (recién pagado) |
 | `/set-password?token=...` | Establece contraseña con un token de un solo uso (`POST /auth/set-password`) — usada por la migración desde WordPress, el alta manual desde el panel (`POST /admin/users` sin `password`) y "olvidé mi contraseña" (`POST /auth/forgot-password`, botón "¿Olvidaste tu contraseña?" en `/login`, con "Reenviar enlace" funcional) | pública |
 | `/home` | Home tipo Netflix: hero + filas por categoría, una tarjeta por serie/película (no vídeos sueltos) | suscriptores |
 | `/explorar` | Pestañas por categoría real + "Crew". En categorías: sin búsqueda, tarjetas de serie/película (filtradas por categoría); con texto, se filtran esas mismas tarjetas por título (siempre a nivel de serie/película, nunca vídeos sueltos). En "Crew": parrilla de miembros (`GET /crew`) filtrable por nombre; clic → `/crew/[slug]` | suscriptores |
@@ -191,7 +250,7 @@ manualmente desde `/admin/series` cuando el usuario lo decida, no por script.
 | `/mi-lista` | Vídeos guardados | suscriptores |
 | `/perfil` | Datos, plan activo, enlace a Customer Portal de Stripe | suscriptores |
 | `/sobre-carp-partners`, `/aviso-legal`, `/politica-de-privacidad`, `/politica-de-cookies`, `/terminos-de-uso` | Páginas de contenido fijo editables desde `/admin/paginas` (`GET /pages/:slug`), maquetadas con `StaticPageLayout`/`StaticPageContent` (`apps/web/src/components/StaticPageLayout.tsx`). `generateMetadata()` en cada `page.tsx` aplica `meta_title`/`meta_description`/`og_image` de la página | pública |
-| `/contacto` | Igual que las anteriores + `<ContactForm />` maquetado por código (no editable desde el panel); el envío real queda pendiente de conectar a un endpoint — de momento solo valida y confirma en local | pública |
+| `/contacto` | Igual que las anteriores + `<ContactForm />` maquetado por código (no editable desde el panel), conectado a `POST /contact` | pública |
 | `/admin` | Panel de administración | solo admin |
 
 ## Reproductor (briefing 5.3) — componente crítico
@@ -285,9 +344,11 @@ manualmente desde `/admin/series` cuando el usuario lo decida, no por script.
     `passwordResetEmail`, `setPasswordEmail`, `contactAdminNotification`,
     `contactAcknowledgmentEmail` (con `subject`/`message` opcionales para
     pintar el bloque de cita — sin botón, decisión explícita: no existe
-    pantalla de seguimiento de consultas), y tres variantes redactadas pero
-    **sin disparador todavía** (ver más abajo): `emailVerificationEmail`,
-    `paymentFailedEmail`, `subscriptionCancelledEmail`.
+    pantalla de seguimiento de consultas), `paymentFailedEmail`,
+    `subscriptionCancelledEmail` y `subscriptionEndedEmail` (las tres
+    conectadas al webhook de Stripe, ver más abajo), y `emailVerificationEmail`,
+    redactada pero **sin disparador todavía** (no hay flujo de verificación de
+    email al registrarse).
   Es **SMTP de una cuenta de correo normal** (`info@carppartners.tv` en
   hosting externo), no un proveedor tipo Resend/SendGrid.
 - Todo el bloque `mail` de `config/index.js` es **opcional** (no `required()`):
@@ -310,12 +371,56 @@ manualmente desde `/admin/series` cuando el usuario lo decida, no por script.
   `passwordResetEmail` en `POST /auth/forgot-password`; `setPasswordEmail` en
   `POST /admin/users` cuando se crea sin `password` (el token también se
   sigue devolviendo en la respuesta, como respaldo manual); `contactAdminNotification`
-  (a `MAIL_ADMIN`) + `contactAcknowledgmentEmail` (al remitente) en `POST /contact`.
-  `emailVerificationEmail`, `paymentFailedEmail` y `subscriptionCancelledEmail`
-  existen como funciones listas para usar pero **no están conectadas a ningún
-  evento real** (no hay flujo de verificación de email al registrarse; el
-  webhook de Stripe en `services/subscriptions.js` no envía avisos de pago
-  fallido ni de cancelación) — conéctalas solo si se pide explícitamente.
+  (a `MAIL_ADMIN`) + `contactAcknowledgmentEmail` (al remitente) en `POST /contact`;
+  `paymentFailedEmail` en `routes/stripe.js` al recibir `invoice.payment_failed`
+  con `attempt_count === 1` (solo en el PRIMER intento fallido de cada factura
+  — Stripe reintenta varias veces con Smart Retries y volvería a disparar el
+  evento en cada reintento; con este filtro se avisa una vez, no una por
+  reintento), enlaza a `${PUBLIC_WEB_URL}/perfil` (gestionar pago vía el
+  Customer Portal). `subscriptionCancelledEmail` en `customer.subscription.updated`
+  cuando `cancel_at_period_end` pasa de `false` a `true` (se compara contra el
+  valor guardado en BD antes de actualizarlo) — deliberadamente NO en
+  `customer.subscription.deleted`: el texto de esta plantilla ("mantienes el
+  acceso hasta el final del periodo") solo es cierto en el momento en que se
+  programa la cancelación, no cuando ya se ha hecho efectiva; enlaza también a
+  `/perfil` (con la suscripción todavía vigente, `POST /billing/checkout` la
+  rechazaría con `ALREADY_SUBSCRIBED`, así que reactivar pasa por el Customer
+  Portal, no por un checkout nuevo). `subscriptionEndedEmail` (tono winback) en
+  `customer.subscription.deleted` — el momento en que la baja SÍ es efectiva y
+  el acceso ya se ha cortado; enlaza a `/planes` en vez de `/perfil` porque en
+  este punto la suscripción ya no está vigente y sí se puede volver a hacer un
+  checkout nuevo. Los tres resuelven destinatario buscando al usuario por
+  `stripe_customer_id` (`findUserByCustomerId` en `routes/stripe.js`); el de
+  `customer.subscription.deleted` además comprueba que el `status` en BD no
+  fuera ya `'cancelled'` antes de escribir, para no reenviar el email si Stripe
+  reintenta la entrega del mismo evento. `emailVerificationEmail` sigue sin
+  conectar (no hay flujo de verificación de email al registrarse) — conéctala
+  solo si se pide explícitamente.
+- **`invoice.payment_succeeded` vs `invoice.paid`:** el endpoint de webhook
+  real (comprobado vía API, `stripe.webhookEndpoints.list()`) tiene habilitado
+  `invoice.payment_succeeded`, no `invoice.paid` — son eventos con nombre
+  distinto. El código acepta ambos (`case 'invoice.paid': case
+  'invoice.payment_succeeded':` en `routes/stripe.js`) para no depender de cuál
+  esté configurado. Si en algún momento cambias los eventos habilitados en el
+  Dashboard de Stripe, revisa primero `stripe.webhookEndpoints.list()` antes de
+  asumir el nombre del evento — ya hubo un caso real de un `case` que nunca se
+  ejecutaba porque el nombre no coincidía con lo que el endpoint enviaba de
+  verdad. Punto preparado (sin implementar) para un futuro email de recibo de
+  renovación: distinguir con `invoice.billing_reason === 'subscription_cycle'`
+  (la primera factura es `'subscription_create'`, ya cubierta por
+  `welcomeEmail`/el checkout).
+- Los emails nativos de Stripe (avisos de pago fallido, etc.) vienen en inglés
+  y sin la marca — se han desactivado a favor de los propios
+  (Dashboard → Settings → Billing → Subscriptions and emails, por modo
+  test/live). El **dunning** (reintentos automáticos tras un pago fallido) es
+  configuración de cuenta de Stripe, no de este código, y solo se gestiona
+  desde el Dashboard (no hay endpoint de API para leerlo ni escribirlo).
+  Importante si se toca: `mapStripeStatus` (`services/stripe.js`) trata el
+  estado `unpaid` de Stripe igual que `past_due` (sigue dando acceso) — hay
+  que dejar configurado "Cancel the subscription" tras agotar los reintentos
+  (no "mark as unpaid but keep active"), si no una suscripción impagada podría
+  conservar el acceso indefinidamente al no llegar nunca el evento que la
+  cancela de verdad.
 
 ## Formulario de contacto y bandeja admin
 

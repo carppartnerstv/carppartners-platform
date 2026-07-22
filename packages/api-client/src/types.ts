@@ -15,6 +15,9 @@ export interface Subscription {
   status: 'active' | 'cancelled' | 'past_due' | 'trialing';
   period_end: string | null;
   cancelled_at: string | null;
+  /** true si el usuario ya canceló desde el Customer Portal pero aún conserva
+   *  acceso hasta period_end (Stripe no cambia `status` hasta entonces). */
+  cancel_at_period_end: boolean;
 }
 
 export interface Video {

@@ -407,6 +407,10 @@ export class ApiClient {
 
   // ─── Billing ───────────────────────────────────────────────────────────────
 
+  async createCheckoutSession(plan: 'monthly' | 'annual'): Promise<{ url: string }> {
+    return this.request('POST', '/billing/checkout', { body: { plan } });
+  }
+
   async getBillingPortal(): Promise<{ url: string }> {
     return this.request('POST', '/billing/portal');
   }

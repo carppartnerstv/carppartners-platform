@@ -6,6 +6,7 @@
 //   POST   /watchlist/:videoId       añadir a favoritos
 //   DELETE /watchlist/:videoId       quitar de favoritos
 //   POST   /push-tokens              registra token FCM
+//   POST   /billing/checkout         sesión de Stripe Checkout (alta de plan)
 //   POST   /billing/portal           sesión Customer Portal de Stripe
 // =====================================================================
 import { Router } from 'express';
@@ -13,7 +14,7 @@ import { z } from 'zod';
 import { query, queryOne } from '../config/db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { asyncHandler, badRequest } from '../utils/errors.js';
-import { createPortalSession } from '../services/stripe.js';
+import { createPortalSession, getOrCreateStripeCustomer, resolvePriceIdForPlan, createCheckoutSession } from '../services/stripe.js';
 import { config } from '../config/index.js';
 
 export const userRouter = Router();
@@ -130,6 +131,41 @@ userRouter.post(
       [req.user.id, parsed.data.token, parsed.data.platform],
     );
     res.status(201).json({ ok: true });
+  }),
+);
+
+// --- Checkout de Stripe (alta de una suscripción nueva) ---------------
+userRouter.post(
+  '/billing/checkout',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const schema = z.object({ plan: z.enum(['monthly', 'annual']) });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) throw badRequest('Plan inválido', 'VALIDATION');
+    const { plan } = parsed.data;
+
+    // Evita una segunda suscripción de pago si ya tiene una vigente (mismo
+    // criterio que requireSubscription: period_end NULL = sin caducidad).
+    const existing = await queryOne(
+      `SELECT status, period_end FROM subscriptions
+        WHERE user_id = $1 AND status IN ('active', 'trialing', 'past_due')
+        ORDER BY period_end DESC NULLS LAST LIMIT 1`,
+      [req.user.id],
+    );
+    const stillValid = existing && (!existing.period_end || new Date(existing.period_end) > new Date());
+    if (stillValid) throw badRequest('Ya tienes una suscripción activa', 'ALREADY_SUBSCRIBED');
+
+    const customerId = await getOrCreateStripeCustomer(req.user);
+    const priceId = await resolvePriceIdForPlan(plan);
+
+    const session = await createCheckoutSession({
+      customerId,
+      priceId,
+      successUrl: `${config.publicUrl}/planes/activada?session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${config.publicUrl}/planes`,
+    });
+
+    res.json({ url: session.url });
   }),
 );
 

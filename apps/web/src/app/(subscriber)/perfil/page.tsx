@@ -100,6 +100,9 @@ function PerfilContent() {
 
   const planLabel = subscription ? PLAN_LABELS[subscription.plan] ?? subscription.plan : '';
   const planPrice = subscription ? PLAN_PRICES[subscription.plan] : undefined;
+  // Ya canceló desde el Customer Portal pero Stripe no cambia `status` hasta
+  // que termina el periodo ya pagado — así lo distinguimos de "se renueva".
+  const pendingCancel = subscription?.status !== 'cancelled' && !!subscription?.cancel_at_period_end;
 
   return (
     <div className="min-h-screen bg-surface px-6 md:px-12 py-10">
@@ -172,18 +175,26 @@ function PerfilContent() {
                 <div className="flex items-center justify-between flex-wrap gap-3.5">
                   <div>
                     {subscription && (
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] mb-3
-                                      bg-brand-dim text-brand-bright text-[11px] font-bold uppercase tracking-[0.03em]">
-                        <i className="ti ti-circle-check-filled text-[13px]" />
-                        Plan {planLabel} activo
-                      </div>
+                      pendingCancel ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] mb-3
+                                        bg-white/8 text-white/70 text-[11px] font-bold uppercase tracking-[0.03em]">
+                          <i className="ti ti-clock text-[13px]" />
+                          Cancelación programada
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] mb-3
+                                        bg-brand-dim text-brand-bright text-[11px] font-bold uppercase tracking-[0.03em]">
+                          <i className="ti ti-circle-check-filled text-[13px]" />
+                          Plan {planLabel} activo
+                        </div>
+                      )
                     )}
                     <div className="font-display text-[22px] font-bold text-white">
                       {planPrice ?? 'Sin suscripción'}
                     </div>
                     {subscription?.period_end && (
                       <div className="text-[13px] mt-1.5" style={{ color: '#9aa9a3' }}>
-                        {subscription.status === 'cancelled' ? 'Acceso hasta el ' : 'Se renueva el '}
+                        {subscription.status === 'cancelled' || pendingCancel ? 'Acceso hasta el ' : 'Se renueva el '}
                         {new Date(subscription.period_end).toLocaleDateString('es-ES', {
                           day: 'numeric', month: 'long', year: 'numeric',
                         })}

@@ -19,7 +19,7 @@ export function welcomeEmail({ name }) {
   const html = renderEmailLayout({
     previewText: 'Tu cuenta ya está lista — empieza a ver ahora.',
     eyebrow: 'Bienvenido a bordo',
-    heading: `¡Bienvenido a Carp Partners TV, ${greeting}!`,
+    heading: `¡Bienvenido a Carp Partners TV, ${name}!`,
     bodyText1: `Tu cuenta ya está activa. Desde ahora tienes acceso a todo nuestro catálogo de series, documentales y técnicas de carpfishing en alta definición, con contenido nuevo cada semana.`,
     bodyText2: 'Para empezar, te recomendamos ver el primer episodio de La Picada, nuestra serie insignia.',
     button: { label: 'Empezar a ver', url: ctaUrl },
@@ -105,7 +105,7 @@ export function contactAcknowledgmentEmail({ name, subject, message }) {
   const html = renderEmailLayout({
     previewText: 'Hemos recibido tu mensaje.',
     eyebrow: 'Mensaje recibido',
-    heading: `Gracias por escribirnos, ${greeting}`,
+    heading: `Gracias por escribirnos, ${name}`,
     bodyText1: `Nuestro equipo ha recibido tu consulta a través del formulario de contacto y te responderemos en un plazo máximo de 48 horas laborables.`,
     quoteLabel: subject ? `Tu mensaje — ${subject}` : 'Tu mensaje original',
     quoteText: message,
@@ -182,5 +182,28 @@ export function subscriptionCancelledEmail({ name, resubscribeUrl }) {
     subject: 'Tu suscripción se ha cancelado — Carp Partners TV',
     html,
     text: `${greeting}\n\nHemos cancelado tu suscripción, tal y como solicitaste. Mantendrás el acceso hasta el final del periodo ya pagado.\n\n¿Cambias de opinión? Reactívala aquí:\n${resubscribeUrl}\n\nGracias por haber formado parte de la tripulación.\nEl equipo de Carp Partners TV`,
+  };
+}
+
+// Se envía cuando la baja se hace EFECTIVA (customer.subscription.deleted) —
+// distinta de subscriptionCancelledEmail, que avisa cuando el usuario la
+// PROGRAMA y todavía conserva acceso. Aquí el acceso ya se ha cortado, así
+// que el tono es de winback: no "hasta tal fecha", sino invitar a volver.
+export function subscriptionEndedEmail({ name, resubscribeUrl }) {
+  const greeting = greetingLine(name);
+  const html = renderEmailLayout({
+    previewText: 'Tu suscripción ha finalizado.',
+    eyebrow: 'Suscripción finalizada',
+    heading: 'Ya no tienes acceso a Carp Partners TV',
+    bodyText1: `${greeting} tu suscripción ha llegado a su fin y tu acceso al catálogo se ha desactivado.`,
+    bodyText2: 'Nos encantaría que volvieras — el catálogo sigue creciendo cada semana, con nuevas series y técnicas de carpfishing.',
+    button: { label: 'Volver a suscribirme', url: resubscribeUrl },
+    signOffLine1: '¡Esperamos verte pronto de nuevo en el agua!',
+    signOffLine2: 'El equipo de Carp Partners TV',
+  });
+  return {
+    subject: 'Tu suscripción ha finalizado — Carp Partners TV',
+    html,
+    text: `${greeting}\n\nTu suscripción ha llegado a su fin y tu acceso al catálogo se ha desactivado.\n\nNos encantaría que volvieras — el catálogo sigue creciendo cada semana. Suscríbete de nuevo aquí:\n${resubscribeUrl}\n\n¡Esperamos verte pronto de nuevo en el agua!\nEl equipo de Carp Partners TV`,
   };
 }

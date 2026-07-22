@@ -211,7 +211,7 @@ authRouter.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const sub = await queryOne(
-      `SELECT plan, status, period_end, cancelled_at
+      `SELECT plan, status, period_end, cancelled_at, cancel_at_period_end
          FROM subscriptions
         WHERE user_id = $1
         ORDER BY period_end DESC NULLS LAST

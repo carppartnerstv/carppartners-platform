@@ -4,6 +4,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { apiClient, ApiError } from '@carp-partners/api-client';
 import { useSession } from '@/context/SessionContext';
 
 const PERKS = [
@@ -14,55 +15,6 @@ const PERKS = [
   'Web, iOS y Android',
 ];
 
-// ─── Modal "pago próximamente" ────────────────────────────────────────────────
-
-function ComingSoonModal({ plan, onClose }: { plan: 'mensual' | 'anual'; onClose: () => void }) {
-  const price = plan === 'mensual' ? '9,99€/mes' : '89,99€/año';
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center px-6"
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-[420px] rounded-[20px] p-[36px_32px] text-center"
-        style={{
-          background: '#0e151a',
-          border: '1px solid rgba(255,255,255,0.1)',
-          boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
-        }}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Icono */}
-        <div
-          className="flex items-center justify-center rounded-full mx-auto mb-5"
-          style={{ width: 60, height: 60, background: 'rgba(104,20,11,0.15)', border: '1px solid rgba(207,74,53,0.3)' }}
-        >
-          <i className="ti ti-credit-card text-[28px]" style={{ color: '#cf4a35' }} />
-        </div>
-
-        <h2 className="font-display font-bold text-white mb-2" style={{ fontSize: 20 }}>
-          Integración de pago en desarrollo
-        </h2>
-        <p className="text-[14px] leading-[1.6] mb-1" style={{ color: '#9aa9a3' }}>
-          Has seleccionado el plan <strong style={{ color: '#eef3f0' }}>{plan === 'mensual' ? 'Mensual' : 'Anual'}</strong> ({price}).
-        </p>
-        <p className="text-[14px] leading-[1.6] mb-6" style={{ color: '#9aa9a3' }}>
-          El pasarela de pago con Stripe estará disponible muy pronto. Tu cuenta ya está creada y lista para cuando se active.
-        </p>
-
-        <button
-          onClick={onClose}
-          className="w-full py-[13px] rounded-[10px] font-semibold text-[14.5px] text-white transition-opacity hover:opacity-80"
-          style={{ background: '#68140b', border: 'none', cursor: 'pointer' }}
-        >
-          Entendido
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 function PlanesContent() {
@@ -71,7 +23,8 @@ function PlanesContent() {
   const params   = useSearchParams();
   const bienvenido = params.get('bienvenido') === '1';
 
-  const [modal, setModal] = useState<'mensual' | 'anual' | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<'mensual' | 'anual' | null>(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -91,13 +44,21 @@ function PlanesContent() {
     );
   }
 
-  // Si no hay sesión, los botones redirigen a registro
-  // Si hay sesión sin sub, los botones muestran modal (Stripe pendiente)
-  const handlePlan = (plan: 'mensual' | 'anual') => {
-    if (status === 'authenticated') {
-      setModal(plan);
-    } else {
+  // Si no hay sesión, el botón redirige a registro. Si hay sesión, crea la
+  // Checkout Session real y redirige a Stripe.
+  const handlePlan = async (plan: 'mensual' | 'anual') => {
+    if (status !== 'authenticated') {
       router.push('/login?mode=register');
+      return;
+    }
+    setError('');
+    setLoadingPlan(plan);
+    try {
+      const { url } = await apiClient.createCheckoutSession(plan === 'mensual' ? 'monthly' : 'annual');
+      window.location.href = url; // no limpiamos loadingPlan: seguimos navegando fuera
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'No se pudo iniciar el pago. Inténtalo de nuevo.');
+      setLoadingPlan(null);
     }
   };
 
@@ -110,9 +71,6 @@ function PlanesContent() {
         className="fixed inset-0 pointer-events-none"
         style={{ background: 'radial-gradient(120% 60% at 50% 0%, #1a0e0c 0%, rgba(26,14,12,0) 60%)' }}
       />
-
-      {/* Modal */}
-      {modal && <ComingSoonModal plan={modal} onClose={() => setModal(null)} />}
 
       {/* Header */}
       <header className="relative flex items-center px-6 md:px-14 py-6">
@@ -199,6 +157,16 @@ function PlanesContent() {
             </p>
           </div>
 
+          {error && (
+            <div
+              className="flex items-center gap-2.5 px-4 py-3 rounded-[12px] mb-6 max-w-[520px] mx-auto text-[13.5px]"
+              style={{ background: 'rgba(207,74,53,0.1)', border: '1px solid rgba(207,74,53,0.3)', color: '#ff9a85' }}
+            >
+              <i className="ti ti-alert-circle text-[17px] shrink-0" />
+              {error}
+            </div>
+          )}
+
           {/* Tarjetas */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-[22px]">
 
@@ -215,7 +183,12 @@ function PlanesContent() {
                 <span className="font-display font-extrabold text-white" style={{ fontSize: 46, letterSpacing: '-0.02em' }}>9,99€</span>
                 <span className="text-[14px]" style={{ color: '#85958e' }}>/ mes</span>
               </div>
-              <PlanButton primary={false} onClick={() => handlePlan('mensual')}>
+              <PlanButton
+                primary={false}
+                onClick={() => handlePlan('mensual')}
+                loading={loadingPlan === 'mensual'}
+                disabled={loadingPlan !== null}
+              >
                 Empezar con mensual
               </PlanButton>
               {PERKS.map(p => (
@@ -251,7 +224,12 @@ function PlanesContent() {
               <div className="text-[13px] mb-6" style={{ color: '#e3bd72' }}>
                 Equivale a 7,50€/mes · Ahorras ~30€/año
               </div>
-              <PlanButton primary onClick={() => handlePlan('anual')}>
+              <PlanButton
+                primary
+                onClick={() => handlePlan('anual')}
+                loading={loadingPlan === 'anual'}
+                disabled={loadingPlan !== null}
+              >
                 Empezar con anual
               </PlanButton>
               {PERKS.map(p => (
@@ -273,17 +251,38 @@ function PlanesContent() {
 
 // ─── Botón de plan ────────────────────────────────────────────────────────────
 
-function PlanButton({ primary, onClick, children }: { primary: boolean; onClick: () => void; children: React.ReactNode }) {
-  const base = 'block w-full text-center py-[13px] rounded-[10px] font-semibold text-[14.5px] mb-[26px] transition-all cursor-pointer';
+function PlanButton({
+  primary, onClick, children, loading, disabled,
+}: {
+  primary: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  loading?: boolean;
+  disabled?: boolean;
+}) {
+  const base = 'flex items-center justify-center gap-2 w-full text-center py-[13px] rounded-[10px] font-semibold text-[14.5px] mb-[26px] transition-all';
+  const content = loading
+    ? (
+      <>
+        <svg className="animate-spin w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+        Redirigiendo a Stripe…
+      </>
+    )
+    : children;
+
   if (primary) {
     return (
       <button
         type="button"
         onClick={onClick}
-        className={base + ' hover:scale-[1.02]'}
-        style={{ background: '#68140b', color: '#fff', boxShadow: '0 8px 24px rgba(104,20,11,0.5)', border: 'none', width: '100%' }}
+        disabled={disabled}
+        className={base + ' hover:scale-[1.02] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100'}
+        style={{ background: '#68140b', color: '#fff', boxShadow: '0 8px 24px rgba(104,20,11,0.5)', border: 'none', width: '100%', cursor: disabled ? 'default' : 'pointer' }}
       >
-        {children}
+        {content}
       </button>
     );
   }
@@ -291,10 +290,11 @@ function PlanButton({ primary, onClick, children }: { primary: boolean; onClick:
     <button
       type="button"
       onClick={onClick}
-      className={base + ' hover:bg-white/10'}
-      style={{ border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', color: '#fff', width: '100%' }}
+      disabled={disabled}
+      className={base + ' hover:bg-white/10 disabled:opacity-60 disabled:cursor-not-allowed'}
+      style={{ border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', color: '#fff', width: '100%', cursor: disabled ? 'default' : 'pointer' }}
     >
-      {children}
+      {content}
     </button>
   );
 }
