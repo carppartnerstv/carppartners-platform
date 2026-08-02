@@ -85,6 +85,7 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | GET | `/videos/featured` | JWT + suscripción | `{video}` — destacado de portada de Home: el marcado manualmente (`is_featured`) o, si no hay ninguno, fallback al criterio automático (primera categoría por `order_index` · primer vídeo). Registrada antes de `/videos/:id` en el router |
 | GET | `/videos/:id` | JWT + suscripción | `{video, related}` — cada `related` incluye `progress_sec`/`completed` del usuario actual, para pintar su línea de tiempo en "Más como esto" |
 | GET | `/videos/:id/stream` | JWT + suscripción | `{hlsUrl, expiresInSec}` |
+| GET | `/videos/:id/next` | JWT + suscripción | `{next: NextEpisode\|null}` — episodio con `episode_num` inmediatamente mayor dentro de la MISMA fila de `series` (nunca cruza de temporada/serie); `null` si es el último o si el vídeo no tiene serie/`episode_num`. Alimenta el autoplay del reproductor |
 | POST | `/videos/:id/rating` `{rating: -1\|1\|2}` | JWT + suscripción | `{rating}` — UPSERT del voto (-1 no es para mí, 1 me gusta, 2 me encanta) |
 | GET | `/videos/:id/rating` | JWT + suscripción | `{rating: -1\|1\|2\|null}` — valoración del usuario actual para ese vídeo |
 | DELETE | `/videos/:id/rating` | JWT + suscripción | 204 — quita la valoración del usuario |
@@ -105,7 +106,8 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | POST | `/admin/users/:id/courtesy-subscription` `{durationMonths?, endDate?, indefinite?}` | JWT + admin | `{subscription}` 200/201 — otorga o extiende (upsert sobre la misma fila) una suscripción de cortesía (`source='courtesy'`, sin `stripe_sub_id`). Exactamente una de las tres opciones; `indefinite` deja `period_end = NULL` (no caduca nunca) |
 | GET | `/admin/payments` | JWT + admin | `{payments}` |
 | POST/PUT/DELETE | `/admin/videos[/:id]` | JWT + admin | vídeo / 204 |
-| GET | `/admin/videos?published&category&series&q&sort&limit&offset` | JWT + admin | `{videos,limit,offset}` — incluye borradores. `sort=rated` ordena por nº de votos desc. Cada vídeo incluye `ratings: {love,like,down,total,avg}` e `is_featured` |
+| GET | `/admin/videos?published&category&series&q&sort&limit&offset` | JWT + admin | `{videos,limit,offset}` — incluye borradores. `sort=rated` ordena por nº de votos desc.; `sort=series` (por defecto en el panel) ordena por serie madre · temporada · episodio, con `NULLS LAST` en cada nivel — pensado para revisar/corregir `episode_num` de un vistazo. Cada vídeo incluye `ratings: {love,like,down,total,avg}`, `is_featured`, `season_num` y `series_parent_title` (título de la serie madre si `series_id` es una temporada) |
+| PUT | `/admin/videos/:id` `{episodeNum: number\|null}` | JWT + admin | `{video}` — `episodeNum: null` explícito borra el número (distinto de omitirlo, que no lo toca); el panel lo edita inline desde la propia tabla, sin abrir el modal |
 | POST/PUT | `/admin/videos[/:id]` con `{isFeatured: boolean}` | JWT + admin | `{video}` — marca/desmarca el destacado de portada (mismo endpoint que el resto de campos). Solo puede haber uno activo: al marcar `true`, el backend desmarca automáticamente cualquier otro dentro de la misma transacción (reforzado además por un índice único parcial en BD) |
 | POST | `/admin/categories` `{name,slug,description?,coverUrl?,orderIndex?}` | JWT + admin | `{category}` 201 |
 | PUT | `/admin/categories/:id` | JWT + admin | `{category}` |
@@ -264,6 +266,25 @@ manualmente desde `/admin/series` cuando el usuario lo decida, no por script.
 - La URL HLS llega de `GET /videos/:id/stream` y **caduca (~1h)**: pídela justo
   antes de reproducir, no la caches a largo plazo.
 - Chromecast/AirPlay quedan para Fase 2.
+- **Autoplay del siguiente episodio** (`GET /videos/:id/next`, `catalog.js`):
+  el "siguiente" es el episodio con `episode_num` inmediatamente mayor
+  **dentro de la misma fila de `series`** (que ya representa la temporada
+  concreta, o la serie entera si es plana) — nunca cruza a otra temporada ni
+  a otra serie, y es `null` si el vídeo no tiene serie/`episode_num`, o si es
+  el último episodio. En `watch/[id]/play/page.tsx`: con `next` no nulo, en
+  los últimos `AUTOPLAY_LEAD_SEC` (25s) aparece una tarjeta con cuenta atrás
+  circular y el título en formato "T{temporada} · E{episodio} · {título}"
+  (sin truncar, a diferencia de la tarjeta antigua); al llegar a 0 —o al
+  evento nativo `ended`, lo que ocurra antes— salta sola vía
+  `router.replace`. Cancelable (no vuelve a aparecer para ese episodio) sin
+  interrumpir la reproducción normal. La tarjeta "A continuación" antigua
+  (basada en `related[0]`: no filtra por `episode_num` mayor que el actual,
+  solo coge el más bajo de la temporada/categoría) se mantiene sin tocar,
+  pero **solo se muestra si el vídeo actual NO tiene `series_id` +
+  `episode_num`** (películas, vídeos sueltos) — nunca como respaldo cuando
+  `next` es `null` por ser el último episodio, porque en ese caso
+  `related[0]` sugeriría volver al primer episodio de la temporada,
+  exactamente el bug original que se pidió arreglar.
 
 ## Convenciones de código
 

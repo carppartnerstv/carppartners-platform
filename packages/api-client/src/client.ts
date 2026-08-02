@@ -3,6 +3,7 @@ import type {
   Subscription,
   Video,
   RelatedVideo,
+  NextEpisode,
   Category,
   Series,
   SeriesDetail,
@@ -343,6 +344,10 @@ export class ApiClient {
     return this.request('GET', `/videos/${id}/stream`);
   }
 
+  async getNextEpisode(id: string): Promise<{ next: NextEpisode | null }> {
+    return this.request('GET', `/videos/${id}/next`);
+  }
+
   // ─── Valoraciones ────────────────────────────────────────────────────────
 
   async getVideoRating(id: string): Promise<{ rating: -1 | 1 | 2 | null }> {
@@ -468,7 +473,7 @@ export class ApiClient {
     q?: string;
     limit?: number;
     offset?: number;
-    sort?: 'rated';
+    sort?: 'rated' | 'series';
   }): Promise<{ videos: AdminVideo[]; limit: number; offset: number; total: number }> {
     return this.request('GET', '/admin/videos', { query: params as Record<string, string | number | boolean | undefined> });
   }

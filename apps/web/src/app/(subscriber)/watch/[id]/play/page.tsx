@@ -3,10 +3,12 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { Video, RelatedVideo, Category, Series } from '@carp-partners/api-client';
+import type { Video, RelatedVideo, Category, Series, NextEpisode } from '@carp-partners/api-client';
 
 const PROGRESS_INTERVAL_MS = 15_000;
 const SPEEDS = [1, 1.25, 1.5, 2, 0.5];
+// Segundos antes del final en los que aparece la tarjeta de "Siguiente episodio"
+const AUTOPLAY_LEAD_SEC = 25;
 
 function fmt(sec: number): string {
   if (!isFinite(sec) || sec < 0) return '0:00';
@@ -31,6 +33,13 @@ export default function PlayPage() {
   const [series, setSeries] = useState<Series[]>([]);
   const [loadingMeta, setLoadingMeta] = useState(true);
   const [error, setError] = useState('');
+
+  // Siguiente episodio real (misma temporada/serie) — null si es el último
+  // de la temporada/serie, o si el vídeo no tiene serie (película/suelto).
+  const [nextEpisode, setNextEpisode] = useState<NextEpisode | null>(null);
+  // El usuario cerró la tarjeta de autoplay para ESTE episodio — no debe
+  // volver a aparecer aunque retroceda dentro de los últimos 25s.
+  const [autoplayDismissed, setAutoplayDismissed] = useState(false);
 
   // La URL HLS y el punto de inicio se guardan en estado
   // para que el segundo useEffect los reciba una vez el <video> ya está en el DOM
@@ -68,16 +77,18 @@ export default function PlayPage() {
     let cancelled = false;
     setPlayerReady(false);
     setError('');
+    setAutoplayDismissed(false); // vídeo nuevo: la tarjeta puede volver a aparecer
 
     async function load() {
       try {
-        const [{ video, related }, { items: history }, { hlsUrl }, { categories }, { series: allSeries }] =
+        const [{ video, related }, { items: history }, { hlsUrl }, { categories }, { series: allSeries }, { next }] =
           await Promise.all([
             apiClient.getVideo(id),
             apiClient.getContinueWatching(),
             apiClient.getVideoStream(id),
             apiClient.getCategories(),
             apiClient.getSeries(),
+            apiClient.getNextEpisode(id).catch(() => ({ next: null })), // fail-soft: sin autoplay si falla
           ]);
 
         if (cancelled) return;
@@ -88,6 +99,7 @@ export default function PlayPage() {
         setRelated(related);
         setCategories(categories);
         setSeries(allSeries);
+        setNextEpisode(next);
         setStartAt(resume);
         setDuration(video.duration_sec || 0);
         setStreamUrl(hlsUrl); // ← esto dispara el Efecto 2
@@ -237,7 +249,21 @@ export default function PlayPage() {
     };
   }, [video, saveProgress]);
 
-  const handleEnded = () => { if (video) saveProgress(video.id, true); };
+  const handleEnded = () => {
+    if (video) saveProgress(video.id, true);
+    // Autoplay del siguiente episodio: red de seguridad además de la cuenta
+    // atrás (si por lo que sea no llegó a mostrarse, esto igualmente salta).
+    if (nextEpisode && !autoplayDismissed) {
+      router.replace(`/watch/${nextEpisode.id}/play`);
+    }
+  };
+
+  // Salta ya al siguiente episodio (botón de la tarjeta de autoplay).
+  const skipToNext = () => {
+    if (!video || !nextEpisode) return;
+    saveProgress(video.id, true);
+    router.replace(`/watch/${nextEpisode.id}/play`);
+  };
 
   // ── Controles ─────────────────────────────────────────────────────────────────
   const togglePlay = () => {
@@ -314,8 +340,24 @@ export default function PlayPage() {
       : videoCategory?.name ?? ''
     : '';
 
+  // Tarjeta "A continuación" antigua (basada en related[0]: no filtra por
+  // episode_num mayor que el actual, solo coge el más bajo de la temporada/
+  // categoría) — SOLO tiene sentido para contenido sin estructura de
+  // episodios (películas, vídeos sueltos). Para cualquier vídeo con
+  // series_id + episode_num, la fuente fiable es nextEpisode: si es null
+  // (último episodio) no se muestra nada, nunca esta tarjeta como
+  // respaldo — si no, en el último episodio "sugeriría" volver al primero.
+  const isEpisodic = !!video?.series_id && video?.episode_num != null;
   const nextVideo = related[0] ?? null;
-  const showNextCard = duration > 0 && currentTime > duration * 0.6 && !!nextVideo;
+  const showNextCard = !isEpisodic && duration > 0 && currentTime > duration * 0.6 && !!nextVideo;
+
+  // Autoplay del siguiente episodio real — cuenta atrás en los últimos
+  // AUTOPLAY_LEAD_SEC segundos, solo si hay uno y no se ha cancelado.
+  const remainingSec = duration > 0 ? duration - currentTime : Infinity;
+  const showAutoplayCard =
+    !!nextEpisode && !autoplayDismissed && remainingSec <= AUTOPLAY_LEAD_SEC && remainingSec > 0;
+  const autoplayCountdown = Math.max(0, Math.ceil(remainingSec));
+  const autoplayRingFraction = Math.min(1, Math.max(0, remainingSec / AUTOPLAY_LEAD_SEC));
   const volEff = muted ? 0 : volume;
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
 
@@ -412,6 +454,57 @@ export default function PlayPage() {
               />
             </button>
           </div>
+
+          {/* Tarjeta de autoplay del siguiente episodio real — cuenta atrás,
+              salta sola al llegar a 0 (vía handleEnded) salvo que se cancele */}
+          {showAutoplayCard && nextEpisode && (
+            <div
+              className="absolute right-8 z-10 w-[320px] p-4 rounded-xl flex items-start gap-3"
+              style={{
+                bottom: 128,
+                background: 'rgba(10,16,20,0.94)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                backdropFilter: 'blur(10px)',
+              }}
+            >
+              <div className="flex-none w-11 h-11 relative">
+                <svg viewBox="0 0 36 36" className="w-11 h-11 -rotate-90">
+                  <circle cx="18" cy="18" r="16" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="3" />
+                  <circle
+                    cx="18" cy="18" r="16" fill="none" stroke="#cf4a35" strokeWidth="3"
+                    strokeDasharray={2 * Math.PI * 16}
+                    strokeDashoffset={2 * Math.PI * 16 * (1 - autoplayRingFraction)}
+                    strokeLinecap="round"
+                    style={{ transition: 'stroke-dashoffset 0.3s linear' }}
+                  />
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-white text-[12px] font-semibold tabular-nums">
+                  {autoplayCountdown}
+                </span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] mb-1" style={{ color: '#85958e' }}>Siguiente episodio</div>
+                <div className="text-[13.5px] font-semibold leading-snug" style={{ color: '#eef3f0' }}>
+                  T{nextEpisode.season_num ?? 1} · E{nextEpisode.episode_num} · {nextEpisode.title}
+                </div>
+                <div className="flex gap-2 mt-2.5">
+                  <button
+                    onClick={skipToNext}
+                    className="px-3 py-1.5 rounded-md text-[12px] font-semibold text-white transition-opacity hover:opacity-85"
+                    style={{ background: '#68140b' }}
+                  >
+                    Reproducir ya
+                  </button>
+                  <button
+                    onClick={() => setAutoplayDismissed(true)}
+                    className="px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors text-white/60 hover:text-white"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Tarjeta "A continuación" — continúa la reproducción sin pasar por el detalle */}
           {showNextCard && nextVideo && (

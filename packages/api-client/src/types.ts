@@ -48,6 +48,20 @@ export interface RelatedVideo {
   completed: boolean | null;
 }
 
+/** Siguiente episodio dentro de la MISMA temporada/serie — null si es el
+ *  último (de la temporada o de la serie) o si el vídeo no tiene serie. */
+export interface NextEpisode {
+  id: string;
+  title: string;
+  slug: string;
+  thumbnail_url: string | null;
+  duration_sec: number;
+  episode_num: number | null;
+  season_num: number | null;
+  progress_sec: number | null;
+  completed: boolean | null;
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -268,7 +282,7 @@ export interface AdminVideoInput {
   thumbnailUrl?: string;
   categoryId?: string;
   seriesId?: string;
-  episodeNum?: number;
+  episodeNum?: number | null;
   published?: boolean;
   publishedAt?: string | null;
   crewMemberIds?: string[];
@@ -293,6 +307,10 @@ export interface AdminVideo extends Video {
   updated_at: string;
   category_name: string | null;
   series_title: string | null;
+  /** Temporada (de la fila de `series` a la que pertenece el vídeo) — null si no tiene serie */
+  season_num: number | null;
+  /** Título de la serie madre si series_id es una temporada; null si es plana o sin serie */
+  series_parent_title: string | null;
   // crew hereda de Video (incluye avatar_url)
   ratings: RatingsSummary;
   is_featured: boolean;

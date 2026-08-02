@@ -101,6 +101,63 @@ function StatusBadge({ video }: { video: AdminVideo }) {
   );
 }
 
+// Nº de episodio editable directamente en la columna "Serie" — guarda al
+// perder el foco (o Enter), sin abrir el modal. Vacío = borra el episode_num
+// (null explícito, distinto de "no tocar").
+function EpisodeNumInput({
+  video, onSave,
+}: {
+  video: AdminVideo;
+  onSave: (id: string, episodeNum: number | null) => Promise<void>;
+}) {
+  const [value, setValue] = useState(video.episode_num?.toString() ?? '');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setValue(video.episode_num?.toString() ?? '');
+  }, [video.episode_num]);
+
+  const commit = async () => {
+    const trimmed = value.trim();
+    const parsed = trimmed === '' ? null : parseInt(trimmed, 10);
+    if (trimmed !== '' && Number.isNaN(parsed as number)) {
+      setValue(video.episode_num?.toString() ?? ''); // entrada inválida: revertir
+      return;
+    }
+    if (parsed === (video.episode_num ?? null)) return; // sin cambios reales
+
+    setSaving(true);
+    try {
+      await onSave(video.id, parsed);
+    } catch {
+      setValue(video.episode_num?.toString() ?? ''); // falló: revertir visualmente
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      value={value}
+      disabled={saving}
+      onChange={e => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        if (e.key === 'Escape') { setValue(video.episode_num?.toString() ?? ''); (e.target as HTMLInputElement).blur(); }
+      }}
+      onClick={e => e.stopPropagation()}
+      placeholder="—"
+      title="Nº de episodio — edítalo aquí directamente"
+      className="w-11 bg-transparent border border-white/10 rounded px-1 py-0.5 text-white/70 text-[11px] font-mono
+                 focus:outline-none focus:border-brand-bright focus:bg-white/8 transition-colors disabled:opacity-40
+                 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+    />
+  );
+}
+
 // ─── Campo de formulario ─────────────────────────────────────────────────────
 
 function Field({ label, error, hint, children }: {
@@ -180,7 +237,8 @@ export default function AdminVideosPage() {
   // Filtros
   const [q, setQ]                   = useState('');
   const [filterPub, setFilterPub]   = useState<'' | 'true' | 'false'>('');
-  const [sort, setSort]             = useState<'' | 'rated'>('');
+  const [filterSeries, setFilterSeries] = useState('');
+  const [sort, setSort]             = useState<'' | 'rated' | 'series'>('series');
 
   // Modal formulario
   const [showForm, setShowForm]     = useState(false);
@@ -207,13 +265,17 @@ export default function AdminVideosPage() {
     }).catch(() => {/* no bloquea la tabla */});
   }, []);
 
-  // Carga la página de vídeos (re-ejecuta cuando cambian filtros o página)
-  const load = useCallback(async () => {
-    setLoading(true); setError('');
+  // Carga la página de vídeos (re-ejecuta cuando cambian filtros o página).
+  // silent=true evita el parpadeo de "Cargando…" en toda la tabla — lo usa
+  // la edición inline del nº de episodio, que solo cambia una fila.
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    setError('');
     try {
       const vRes = await apiClient.getAdminVideos({
         q: q || undefined,
         published: filterPub ? filterPub === 'true' : undefined,
+        series: filterSeries || undefined,
         sort: sort || undefined,
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
@@ -223,9 +285,9 @@ export default function AdminVideosPage() {
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Error al cargar vídeos');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  }, [q, filterPub, sort, page]);
+  }, [q, filterPub, filterSeries, sort, page]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -264,7 +326,9 @@ export default function AdminVideosPage() {
       thumbnailUrl: form.thumbnailUrl || undefined,
       categoryId: form.categoryId || undefined,
       seriesId: form.seriesId || undefined,
-      episodeNum: form.episodeNum || undefined,
+      // Igual que publishedAt: número si lo hay, o null explícito para
+      // borrarlo al editar (undefined en creación simplemente no lo manda).
+      episodeNum: form.episodeNum || (editing ? null : undefined),
       // Envía la fecha como ISO si está rellena, o null explícito para borrarla
       publishedAt: form.publishedAt
         ? new Date(form.publishedAt).toISOString()
@@ -336,6 +400,15 @@ export default function AdminVideosPage() {
     }
   };
 
+  // ── Edición inline del nº de episodio (columna "Serie") ────────────────────
+  // silent=true en el load(): no queremos que toda la tabla parpadee a
+  // "Cargando…" por cambiar un solo campo de una fila.
+
+  const saveEpisodeNum = async (id: string, episodeNum: number | null) => {
+    await apiClient.updateAdminVideo(id, { episodeNum });
+    await load(true);
+  };
+
   // ── Eliminar ────────────────────────────────────────────────────────────────
 
   const handleDelete = async () => {
@@ -402,13 +475,23 @@ export default function AdminVideosPage() {
           <option value="false">Borradores</option>
         </select>
         <select
+          value={filterSeries}
+          onChange={e => { setFilterSeries(e.target.value); setPage(0); }}
+          className="bg-surface-raised border border-white/12 rounded-md px-3 py-2 text-white text-sm
+                     focus:outline-none focus:border-brand-bright [&>option]:bg-surface-raised"
+        >
+          <option value="">Todas las series</option>
+          {assignableSeries.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+        </select>
+        <select
           value={sort}
-          onChange={e => { setSort(e.target.value as '' | 'rated'); setPage(0); }}
+          onChange={e => { setSort(e.target.value as '' | 'rated' | 'series'); setPage(0); }}
           className="bg-surface-raised border border-white/12 rounded-md px-3 py-2 text-white text-sm
                      focus:outline-none focus:border-brand-bright [&>option]:bg-surface-raised"
         >
           <option value="">Más recientes</option>
           <option value="rated">Más valorados</option>
+          <option value="series">Por serie · temporada · episodio</option>
         </select>
       </div>
 
@@ -425,6 +508,7 @@ export default function AdminVideosPage() {
           <thead>
             <tr className="bg-white/4 border-b border-white/8">
               <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide">Vídeo</th>
+              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Serie</th>
               <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden md:table-cell">Categoría</th>
               <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Duración</th>
               <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden xl:table-cell">Crew</th>
@@ -435,9 +519,9 @@ export default function AdminVideosPage() {
           </thead>
           <tbody className="divide-y divide-white/6">
             {loading ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-white/40">Cargando…</td></tr>
+              <tr><td colSpan={8} className="px-4 py-10 text-center text-white/40">Cargando…</td></tr>
             ) : videos.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-white/40">No hay vídeos</td></tr>
+              <tr><td colSpan={8} className="px-4 py-10 text-center text-white/40">No hay vídeos</td></tr>
             ) : videos.map(v => (
               <tr key={v.id} className="hover:bg-white/3 transition-colors">
                 <td className="px-4 py-3">
@@ -468,6 +552,21 @@ export default function AdminVideosPage() {
                       )}
                     </div>
                   </div>
+                </td>
+                <td className="px-4 py-3 hidden lg:table-cell">
+                  {v.series_id ? (
+                    <div className="min-w-0">
+                      <p className="text-white/70 text-xs truncate max-w-[160px]">
+                        {v.series_parent_title ?? v.series_title}
+                      </p>
+                      <p className="text-white/35 text-[11px] font-mono mt-0.5 flex items-center gap-1">
+                        <span>T{v.season_num ?? 1} · E</span>
+                        <EpisodeNumInput video={v} onSave={saveEpisodeNum} />
+                      </p>
+                    </div>
+                  ) : (
+                    <span className="text-white/25 text-xs">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
                   <span className="text-white/60 text-xs">{v.category_name ?? '—'}</span>

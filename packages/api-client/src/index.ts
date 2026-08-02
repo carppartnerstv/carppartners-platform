@@ -5,6 +5,7 @@ export type {
   Subscription,
   Video,
   RelatedVideo,
+  NextEpisode,
   Category,
   Series,
   SeriesDetail,

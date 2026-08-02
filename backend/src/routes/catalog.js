@@ -174,6 +174,44 @@ catalogRouter.get(
   }),
 );
 
+// --- Siguiente episodio (autoplay) ------------------------------------
+// El "siguiente" es el episodio con el episode_num inmediatamente mayor
+// DENTRO DE LA MISMA FILA DE series (que ya representa la temporada
+// concreta, o la serie entera si es plana) — nunca salta a otra temporada
+// ni a otra serie: si no hay fila con episode_num mayor en ese series_id,
+// null (último episodio de la temporada/serie, o vídeo sin serie/episodio).
+catalogRouter.get(
+  '/videos/:id/next',
+  requireAuth,
+  requireSubscription,
+  asyncHandler(async (req, res) => {
+    const video = await queryOne(
+      `SELECT id, series_id, episode_num FROM videos v WHERE id = $1 AND ${VISIBLE}`,
+      [req.params.id],
+    );
+    if (!video) throw notFound('Vídeo no encontrado', 'VIDEO_NOT_FOUND');
+
+    if (!video.series_id || video.episode_num == null) {
+      return res.json({ next: null });
+    }
+
+    const next = await queryOne(
+      `SELECT v.id, v.title, v.slug, v.thumbnail_url, v.duration_sec, v.episode_num,
+              s.season_num,
+              wh.progress_sec, wh.completed
+         FROM videos v
+         JOIN series s ON s.id = v.series_id
+         LEFT JOIN watch_history wh ON wh.video_id = v.id AND wh.user_id = $3
+        WHERE v.series_id = $1 AND v.episode_num > $2 AND ${VISIBLE}
+        ORDER BY v.episode_num ASC
+        LIMIT 1`,
+      [video.series_id, video.episode_num, req.user.id],
+    );
+
+    res.json({ next: next ?? null });
+  }),
+);
+
 // --- Valoraciones (diálogo "¿Qué te ha parecido?") --------------------
 // rating: -1 = No es para mí · 1 = Me gusta · 2 = Me encanta
 const ratingSchema = z.object({

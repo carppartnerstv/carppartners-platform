@@ -47,7 +47,10 @@ const FAQS = [
   { q: '¿En qué dispositivos puedo ver Carp Partners TV?', a: 'En la web desde cualquier navegador, y en las apps de iOS y Android para móvil y tablet. Tu progreso se sincroniza entre todos tus dispositivos.' },
   { q: '¿Con qué frecuencia se publica contenido nuevo?', a: 'Publicamos contenido nuevo todas las semanas: nuevos episodios de series, documentales y vídeos de técnica.' },
   { q: '¿Cómo funciona el pago?', a: 'El pago es seguro a través de Stripe con tarjeta de crédito o débito. Puedes elegir plan mensual (9,99€/mes) o anual (89,99€/año), que equivale a 7,50€/mes y supone un ahorro de ~30€.' },
-  { q: '¿Hay contenido gratuito?', a: 'Sí. Al registrarte gratis tienes acceso a tráilers, avances y un vídeo completo gratuito al mes para que conozcas la plataforma.' },
+  { q: '¿Qué es Carp Partners?', a: 'Carp Partners es la #1a plataforma de contenido de carpfishing en España. Ofrecemos una experiencia optimizada para el usuario, ideal para los amantes de la pesca. Disfruta de contenido exclusivo y de alta calidad, diseñado para satisfacer tanto a pescadores principiantes como a expertos.' },
+  { q: '¿Qué tipo de contenido puedo encontrar en Carp Partners?', a: 'En Carp Partners, encontrarás una amplia variedad de contenido de pesca. Desde series, documentales, sesiones de pesca con amigos, entrevistas con expertos y mucho más. Nuestro contenido cubre tanto la pesca en agua dulce como en agua salada. No te pierdas el mejor contenido de pesca de España. ¡Consulta ya nuestros planes!' },
+  { q: '¿Cómo puedo contactar al servicio de atención al cliente?', a: 'Si tienes alguna pregunta o necesitas asistencia, puedes contactar a nuestro equipo de atención al cliente a través de la sección «Contacto», ubicada en el footer (parte inferior) de nuestra web. Allí podrás rellenar un formulario con tus dudas.' },
+
 ];
 
 // ─── Componente principal ─────────────────────────────────────────────────────

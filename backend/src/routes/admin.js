@@ -389,7 +389,7 @@ const videoSchema = z.object({
   thumbnailUrl: z.string().url().optional(),
   categoryId: z.string().uuid().optional(),
   seriesId: z.string().uuid().optional(),
-  episodeNum: z.number().int().optional(),
+  episodeNum: z.number().int().nullable().optional(),
   published: z.boolean().optional(),
   publishedAt: z.string().optional().refine(
     s => !s || !isNaN(Date.parse(s)),
@@ -539,6 +539,11 @@ adminRouter.delete(
 // el panel admin necesita ver el catálogo completo.
 // Filtros opcionales: published (true/false), category, series, q.
 // sort=rated ordena por nº de votos descendente (para ver qué gusta más).
+// sort=series ordena por serie madre (o la propia si es plana) · temporada ·
+// episodio — pensado para revisar/corregir episode_num de una serie de un
+// vistazo, sin entrar vídeo a vídeo. Cada vídeo incluye season_num y
+// series_parent_title (título de la serie madre si series_id es una
+// temporada; null si es una serie plana o si no tiene serie).
 // =====================================================================
 adminRouter.get(
   '/videos',
@@ -586,6 +591,8 @@ adminRouter.get(
               v.is_featured, v.created_at, v.updated_at,
               c.name AS category_name,
               s.title AS series_title,
+              s.season_num,
+              sp.title AS series_parent_title,
               CASE
                 WHEN v.published = false                                       THEN 'borrador'
                 WHEN v.published = true AND v.published_at IS NOT NULL
@@ -597,9 +604,12 @@ adminRouter.get(
          FROM videos v
          LEFT JOIN categories c ON c.id = v.category_id
          LEFT JOIN series s     ON s.id = v.series_id
+         LEFT JOIN series sp    ON sp.id = s.parent_series_id
         ${where}
         ORDER BY ${sort === 'rated'
           ? `(SELECT COUNT(*) FROM video_ratings vr WHERE vr.video_id = v.id) DESC, v.created_at DESC`
+          : sort === 'series'
+          ? `COALESCE(sp.title, s.title) NULLS LAST, s.season_num NULLS LAST, v.episode_num NULLS LAST, v.title`
           : `v.created_at DESC`}
         LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params,
