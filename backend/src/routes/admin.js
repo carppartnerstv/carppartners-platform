@@ -551,7 +551,9 @@ adminRouter.delete(
 // GET /admin/videos — lista TODOS los vídeos (incluye borradores).
 // El GET /videos público exige suscripción y solo devuelve publicados;
 // el panel admin necesita ver el catálogo completo.
-// Filtros opcionales: published (true/false), category, series, q.
+// Filtros opcionales: published (true/false), status (borrador/programado/
+// publicado — más fino que published, distingue programado de publicado ya
+// visible), category, series, q. Si se envían los dos, status manda.
 // sort=rated ordena por nº de votos descendente (para ver qué gusta más).
 // sort=series ordena por serie madre (o la propia si es plana) · temporada ·
 // episodio — pensado para revisar/corregir episode_num de una serie de un
@@ -564,12 +566,18 @@ adminRouter.get(
   asyncHandler(async (req, res) => {
     const limit  = Math.min(parseInt(req.query.limit  ?? '50', 10), 200);
     const offset = Math.max(parseInt(req.query.offset ?? '0',  10), 0);
-    const { published, category, series, q, sort } = req.query;
+    const { published, status, category, series, q, sort } = req.query;
 
     const filters = [];
     const params  = [];
 
-    if (published !== undefined) {
+    if (status === 'borrador') {
+      filters.push(`v.published = false`);
+    } else if (status === 'programado') {
+      filters.push(`v.published = true AND v.published_at IS NOT NULL AND v.published_at > now()`);
+    } else if (status === 'publicado') {
+      filters.push(`v.published = true AND (v.published_at IS NULL OR v.published_at <= now())`);
+    } else if (published !== undefined) {
       params.push(published === 'true');
       filters.push(`v.published = $${params.length}`);
     }

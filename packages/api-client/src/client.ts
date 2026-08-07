@@ -479,6 +479,8 @@ export class ApiClient {
 
   async getAdminVideos(params?: {
     published?: boolean;
+    /** Más fino que `published`: distingue programado (visible en el futuro) de publicado ya visible. Si se envía, manda sobre `published`. */
+    status?: 'borrador' | 'programado' | 'publicado';
     category?: string;
     series?: string;
     q?: string;

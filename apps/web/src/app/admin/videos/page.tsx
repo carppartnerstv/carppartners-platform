@@ -340,7 +340,7 @@ export default function AdminVideosPage() {
 
   // Filtros
   const [q, setQ]                   = useState('');
-  const [filterPub, setFilterPub]   = useState<'' | 'true' | 'false'>('');
+  const [filterPub, setFilterPub]   = useState<'' | 'borrador' | 'programado' | 'publicado'>('');
   const [filterSeries, setFilterSeries] = useState('');
   const [sort, setSort]             = useState<'' | 'rated' | 'series'>('series');
 
@@ -376,7 +376,7 @@ export default function AdminVideosPage() {
     try {
       const vRes = await apiClient.getAdminVideos({
         q: q || undefined,
-        published: filterPub ? filterPub === 'true' : undefined,
+        status: filterPub || undefined,
         series: filterSeries || undefined,
         sort: sort || undefined,
         limit: PAGE_SIZE,
@@ -567,13 +567,14 @@ export default function AdminVideosPage() {
         />
         <select
           value={filterPub}
-          onChange={e => { setFilterPub(e.target.value as '' | 'true' | 'false'); setPage(0); }}
+          onChange={e => { setFilterPub(e.target.value as '' | 'borrador' | 'programado' | 'publicado'); setPage(0); }}
           className="bg-white border border-admin-input-border rounded-md px-3 py-2 text-admin-text text-sm
                      focus:outline-none focus:border-brand-bright [&>option]:bg-white"
         >
           <option value="">Todos</option>
-          <option value="true">Publicados</option>
-          <option value="false">Borradores</option>
+          <option value="publicado">Publicados</option>
+          <option value="borrador">Borradores</option>
+          <option value="programado">Programados</option>
         </select>
         <select
           value={filterSeries}
@@ -612,6 +613,7 @@ export default function AdminVideosPage() {
               <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Serie</th>
               <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden md:table-cell">Categoría</th>
               <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Duración</th>
+              <th className="text-center px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden md:table-cell w-16" title="Descripción">Desc.</th>
               <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden xl:table-cell">Crew</th>
               <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden md:table-cell">Valoraciones</th>
               <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide">Estado</th>
@@ -620,9 +622,9 @@ export default function AdminVideosPage() {
           </thead>
           <tbody className="divide-y divide-admin-border-soft">
             {loading ? (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-admin-text-tertiary">Cargando…</td></tr>
+              <tr><td colSpan={9} className="px-4 py-10 text-center text-admin-text-tertiary">Cargando…</td></tr>
             ) : videos.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-admin-text-tertiary">No hay vídeos</td></tr>
+              <tr><td colSpan={9} className="px-4 py-10 text-center text-admin-text-tertiary">No hay vídeos</td></tr>
             ) : videos.map(v => (
               <tr key={v.id} className="hover:bg-admin-hover transition-colors">
                 <td className="px-4 py-3">
@@ -674,6 +676,21 @@ export default function AdminVideosPage() {
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
                   <span className="text-admin-text-secondary text-xs tabular-nums">{fmtDuration(v.duration_sec)}</span>
+                </td>
+                <td className="px-4 py-3 hidden md:table-cell text-center">
+                  {v.description && v.description.trim() ? (
+                    <span title="Tiene descripción">
+                      <svg className="w-4 h-4 inline-block text-[#3e9d6b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </span>
+                  ) : (
+                    <span title="Sin descripción">
+                      <svg className="w-4 h-4 inline-block text-admin-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 hidden xl:table-cell">
                   <div className="flex flex-wrap gap-1">
