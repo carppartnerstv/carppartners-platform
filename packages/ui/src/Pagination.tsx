@@ -9,10 +9,12 @@ export interface PaginationProps {
   onPageChange: (page: number) => void;
   loading?: boolean;
   className?: string;
+  /** 'dark' (default) = admin sin migrar (p. ej. Suscriptores). 'light' = panel admin rediseñado. */
+  theme?: 'dark' | 'light';
 }
 
 export function Pagination({
-  total, page, pageSize, onPageChange, loading = false, className = '',
+  total, page, pageSize, onPageChange, loading = false, className = '', theme = 'dark',
 }: PaginationProps) {
   const totalPages = pageSize > 0 ? Math.ceil(total / pageSize) : 1;
   const from = total === 0 ? 0 : page * pageSize + 1;
@@ -20,6 +22,7 @@ export function Pagination({
 
   const isFirst = page === 0;
   const isLast  = page >= totalPages - 1;
+  const light = theme === 'light';
 
   function btn(label: string, ariaLabel: string, onClick: () => void, disabled: boolean) {
     return (
@@ -30,10 +33,13 @@ export function Pagination({
         aria-label={ariaLabel}
         className={[
           'inline-flex items-center justify-center w-8 h-8 rounded text-[13px] font-medium select-none',
-          'border border-white/10 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-bright',
+          'transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-bright',
+          light ? 'border border-admin-input-border' : 'border border-white/10',
           disabled || loading
-            ? 'bg-white/3 text-white/20 cursor-not-allowed'
-            : 'bg-white/8 text-white/60 hover:text-white hover:bg-white/14 cursor-pointer',
+            ? (light ? 'bg-admin-hover text-admin-text-tertiary cursor-not-allowed' : 'bg-white/3 text-white/20 cursor-not-allowed')
+            : (light
+                ? 'bg-white text-admin-text-secondary hover:text-admin-text hover:bg-admin-hover cursor-pointer'
+                : 'bg-white/8 text-white/60 hover:text-white hover:bg-white/14 cursor-pointer'),
         ].join(' ')}
       >
         {label}
@@ -44,7 +50,7 @@ export function Pagination({
   return (
     <div className={`flex items-center justify-between gap-4 flex-wrap min-h-[2rem] ${className}`}>
       {/* Contador — siempre visible */}
-      <p className="text-white/40 text-xs tabular-nums" aria-live="polite">
+      <p className={`${light ? 'text-admin-text-muted' : 'text-white/40'} text-xs tabular-nums`} aria-live="polite">
         {loading
           ? 'Cargando…'
           : total === 0
@@ -59,7 +65,7 @@ export function Pagination({
         <nav className="flex items-center gap-1" aria-label="Paginación">
           {btn('«', 'Primera página',   () => onPageChange(0),             isFirst)}
           {btn('‹', 'Página anterior',  () => onPageChange(page - 1),      isFirst)}
-          <span className="px-3 text-[11px] text-white/45 tabular-nums whitespace-nowrap select-none">
+          <span className={`px-3 text-[11px] ${light ? 'text-admin-text-secondary' : 'text-white/45'} tabular-nums whitespace-nowrap select-none`}>
             Pág.&nbsp;{(page + 1).toLocaleString('es-ES')}&nbsp;de&nbsp;{totalPages.toLocaleString('es-ES')}
           </span>
           {btn('›', 'Página siguiente', () => onPageChange(page + 1),      isLast)}

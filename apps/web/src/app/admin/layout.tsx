@@ -4,7 +4,6 @@ import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from '@/context/SessionContext';
-import { Logo } from '@carp-partners/ui';
 import { ToastProvider } from '@/context/ToastContext';
 
 const NAV = [
@@ -45,6 +44,16 @@ const NAV = [
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+      </svg>
+    ),
+  },
+  {
+    href: '/admin/carrousels',
+    label: 'Carrousels',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M4 16l4-4a3 3 0 014 0l4 4m-4-4l2-2a3 3 0 014 0l2 2M4 6h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7a1 1 0 011-1z" />
       </svg>
     ),
   },
@@ -102,7 +111,7 @@ const NAV = [
 
 function Spinner() {
   return (
-    <div className="min-h-screen bg-surface flex items-center justify-center">
+    <div className="min-h-screen bg-admin-bg flex items-center justify-center">
       <svg className="animate-spin w-8 h-8 text-brand" viewBox="0 0 24 24" fill="none">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -129,21 +138,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <ToastProvider>
-    <div className="flex h-screen bg-surface overflow-hidden">
+    <div className="flex h-screen bg-admin-bg overflow-hidden">
       {/* ── Sidebar ── */}
-      <aside className="w-56 shrink-0 flex flex-col bg-surface-raised border-r border-white/8">
-        {/* Logo */}
-        <div className="px-4 py-5 border-b border-white/8">
-          <Link href="/admin/videos">
-            <Logo iconSize={22} />
+      <aside className="w-56 shrink-0 flex flex-col bg-admin-surface border-r border-admin-border">
+        {/* Logo — wordmark de texto (la imagen del Logo es blanca, invisible sobre fondo claro) */}
+        <div className="px-4 py-5 border-b border-admin-border-soft">
+          <Link href="/admin/videos" className="font-display font-extrabold text-[16px] tracking-tight text-admin-text flex items-center gap-0.5">
+            CARP<span className="text-brand-bright text-[14px] mx-0.5">◆</span>PARTNERS
           </Link>
-          <p className="text-[10px] text-brand-bright font-semibold uppercase tracking-widest mt-2 ml-0.5">
+          <p className="text-[10px] text-brand-bright font-semibold uppercase tracking-widest mt-1.5 ml-0.5">
             Admin
           </p>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 px-2.5 py-3.5 space-y-0.5 overflow-y-auto">
           {NAV.map(({ href, label, icon }) => {
             const active = pathname.startsWith(href);
             return (
@@ -153,11 +162,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 className={[
                   'flex items-center gap-2.5 px-3 py-2 rounded-md text-[13.5px] font-medium transition-all',
                   active
-                    ? 'bg-brand/15 text-white border-l-2 border-brand-bright pl-[10px]'
-                    : 'text-white/60 hover:text-white hover:bg-white/6',
+                    ? 'bg-admin-sidebar-active text-brand border-l-[3px] border-brand-bright pl-[9px]'
+                    : 'text-admin-sidebar-inactive hover:bg-admin-bg',
                 ].join(' ')}
               >
-                <span className={active ? 'text-brand-bright' : 'text-current'}>{icon}</span>
+                <span className={active ? 'text-brand-bright' : 'text-admin-text-secondary'}>{icon}</span>
                 {label}
               </Link>
             );
@@ -165,20 +174,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
 
         {/* Footer del sidebar */}
-        <div className="border-t border-white/8 p-3 space-y-1">
+        <div className="border-t border-admin-border-soft p-3 space-y-1">
+          <Link
+            href="/landing"
+            className="flex items-center gap-2 px-3 py-2 rounded-md text-[13px] text-admin-text-secondary hover:bg-admin-bg transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M21 12c0 1.657-4.03 5-9 5s-9-3.343-9-5 4.03-5 9-5 9 3.343 9 5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Ver landing
+          </Link>
           <Link
             href="/home"
-            className="flex items-center gap-2 px-3 py-2 rounded-md text-[13px] text-white/50 hover:text-white hover:bg-white/6 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-md text-[13px] text-admin-text-secondary hover:bg-admin-bg transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             </svg>
-            Ver web
+            Ver plataforma
           </Link>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-[13px] text-white/50 hover:text-white hover:bg-white/6 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-[13px] text-admin-text-secondary hover:bg-admin-bg transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -190,7 +211,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* ── Contenido principal ── */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto bg-admin-bg">
         {children}
       </main>
     </div>

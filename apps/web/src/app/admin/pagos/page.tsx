@@ -33,11 +33,11 @@ const STATUS_LABELS: Record<string, string> = {
 function PaymentStatusBadge({ status }: { status: string }) {
   const label = STATUS_LABELS[status] ?? status;
   const cls = {
-    succeeded:       'bg-green-500/15 text-green-400',
-    pending:         'bg-amber-500/15 text-amber-400',
-    failed:          'bg-red-500/15 text-red-400',
-    requires_action: 'bg-orange-500/15 text-orange-400',
-  }[status] ?? 'bg-white/8 text-white/40';
+    succeeded:       'bg-[#e7f6ed] text-[#1a8a4a]',
+    pending:         'bg-[#fef3e2] text-[#b45309]',
+    failed:          'bg-[#fdecea] text-[#c0392b]',
+    requires_action: 'bg-[#fdeee0] text-[#c2650a]',
+  }[status] ?? 'bg-admin-border-soft text-admin-text-muted';
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${cls}`}>
       {label}
@@ -74,13 +74,13 @@ export default function AdminPagosPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="font-display text-[22px] font-bold text-white">Pagos</h1>
-          <p className="text-white/45 text-sm mt-0.5">Historial de transacciones de Stripe</p>
+          <h1 className="font-display text-[22px] font-bold text-admin-text">Pagos</h1>
+          <p className="text-admin-text-secondary text-sm mt-0.5">Historial de transacciones de Stripe</p>
         </div>
         {!loading && !error && payments.length > 0 && (
           <div className="text-right">
-            <p className="text-xs text-white/40">Total cobrado (visible)</p>
-            <p className="font-display text-lg font-bold text-white">
+            <p className="text-xs text-admin-text-muted">Total cobrado (visible)</p>
+            <p className="font-display text-lg font-bold text-admin-text">
               {fmtAmount(totalCobrado, payments[0]?.currency ?? 'eur')}
             </p>
           </div>
@@ -88,7 +88,7 @@ export default function AdminPagosPage() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-md px-4 py-3 text-red-400 text-sm space-y-1">
+        <div className="bg-[#fdecea] border border-[#f7cfc9] rounded-md px-4 py-3 text-[#c0392b] text-sm space-y-1">
           <p className="font-semibold flex items-center gap-2">
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -97,8 +97,8 @@ export default function AdminPagosPage() {
             {error}
           </p>
           {stripeError && (
-            <p className="text-red-300/70 text-xs pl-6">
-              Comprueba que <code className="bg-red-500/10 px-1 rounded">STRIPE_SECRET_KEY</code> está
+            <p className="text-[#c0392b]/70 text-xs pl-6">
+              Comprueba que <code className="bg-[#fbe2df] px-1 rounded">STRIPE_SECRET_KEY</code> está
               configurada en el servidor.
             </p>
           )}
@@ -106,40 +106,40 @@ export default function AdminPagosPage() {
       )}
 
       {/* Tabla */}
-      <div className="rounded-card border border-white/8 overflow-hidden">
+      <div className="rounded-admin-card border border-admin-border overflow-hidden bg-admin-surface shadow-admin-card">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-white/4 border-b border-white/8">
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide">Fecha</th>
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden md:table-cell">Email</th>
-              <th className="text-right px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide">Importe</th>
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide">Estado</th>
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden sm:table-cell">Reembolso</th>
+            <tr className="bg-admin-thead border-b border-admin-border">
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide">Fecha</th>
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden md:table-cell">Email</th>
+              <th className="text-right px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide">Importe</th>
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide">Estado</th>
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden sm:table-cell">Reembolso</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/6">
+          <tbody className="divide-y divide-admin-border-soft">
             {loading ? (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-white/40">Cargando…</td></tr>
+              <tr><td colSpan={5} className="px-4 py-10 text-center text-admin-text-tertiary">Cargando…</td></tr>
             ) : error && payments.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-white/40">
+              <tr><td colSpan={5} className="px-4 py-10 text-center text-admin-text-tertiary">
                 No se pudieron cargar los pagos.
               </td></tr>
             ) : payments.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-white/40">
+              <tr><td colSpan={5} className="px-4 py-10 text-center text-admin-text-tertiary">
                 No hay transacciones todavía.
               </td></tr>
             ) : payments.map(p => (
-              <tr key={p.id} className="hover:bg-white/3 transition-colors">
+              <tr key={p.id} className="hover:bg-admin-hover transition-colors">
                 <td className="px-4 py-3">
-                  <span className="text-white/70 text-xs tabular-nums">{fmtDate(p.created)}</span>
+                  <span className="text-admin-text-secondary text-xs tabular-nums">{fmtDate(p.created)}</span>
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
-                  <span className="text-white/60 text-sm">{p.email ?? '—'}</span>
+                  <span className="text-admin-text-secondary text-sm">{p.email ?? '—'}</span>
                 </td>
                 <td className="px-4 py-3 text-right">
                   <span className={[
                     'font-semibold tabular-nums text-sm',
-                    p.status === 'succeeded' ? 'text-white' : 'text-white/40',
+                    p.status === 'succeeded' ? 'text-admin-text' : 'text-admin-text-muted',
                   ].join(' ')}>
                     {fmtAmount(p.amount, p.currency)}
                   </span>
@@ -149,11 +149,11 @@ export default function AdminPagosPage() {
                 </td>
                 <td className="px-4 py-3 hidden sm:table-cell">
                   {p.refunded ? (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-red-500/10 text-red-400">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-[#fdecea] text-[#c0392b]">
                       Reembolsado
                     </span>
                   ) : (
-                    <span className="text-white/20 text-xs">—</span>
+                    <span className="text-admin-text-tertiary text-xs">—</span>
                   )}
                 </td>
               </tr>
@@ -163,6 +163,7 @@ export default function AdminPagosPage() {
       </div>
 
       <Pagination
+        theme="light"
         total={payments.length}
         page={0}
         pageSize={Math.max(payments.length, 1)}
@@ -170,7 +171,7 @@ export default function AdminPagosPage() {
         loading={loading}
       />
       {!loading && !error && (
-        <p className="text-white/25 text-xs">
+        <p className="text-admin-text-tertiary text-xs">
           Mostrando los últimos pagos. Para el historial completo, accede al dashboard de Stripe.
         </p>
       )}

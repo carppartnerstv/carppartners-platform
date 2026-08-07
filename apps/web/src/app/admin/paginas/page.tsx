@@ -25,9 +25,9 @@ const EMPTY: PageInput = { slug: '', title: '', content: '', metaTitle: '', meta
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <label className="block text-xs font-medium text-white/60 uppercase tracking-wide">{label}</label>
+      <label className="block text-xs font-medium text-admin-text-secondary uppercase tracking-wide">{label}</label>
       {children}
-      {hint && <p className="text-white/35 text-xs">{hint}</p>}
+      {hint && <p className="text-admin-text-tertiary text-xs">{hint}</p>}
     </div>
   );
 }
@@ -39,8 +39,8 @@ function Input({ value, onChange, placeholder, required, readOnly }: {
     <input
       type="text" value={value} onChange={e => onChange(e.target.value)}
       placeholder={placeholder} required={required} readOnly={readOnly}
-      className={`w-full bg-surface border border-white/12 rounded-md px-3 py-2 text-white text-sm
-                 placeholder-white/25 focus:outline-none focus:border-brand-bright transition-colors
+      className={`w-full bg-white border border-admin-input-border rounded-md px-3 py-2 text-admin-text text-sm
+                 placeholder-admin-text-tertiary focus:outline-none focus:border-brand-bright transition-colors
                  ${readOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
     />
   );
@@ -180,10 +180,10 @@ export default function AdminPagesPage() {
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-[22px] font-bold text-white">Páginas</h1>
-          <p className="text-white/45 text-sm mt-0.5">Contenido editable de las páginas fijas de la web pública</p>
+          <h1 className="font-display text-[22px] font-bold text-admin-text">Páginas</h1>
+          <p className="text-admin-text-secondary text-sm mt-0.5">Contenido editable de las páginas fijas de la web pública</p>
         </div>
-        <Button variant="primary" size="sm" onClick={openCreate}>
+        <Button theme="light" variant="primary" size="sm" onClick={openCreate}>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
@@ -192,53 +192,53 @@ export default function AdminPagesPage() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-md px-4 py-3 text-red-400 text-sm">{error}</div>
+        <div className="bg-[#fdecea] border border-[#f7cfc9] rounded-md px-4 py-3 text-[#c0392b] text-sm">{error}</div>
       )}
 
-      <div className="rounded-card border border-white/8 overflow-hidden">
+      <div className="rounded-admin-card border border-admin-border overflow-hidden bg-admin-surface shadow-admin-card">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-white/4 border-b border-white/8">
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide">Página</th>
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden md:table-cell">SEO</th>
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Actualizado</th>
+            <tr className="bg-admin-thead border-b border-admin-border">
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide">Página</th>
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden md:table-cell">SEO</th>
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Actualizado</th>
               <th className="px-4 py-3 w-20" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/6">
+          <tbody className="divide-y divide-admin-border-soft">
             {loading ? (
-              <tr><td colSpan={4} className="px-4 py-10 text-center text-white/40">Cargando…</td></tr>
+              <tr><td colSpan={4} className="px-4 py-10 text-center text-admin-text-tertiary">Cargando…</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-white/30 text-sm">Sin páginas</td></tr>
+              <tr><td colSpan={4} className="px-4 py-8 text-center text-admin-text-tertiary text-sm">Sin páginas</td></tr>
             ) : items.map(p => (
-              <tr key={p.id} className="hover:bg-white/3 transition-colors">
+              <tr key={p.id} className="hover:bg-admin-hover transition-colors">
                 <td className="px-4 py-3">
-                  <p className="text-white font-medium">{p.title}</p>
-                  <p className="text-white/35 text-xs font-mono">/{p.slug}</p>
+                  <p className="text-admin-text font-medium">{p.title}</p>
+                  <p className="text-admin-text-tertiary text-xs font-mono">/{p.slug}</p>
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
                   {p.meta_title || p.meta_description ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-green-400">
+                    <span className="inline-flex items-center gap-1 text-[11px] text-[#1a8a4a]">
                       <i className="ti ti-circle-check-filled text-[13px]" /> Completo
                     </span>
                   ) : (
-                    <span className="text-white/30 text-[11px]">Sin definir</span>
+                    <span className="text-admin-text-tertiary text-[11px]">Sin definir</span>
                   )}
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
-                  <span className="text-white/40 text-xs tabular-nums">{fmtDate(p.updated_at)}</span>
+                  <span className="text-admin-text-muted text-xs tabular-nums">{fmtDate(p.updated_at)}</span>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
                     <button onClick={() => openEdit(p)}
-                      className="p-1.5 rounded text-white/50 hover:text-white hover:bg-white/8 transition-colors" title="Editar">
+                      className="p-1.5 rounded text-admin-text-secondary hover:text-admin-text hover:bg-admin-hover transition-colors" title="Editar">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                           d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </button>
                     <button onClick={() => setPendingDelete(p)}
-                      className="p-1.5 rounded text-white/50 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Eliminar">
+                      className="p-1.5 rounded text-admin-text-secondary hover:text-[#c0392b] hover:bg-[#fdecea] transition-colors" title="Eliminar">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                           d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -253,11 +253,33 @@ export default function AdminPagesPage() {
       </div>
 
       {/* Modal */}
-      <AdminModal title={editingSlug ? 'Editar página' : 'Nueva página'} open={showForm} onClose={() => setShowForm(false)}>
+      <AdminModal
+        theme="light"
+        title={editingSlug ? 'Editar página' : 'Nueva página'}
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        footer={
+          formLoading ? undefined : (
+            <>
+              {formError && (
+                <p className="text-[#c0392b] text-sm bg-[#fdecea] border border-[#f7cfc9] rounded px-3 py-2 mb-3">{formError}</p>
+              )}
+              <div className="flex gap-3">
+                <Button theme="light" type="submit" form="page-form" variant="primary" size="md" loading={saving} className="flex-1 justify-center">
+                  {editingSlug ? 'Guardar cambios' : 'Crear página'}
+                </Button>
+                <Button theme="light" type="button" variant="ghost" size="md" onClick={() => setShowForm(false)} disabled={saving}>
+                  Cancelar
+                </Button>
+              </div>
+            </>
+          )
+        }
+      >
         {formLoading ? (
-          <p className="text-white/40 text-center py-10">Cargando…</p>
+          <p className="text-admin-text-tertiary text-center py-10">Cargando…</p>
         ) : (
-          <form onSubmit={handleSave} className="space-y-4">
+          <form id="page-form" onSubmit={handleSave} className="space-y-4">
             <Field label="Título *">
               <Input
                 value={form.title}
@@ -285,6 +307,7 @@ export default function AdminPagesPage() {
             </Field>
             <Field label="Imagen social (og:image)">
               <AvatarUploader
+                light
                 shape="cover"
                 currentUrl={currentOgImage}
                 pendingPreview={imagePreview}
@@ -293,19 +316,6 @@ export default function AdminPagesPage() {
                 onDelete={editingSlug ? handleDeleteImage : undefined}
               />
             </Field>
-
-            {formError && (
-              <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded px-3 py-2">{formError}</p>
-            )}
-
-            <div className="flex gap-3 pt-2 border-t border-white/8">
-              <Button type="submit" variant="primary" size="md" loading={saving} className="flex-1 justify-center">
-                {editingSlug ? 'Guardar cambios' : 'Crear página'}
-              </Button>
-              <Button type="button" variant="ghost" size="md" onClick={() => setShowForm(false)} disabled={saving}>
-                Cancelar
-              </Button>
-            </div>
           </form>
         )}
       </AdminModal>

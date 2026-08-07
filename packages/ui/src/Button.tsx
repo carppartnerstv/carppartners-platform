@@ -2,11 +2,16 @@ import React from 'react';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger';
 type Size = 'sm' | 'md' | 'lg';
+// 'dark' (default) = web pública, sin cambios. 'light' = panel admin (tema
+// claro) — puramente aditivo, no toca el comportamiento por defecto de
+// ningún uso existente que no pase este prop.
+type Theme = 'dark' | 'light';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
   loading?: boolean;
+  theme?: Theme;
 }
 
 const variants: Record<Variant, string> = {
@@ -15,6 +20,14 @@ const variants: Record<Variant, string> = {
   ghost:     'bg-transparent text-white/80 hover:text-white hover:bg-white/8',
   outline:   'border border-white/30 text-white hover:border-white/60 hover:bg-white/5',
   danger:    'bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30',
+};
+
+const variantsLight: Record<Variant, string> = {
+  primary:   'bg-brand text-white shadow-[0_4px_14px_rgba(104,20,11,0.28)] hover:brightness-110',
+  secondary: 'bg-white text-admin-text border border-admin-border hover:bg-admin-hover',
+  ghost:     'bg-transparent text-admin-text-secondary hover:text-admin-text hover:bg-admin-hover',
+  outline:   'border border-admin-input-border text-admin-text hover:bg-admin-hover',
+  danger:    'bg-[#fdecea] text-[#c0392b] border border-[#f7cfc9] hover:bg-[#fbdedb]',
 };
 
 const sizes: Record<Size, string> = {
@@ -27,6 +40,7 @@ export function Button({
   variant = 'primary',
   size = 'md',
   loading = false,
+  theme = 'dark',
   className = '',
   children,
   disabled,
@@ -40,7 +54,7 @@ export function Button({
         'inline-flex items-center justify-center gap-2 rounded-btn font-semibold',
         'transition-all duration-150 active:scale-95',
         'disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100',
-        variants[variant],
+        theme === 'light' ? variantsLight[variant] : variants[variant],
         sizes[size],
         className,
       ].join(' ')}

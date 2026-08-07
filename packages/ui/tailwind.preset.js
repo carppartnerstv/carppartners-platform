@@ -22,6 +22,24 @@ module.exports = {
         },
         'cp-gray': '#85958e',
         'cp-border': 'rgba(255,255,255,0.07)',
+        // Tema claro del panel admin — namespace propio: `surface`/`brand`/
+        // `gold` de arriba los sigue usando también la web pública en
+        // oscuro, así que no se tocan ni se reutilizan aquí.
+        admin: {
+          bg:               '#f4f5f6',
+          surface:          '#ffffff',
+          border:           '#e7e9ec',
+          'border-soft':    '#eef0f2',
+          hover:            '#fafbfb',
+          thead:            '#fafbfb',
+          text:             '#1c2024',
+          'text-secondary': '#8a9198',
+          'text-tertiary':  '#b5bac0',
+          'text-muted':     '#9aa0a6',
+          'sidebar-active': '#fbebe8',
+          'sidebar-inactive': '#555b62',
+          'input-border':   '#dfe2e6',
+        },
       },
       fontFamily: {
         sans:    ['var(--font-inter)', 'system-ui', 'sans-serif'],
@@ -30,6 +48,7 @@ module.exports = {
       boxShadow: {
         'card':    '0 6px 22px rgba(0,0,0,0.4)',
         'btn-primary': '0 6px 22px rgba(104,20,11,0.55)',
+        'admin-card': '0 1px 2px rgba(20,20,22,0.03)',
       },
       borderRadius: {
         card:   '11px',
@@ -37,6 +56,7 @@ module.exports = {
         chip:   '7px',
         badge:  '5px',
         menu:   '12px',
+        'admin-card': '14px',
       },
     },
   },

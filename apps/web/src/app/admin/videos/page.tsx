@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import type { AdminVideo, AdminVideoInput, Category, AdminSeries, CrewMember } from '@carp-partners/api-client';
 import { Button, Pagination } from '@carp-partners/ui';
@@ -57,20 +57,20 @@ function fmtDate(iso: string | null | undefined): string {
 
 function RatingsCell({ ratings }: { ratings: AdminVideo['ratings'] }) {
   if (!ratings || ratings.total === 0) {
-    return <span className="text-white/25 text-xs">Sin votos</span>;
+    return <span className="text-admin-text-tertiary text-xs">Sin votos</span>;
   }
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400" title="Me encanta">
+      <span className="text-[11px] px-1.5 py-0.5 rounded bg-[#e7f6ed] text-[#1a8a4a]" title="Me encanta">
         {ratings.love}
       </span>
-      <span className="text-[11px] px-1.5 py-0.5 rounded bg-brand/20 text-brand-bright" title="Me gusta">
+      <span className="text-[11px] px-1.5 py-0.5 rounded bg-[#fbebe8] text-brand-bright" title="Me gusta">
         {ratings.like}
       </span>
-      <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400" title="No es para mí">
+      <span className="text-[11px] px-1.5 py-0.5 rounded bg-[#fdecea] text-[#c0392b]" title="No es para mí">
         {ratings.down}
       </span>
-      <span className="text-white/35 text-[11px]">({ratings.total})</span>
+      <span className="text-admin-text-tertiary text-[11px]">({ratings.total})</span>
     </div>
   );
 }
@@ -79,7 +79,7 @@ function StatusBadge({ video }: { video: AdminVideo }) {
   const s = video.status;
   if (s === 'publicado') {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-green-500/15 text-green-400">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-[#e7f6ed] text-[#1a8a4a]">
         Publicado
       </span>
     );
@@ -87,15 +87,15 @@ function StatusBadge({ video }: { video: AdminVideo }) {
   if (s === 'programado') {
     return (
       <span className="inline-flex flex-col items-start gap-0.5">
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/15 text-amber-400">
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-[#fef3e2] text-[#b45309]">
           Programado
         </span>
-        <span className="text-[10px] text-white/35 px-1">{fmtDate(video.published_at)}</span>
+        <span className="text-[10px] text-admin-text-tertiary px-1">{fmtDate(video.published_at)}</span>
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-white/8 text-white/40">
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-admin-border-soft text-admin-text-muted">
       Borrador
     </span>
   );
@@ -151,8 +151,8 @@ function EpisodeNumInput({
       onClick={e => e.stopPropagation()}
       placeholder="—"
       title="Nº de episodio — edítalo aquí directamente"
-      className="w-11 bg-transparent border border-white/10 rounded px-1 py-0.5 text-white/70 text-[11px] font-mono
-                 focus:outline-none focus:border-brand-bright focus:bg-white/8 transition-colors disabled:opacity-40
+      className="w-11 bg-transparent border border-admin-border rounded px-1 py-0.5 text-admin-text-secondary text-[11px] font-mono
+                 focus:outline-none focus:border-brand-bright focus:bg-admin-hover transition-colors disabled:opacity-40
                  [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
     />
   );
@@ -165,10 +165,10 @@ function Field({ label, error, hint, children }: {
 }) {
   return (
     <div className="space-y-1">
-      <label className="block text-xs font-medium text-white/60 uppercase tracking-wide">{label}</label>
+      <label className="block text-xs font-medium text-admin-text-secondary uppercase tracking-wide">{label}</label>
       {children}
-      {error && <p className="text-red-400 text-xs">{error}</p>}
-      {hint && !error && <p className="text-white/35 text-xs">{hint}</p>}
+      {error && <p className="text-[#c0392b] text-xs">{error}</p>}
+      {hint && !error && <p className="text-admin-text-tertiary text-xs">{hint}</p>}
     </div>
   );
 }
@@ -187,8 +187,8 @@ function Input({ value, onChange, placeholder, type = 'text', required }: {
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       required={required}
-      className="w-full bg-surface border border-white/12 rounded-md px-3 py-2 text-white text-sm
-                 placeholder-white/25 focus:outline-none focus:border-brand-bright transition-colors"
+      className="w-full bg-white border border-admin-input-border rounded-md px-3 py-2 text-admin-text text-sm
+                 placeholder-admin-text-tertiary focus:outline-none focus:border-brand-bright transition-colors"
     />
   );
 }
@@ -200,8 +200,8 @@ function Textarea({ value, onChange, placeholder, rows = 3 }: { value: string; o
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows}
-      className="w-full bg-surface border border-white/12 rounded-md px-3 py-2 text-white text-sm
-                 placeholder-white/25 focus:outline-none focus:border-brand-bright transition-colors resize-none"
+      className="w-full bg-white border border-admin-input-border rounded-md px-3 py-2 text-admin-text text-sm
+                 placeholder-admin-text-tertiary focus:outline-none focus:border-brand-bright transition-colors resize-none"
     />
   );
 }
@@ -212,12 +212,90 @@ function Select({ value, onChange, children, disabled }: { value: string; onChan
       value={value}
       onChange={e => onChange(e.target.value)}
       disabled={disabled}
-      className="w-full bg-surface border border-white/12 rounded-md px-3 py-2 text-white text-sm
+      className="w-full bg-white border border-admin-input-border rounded-md px-3 py-2 text-admin-text text-sm
                  focus:outline-none focus:border-brand-bright transition-colors disabled:opacity-40
-                 [&>option]:bg-surface-raised"
+                 [&>option]:bg-white"
     >
       {children}
     </select>
+  );
+}
+
+// Selector múltiple de crew en formato dropdown — a diferencia de un
+// <select multiple> nativo, no crece en altura según el número de
+// miembros: la lista solo ocupa espacio mientras está abierta (overlay con
+// scroll propio), y las chips de seleccionados debajo son compactas.
+function CrewMultiSelect({ crewList, selectedIds, onChange }: {
+  crewList: CrewMember[];
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [open]);
+
+  const selected = crewList.filter(m => selectedIds.includes(m.id));
+  const toggle = (id: string) => {
+    onChange(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id]);
+  };
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between bg-white border border-admin-input-border rounded-md
+                   px-3 py-2 text-sm focus:outline-none focus:border-brand-bright transition-colors"
+      >
+        <span className={selected.length ? 'text-admin-text' : 'text-admin-text-tertiary'}>
+          {selected.length ? `${selected.length} seleccionado(s)` : 'Seleccionar crew…'}
+        </span>
+        <svg className={`w-4 h-4 text-admin-text-tertiary transition-transform shrink-0 ${open ? 'rotate-180' : ''}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute z-20 mt-1 w-full bg-white border border-admin-border rounded-md shadow-lg max-h-56 overflow-y-auto py-1">
+          {crewList.length === 0 ? (
+            <p className="px-3 py-2 text-admin-text-tertiary text-xs">No hay miembros de crew</p>
+          ) : crewList.map(m => (
+            <label key={m.id} className="flex items-center gap-2 px-3 py-1.5 text-sm text-admin-text hover:bg-admin-hover cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(m.id)}
+                onChange={() => toggle(m.id)}
+                className="w-3.5 h-3.5 accent-brand-bright shrink-0"
+              />
+              {m.role === 'socio' ? '★ ' : ''}{m.name}
+            </label>
+          ))}
+        </div>
+      )}
+
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {selected.map(m => (
+            <span key={m.id} className="inline-flex items-center gap-1 text-[11px] bg-admin-border-soft text-admin-text-secondary pl-2 pr-1 py-0.5 rounded">
+              {m.name}
+              <button type="button" onClick={() => toggle(m.id)} title="Quitar"
+                className="w-3.5 h-3.5 flex items-center justify-center rounded-full text-admin-text-tertiary hover:text-[#c0392b] hover:bg-[#fdecea]">
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -444,10 +522,10 @@ export default function AdminVideosPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-[22px] font-bold text-white">Vídeos</h1>
-          <p className="text-white/45 text-sm mt-0.5">Catálogo completo — publicados y borradores</p>
+          <h1 className="font-display text-[22px] font-bold text-admin-text">Vídeos</h1>
+          <p className="text-admin-text-secondary text-sm mt-0.5">Catálogo completo — publicados y borradores</p>
         </div>
-        <Button variant="primary" size="sm" onClick={openCreate}>
+        <Button theme="light" variant="primary" size="sm" onClick={openCreate}>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
@@ -461,14 +539,14 @@ export default function AdminVideosPage() {
           type="text" value={q}
           onChange={e => { setQ(e.target.value); setPage(0); }}
           placeholder="Buscar por título…"
-          className="bg-surface-raised border border-white/12 rounded-md px-3 py-2 text-white text-sm
-                     placeholder-white/30 focus:outline-none focus:border-brand-bright w-64 transition-colors"
+          className="bg-white border border-admin-input-border rounded-md px-3 py-2 text-admin-text text-sm
+                     placeholder-admin-text-tertiary focus:outline-none focus:border-brand-bright w-64 transition-colors"
         />
         <select
           value={filterPub}
           onChange={e => { setFilterPub(e.target.value as '' | 'true' | 'false'); setPage(0); }}
-          className="bg-surface-raised border border-white/12 rounded-md px-3 py-2 text-white text-sm
-                     focus:outline-none focus:border-brand-bright [&>option]:bg-surface-raised"
+          className="bg-white border border-admin-input-border rounded-md px-3 py-2 text-admin-text text-sm
+                     focus:outline-none focus:border-brand-bright [&>option]:bg-white"
         >
           <option value="">Todos</option>
           <option value="true">Publicados</option>
@@ -477,8 +555,8 @@ export default function AdminVideosPage() {
         <select
           value={filterSeries}
           onChange={e => { setFilterSeries(e.target.value); setPage(0); }}
-          className="bg-surface-raised border border-white/12 rounded-md px-3 py-2 text-white text-sm
-                     focus:outline-none focus:border-brand-bright [&>option]:bg-surface-raised"
+          className="bg-white border border-admin-input-border rounded-md px-3 py-2 text-admin-text text-sm
+                     focus:outline-none focus:border-brand-bright [&>option]:bg-white"
         >
           <option value="">Todas las series</option>
           {assignableSeries.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
@@ -486,8 +564,8 @@ export default function AdminVideosPage() {
         <select
           value={sort}
           onChange={e => { setSort(e.target.value as '' | 'rated' | 'series'); setPage(0); }}
-          className="bg-surface-raised border border-white/12 rounded-md px-3 py-2 text-white text-sm
-                     focus:outline-none focus:border-brand-bright [&>option]:bg-surface-raised"
+          className="bg-white border border-admin-input-border rounded-md px-3 py-2 text-admin-text text-sm
+                     focus:outline-none focus:border-brand-bright [&>option]:bg-white"
         >
           <option value="">Más recientes</option>
           <option value="rated">Más valorados</option>
@@ -497,40 +575,40 @@ export default function AdminVideosPage() {
 
       {/* Error global */}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-md px-4 py-3 text-red-400 text-sm">
+        <div className="bg-[#fdecea] border border-[#f7cfc9] rounded-md px-4 py-3 text-[#c0392b] text-sm">
           {error}
         </div>
       )}
 
       {/* Tabla */}
-      <div className="rounded-card border border-white/8 overflow-hidden">
+      <div className="rounded-admin-card border border-admin-border overflow-hidden bg-admin-surface shadow-admin-card">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-white/4 border-b border-white/8">
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide">Vídeo</th>
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Serie</th>
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden md:table-cell">Categoría</th>
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Duración</th>
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden xl:table-cell">Crew</th>
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden md:table-cell">Valoraciones</th>
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide">Estado</th>
+            <tr className="bg-admin-thead border-b border-admin-border">
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide">Vídeo</th>
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Serie</th>
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden md:table-cell">Categoría</th>
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Duración</th>
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden xl:table-cell">Crew</th>
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden md:table-cell">Valoraciones</th>
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide">Estado</th>
               <th className="px-4 py-3 w-28" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/6">
+          <tbody className="divide-y divide-admin-border-soft">
             {loading ? (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-white/40">Cargando…</td></tr>
+              <tr><td colSpan={8} className="px-4 py-10 text-center text-admin-text-tertiary">Cargando…</td></tr>
             ) : videos.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-white/40">No hay vídeos</td></tr>
+              <tr><td colSpan={8} className="px-4 py-10 text-center text-admin-text-tertiary">No hay vídeos</td></tr>
             ) : videos.map(v => (
-              <tr key={v.id} className="hover:bg-white/3 transition-colors">
+              <tr key={v.id} className="hover:bg-admin-hover transition-colors">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => toggleFeatured(v)}
                       title={v.is_featured ? 'Destacado en portada — pulsa para quitarlo' : 'Marcar como destacado en portada'}
                       className={`shrink-0 p-1 rounded transition-colors ${
-                        v.is_featured ? 'text-amber-400' : 'text-white/25 hover:text-white/60'
+                        v.is_featured ? 'text-[#b45309]' : 'text-admin-text-tertiary hover:text-admin-text-secondary'
                       }`}
                     >
                       <svg className="w-[18px] h-[18px]" fill={v.is_featured ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
@@ -539,16 +617,16 @@ export default function AdminVideosPage() {
                       </svg>
                     </button>
                     {v.thumbnail_url ? (
-                      <img src={v.thumbnail_url} alt="" className="w-14 aspect-video rounded object-cover bg-surface-raised shrink-0" />
+                      <img src={v.thumbnail_url} alt="" className="w-14 aspect-video rounded object-cover bg-admin-border-soft shrink-0" />
                     ) : (
-                      <div className="w-14 aspect-video rounded bg-surface-raised shrink-0" />
+                      <div className="w-14 aspect-video rounded bg-admin-border-soft shrink-0" />
                     )}
                     <div className="min-w-0">
-                      <p className="text-white font-medium truncate max-w-[220px]">{v.title}</p>
+                      <p className="text-admin-text font-medium truncate max-w-[220px]">{v.title}</p>
                       {v.is_featured ? (
-                        <p className="text-amber-400 text-[10px] font-semibold uppercase tracking-wide mt-0.5">Destacado en portada</p>
+                        <p className="text-[#b45309] text-[10px] font-semibold uppercase tracking-wide mt-0.5">Destacado en portada</p>
                       ) : (
-                        <p className="text-white/40 text-xs mt-0.5 font-mono truncate max-w-[220px]">{v.vimeo_id}</p>
+                        <p className="text-admin-text-muted text-xs mt-0.5 font-mono truncate max-w-[220px]">{v.vimeo_id}</p>
                       )}
                     </div>
                   </div>
@@ -556,33 +634,33 @@ export default function AdminVideosPage() {
                 <td className="px-4 py-3 hidden lg:table-cell">
                   {v.series_id ? (
                     <div className="min-w-0">
-                      <p className="text-white/70 text-xs truncate max-w-[160px]">
+                      <p className="text-admin-text-secondary text-xs truncate max-w-[160px]">
                         {v.series_parent_title ?? v.series_title}
                       </p>
-                      <p className="text-white/35 text-[11px] font-mono mt-0.5 flex items-center gap-1">
+                      <p className="text-admin-text-tertiary text-[11px] font-mono mt-0.5 flex items-center gap-1">
                         <span>T{v.season_num ?? 1} · E</span>
                         <EpisodeNumInput video={v} onSave={saveEpisodeNum} />
                       </p>
                     </div>
                   ) : (
-                    <span className="text-white/25 text-xs">—</span>
+                    <span className="text-admin-text-tertiary text-xs">—</span>
                   )}
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
-                  <span className="text-white/60 text-xs">{v.category_name ?? '—'}</span>
+                  <span className="text-admin-text-secondary text-xs">{v.category_name ?? '—'}</span>
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
-                  <span className="text-white/60 text-xs tabular-nums">{fmtDuration(v.duration_sec)}</span>
+                  <span className="text-admin-text-secondary text-xs tabular-nums">{fmtDuration(v.duration_sec)}</span>
                 </td>
                 <td className="px-4 py-3 hidden xl:table-cell">
                   <div className="flex flex-wrap gap-1">
                     {(v.crew ?? []).slice(0, 3).map(c => (
-                      <span key={c.id} className="text-[10px] bg-white/8 text-white/50 px-1.5 py-0.5 rounded">
+                      <span key={c.id} className="text-[10px] bg-admin-border-soft text-admin-text-secondary px-1.5 py-0.5 rounded">
                         {c.name.split(' ')[0]}
                       </span>
                     ))}
                     {(v.crew ?? []).length > 3 && (
-                      <span className="text-[10px] text-white/30">+{(v.crew ?? []).length - 3}</span>
+                      <span className="text-[10px] text-admin-text-tertiary">+{(v.crew ?? []).length - 3}</span>
                     )}
                   </div>
                 </td>
@@ -598,7 +676,7 @@ export default function AdminVideosPage() {
                   <div className="flex items-center justify-end gap-1">
                     <button
                       onClick={() => openEdit(v)}
-                      className="p-1.5 rounded text-white/50 hover:text-white hover:bg-white/8 transition-colors"
+                      className="p-1.5 rounded text-admin-text-secondary hover:text-admin-text hover:bg-admin-hover transition-colors"
                       title="Editar"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -608,7 +686,7 @@ export default function AdminVideosPage() {
                     </button>
                     <button
                       onClick={() => setPendingDelete(v)}
-                      className="p-1.5 rounded text-white/50 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                      className="p-1.5 rounded text-admin-text-secondary hover:text-[#c0392b] hover:bg-[#fdecea] transition-colors"
                       title="Eliminar"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -625,33 +703,37 @@ export default function AdminVideosPage() {
       </div>
 
       <Pagination
+        theme="light"
         total={total} page={page} pageSize={PAGE_SIZE}
         onPageChange={setPage} loading={loading}
       />
 
       {/* ── Modal formulario ── */}
       <AdminModal
+        theme="light"
         title={editing ? 'Editar vídeo' : 'Nuevo vídeo'}
         open={showForm}
         onClose={() => setShowForm(false)}
+        footer={
+          <>
+            {formError && (
+              <p className="text-[#c0392b] text-sm bg-[#fdecea] border border-[#f7cfc9] rounded px-3 py-2 mb-3">
+                {formError}
+              </p>
+            )}
+            <div className="flex gap-3">
+              <Button theme="light" type="submit" form="video-form" variant="primary" size="md" loading={saving} className="flex-1 justify-center">
+                {editing ? 'Guardar cambios' : 'Crear vídeo'}
+              </Button>
+              <Button theme="light" type="button" variant="ghost" size="md" onClick={() => setShowForm(false)} disabled={saving}>
+                Cancelar
+              </Button>
+            </div>
+          </>
+        }
       >
-        <form onSubmit={handleSave} className="space-y-4">
-          <Field label="Título *">
-            <Input
-              value={form.title}
-              onChange={v => setForm(f => ({ ...f, title: v, slug: editing ? f.slug : toSlug(v) }))}
-              placeholder="El título del vídeo"
-              required
-            />
-          </Field>
-          <Field label="Slug *" hint="Solo a-z, 0-9, guiones. Se genera solo.">
-            <Input
-              value={form.slug}
-              onChange={v => setForm(f => ({ ...f, slug: v }))}
-              placeholder="el-titulo-del-video"
-              required
-            />
-          </Field>
+        <form id="video-form" onSubmit={handleSave} className="space-y-4">
+          {/* 1. Vimeo ID */}
           <Field label="Vimeo ID *" hint="El ID numérico del vídeo ya subido a Vimeo.">
             <div className="flex gap-2">
               <input
@@ -660,15 +742,15 @@ export default function AdminVideosPage() {
                 onChange={e => setForm(f => ({ ...f, vimeoId: e.target.value }))}
                 placeholder="123456789"
                 required
-                className="flex-1 bg-surface border border-white/12 rounded-md px-3 py-2 text-white text-sm
-                           placeholder-white/25 focus:outline-none focus:border-brand-bright transition-colors"
+                className="flex-1 bg-white border border-admin-input-border rounded-md px-3 py-2 text-admin-text text-sm
+                           placeholder-admin-text-tertiary focus:outline-none focus:border-brand-bright transition-colors"
               />
               <button
                 type="button"
                 onClick={fetchVimeoMetadata}
                 disabled={!form.vimeoId.trim() || fetchingVimeo}
                 className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold
-                           bg-white/8 border border-white/12 text-white/70 hover:text-white hover:bg-white/14
+                           bg-admin-bg border border-admin-input-border text-admin-text-secondary hover:text-admin-text hover:bg-admin-hover
                            disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 title="Traer título, miniatura y duración desde Vimeo"
               >
@@ -687,6 +769,28 @@ export default function AdminVideosPage() {
               </button>
             </div>
           </Field>
+
+          {/* 2. Título */}
+          <Field label="Título *">
+            <Input
+              value={form.title}
+              onChange={v => setForm(f => ({ ...f, title: v, slug: editing ? f.slug : toSlug(v) }))}
+              placeholder="El título del vídeo"
+              required
+            />
+          </Field>
+
+          {/* 3. Slug */}
+          <Field label="Slug *" hint="Solo a-z, 0-9, guiones. Se genera solo.">
+            <Input
+              value={form.slug}
+              onChange={v => setForm(f => ({ ...f, slug: v }))}
+              placeholder="el-titulo-del-video"
+              required
+            />
+          </Field>
+
+          {/* 4. Descripción */}
           <Field label="Descripción">
             <Textarea
               value={form.description ?? ''}
@@ -694,7 +798,30 @@ export default function AdminVideosPage() {
               placeholder="Descripción opcional…"
             />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+
+          {/* 5. Fecha de publicación */}
+          <Field
+            label="Fecha de publicación"
+            hint={
+              form.published && !form.publishedAt
+                ? 'Vacío + Publicado = visible inmediatamente.'
+                : form.publishedAt && new Date(form.publishedAt) > new Date()
+                ? 'Programado: el vídeo se publicará en la fecha indicada.'
+                : 'Deja vacío para publicar de inmediato al marcar "Publicado".'
+            }
+          >
+            <input
+              type="datetime-local"
+              value={form.publishedAt ?? ''}
+              onChange={e => setForm(f => ({ ...f, publishedAt: e.target.value }))}
+              className="w-full bg-white border border-admin-input-border rounded-md px-3 py-2 text-admin-text text-sm
+                         focus:outline-none focus:border-brand-bright transition-colors
+                         [color-scheme:light]"
+            />
+          </Field>
+
+          {/* 6. Duración, nº episodio y categoría */}
+          <div className="grid grid-cols-3 gap-3">
             <Field label="Duración (seg)">
               <Input
                 type="number"
@@ -711,23 +838,18 @@ export default function AdminVideosPage() {
                 placeholder="—"
               />
             </Field>
+            <Field label="Categoría">
+              <Select
+                value={form.categoryId ?? ''}
+                onChange={v => setForm(f => ({ ...f, categoryId: v }))}
+              >
+                <option value="">— Sin categoría —</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
+            </Field>
           </div>
-          <Field label="Miniatura URL">
-            <Input
-              value={form.thumbnailUrl ?? ''}
-              onChange={v => setForm(f => ({ ...f, thumbnailUrl: v }))}
-              placeholder="https://…"
-            />
-          </Field>
-          <Field label="Categoría">
-            <Select
-              value={form.categoryId ?? ''}
-              onChange={v => setForm(f => ({ ...f, categoryId: v }))}
-            >
-              <option value="">— Sin categoría —</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
-          </Field>
+
+          {/* 7. Serie */}
           <Field label="Serie" hint="Las series con varias temporadas muestran cada temporada por separado; el vídeo va a la temporada, no a la serie madre.">
             <Select
               value={form.seriesId ?? ''}
@@ -737,74 +859,35 @@ export default function AdminVideosPage() {
               {assignableSeries.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
             </Select>
           </Field>
-          <Field label="Crew" hint="Personas que aparecen en este vídeo. Ctrl/Cmd + clic para selección múltiple.">
-            <select
-              multiple
-              size={Math.min(crewList.length || 4, 6)}
-              value={form.crewMemberIds ?? []}
-              onChange={e => {
-                const selected = Array.from(e.target.selectedOptions).map(o => o.value);
-                setForm(f => ({ ...f, crewMemberIds: selected }));
-              }}
-              className="w-full bg-surface border border-white/12 rounded-md px-2 py-1 text-white text-sm
-                         focus:outline-none focus:border-brand-bright [&>option]:px-2 [&>option]:py-1
-                         [&>option]:bg-surface [&>option:checked]:bg-brand/40 [&>option:checked]:text-white"
-            >
-              {crewList.map(m => (
-                <option key={m.id} value={m.id}>
-                  {m.role === 'socio' ? '★ ' : ''}{m.name}
-                </option>
-              ))}
-            </select>
-            {(form.crewMemberIds ?? []).length > 0 && (
-              <p className="text-white/40 text-xs mt-1">
-                {(form.crewMemberIds ?? []).length} seleccionado(s) ·{' '}
-                <button type="button" onClick={() => setForm(f => ({ ...f, crewMemberIds: [] }))}
-                  className="text-brand-bright hover:underline">Limpiar</button>
-              </p>
-            )}
-          </Field>
-          <Field
-            label="Fecha de publicación"
-            hint={
-              form.published && !form.publishedAt
-                ? 'Vacío + Publicado = visible inmediatamente.'
-                : form.publishedAt && new Date(form.publishedAt) > new Date()
-                ? 'Programado: el vídeo se publicará en la fecha indicada.'
-                : 'Deja vacío para publicar de inmediato al marcar "Publicado".'
-            }
-          >
-            <input
-              type="datetime-local"
-              value={form.publishedAt ?? ''}
-              onChange={e => setForm(f => ({ ...f, publishedAt: e.target.value }))}
-              className="w-full bg-surface border border-white/12 rounded-md px-3 py-2 text-white text-sm
-                         focus:outline-none focus:border-brand-bright transition-colors
-                         [color-scheme:dark]"
+
+          {/* 8. Crew */}
+          <Field label="Crew" hint="Personas que aparecen en este vídeo.">
+            <CrewMultiSelect
+              crewList={crewList}
+              selectedIds={form.crewMemberIds ?? []}
+              onChange={ids => setForm(f => ({ ...f, crewMemberIds: ids }))}
             />
           </Field>
+
+          {/* 9. Miniatura URL */}
+          <Field label="Miniatura URL">
+            <Input
+              value={form.thumbnailUrl ?? ''}
+              onChange={v => setForm(f => ({ ...f, thumbnailUrl: v }))}
+              placeholder="https://…"
+            />
+          </Field>
+
+          {/* 10. Publicado */}
           <div className="flex items-center gap-3 pt-1">
             <input
               id="pub" type="checkbox" checked={form.published ?? false}
               onChange={e => setForm(f => ({ ...f, published: e.target.checked }))}
               className="w-4 h-4 accent-brand-bright cursor-pointer"
             />
-            <label htmlFor="pub" className="text-sm text-white/80 cursor-pointer select-none">
+            <label htmlFor="pub" className="text-sm text-admin-text cursor-pointer select-none">
               Publicado
             </label>
-          </div>
-          {formError && (
-            <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded px-3 py-2">
-              {formError}
-            </p>
-          )}
-          <div className="flex gap-3 pt-2 border-t border-white/8">
-            <Button type="submit" variant="primary" size="md" loading={saving} className="flex-1 justify-center">
-              {editing ? 'Guardar cambios' : 'Crear vídeo'}
-            </Button>
-            <Button type="button" variant="ghost" size="md" onClick={() => setShowForm(false)} disabled={saving}>
-              Cancelar
-            </Button>
           </div>
         </form>
       </AdminModal>

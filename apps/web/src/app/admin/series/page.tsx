@@ -26,10 +26,10 @@ function Field({ label, hint, error, children }: {
 }) {
   return (
     <div className="space-y-1">
-      <label className="block text-xs font-medium text-white/60 uppercase tracking-wide">{label}</label>
+      <label className="block text-xs font-medium text-admin-text-secondary uppercase tracking-wide">{label}</label>
       {children}
-      {error && <p className="text-red-400 text-xs">{error}</p>}
-      {hint && !error && <p className="text-white/35 text-xs">{hint}</p>}
+      {error && <p className="text-[#c0392b] text-xs">{error}</p>}
+      {hint && !error && <p className="text-admin-text-tertiary text-xs">{hint}</p>}
     </div>
   );
 }
@@ -40,8 +40,8 @@ function Input({ value, onChange, placeholder, type = 'text', required }: {
   return (
     <input
       type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} required={required}
-      className="w-full bg-surface border border-white/12 rounded-md px-3 py-2 text-white text-sm
-                 placeholder-white/25 focus:outline-none focus:border-brand-bright transition-colors"
+      className="w-full bg-white border border-admin-input-border rounded-md px-3 py-2 text-admin-text text-sm
+                 placeholder-admin-text-tertiary focus:outline-none focus:border-brand-bright transition-colors"
     />
   );
 }
@@ -52,8 +52,8 @@ function Select({ value, onChange, children, disabled }: {
   return (
     <select
       value={value} onChange={e => onChange(e.target.value)} disabled={disabled}
-      className="w-full bg-surface border border-white/12 rounded-md px-3 py-2 text-white text-sm
-                 focus:outline-none focus:border-brand-bright transition-colors [&>option]:bg-surface-raised
+      className="w-full bg-white border border-admin-input-border rounded-md px-3 py-2 text-admin-text text-sm
+                 focus:outline-none focus:border-brand-bright transition-colors [&>option]:bg-white
                  disabled:opacity-40 disabled:cursor-not-allowed"
     >
       {children}
@@ -221,14 +221,14 @@ export default function AdminSeriesPage() {
     categories.find(c => c.id === id)?.name ?? '—';
 
   const renderRow = (s: AdminSeries, isChild: boolean) => (
-    <tr key={s.id} className={`hover:bg-white/3 transition-colors ${isChild ? 'bg-white/[0.015]' : ''}`}>
+    <tr key={s.id} className={`hover:bg-admin-hover transition-colors ${isChild ? 'bg-admin-thead' : ''}`}>
       <td className="px-4 py-3">
         <div className={`flex items-center gap-3 ${isChild ? 'pl-7' : ''}`}>
-          {isChild && <span className="text-white/25 text-sm shrink-0">↳</span>}
+          {isChild && <span className="text-admin-text-tertiary text-sm shrink-0">↳</span>}
           {s.cover_url ? (
-            <img src={s.cover_url} alt="" className="w-9 h-9 rounded object-cover bg-surface-raised shrink-0" />
+            <img src={s.cover_url} alt="" className="w-9 h-9 rounded object-cover bg-admin-border-soft shrink-0" />
           ) : (
-            <div className="w-9 h-9 rounded bg-surface-raised shrink-0 flex items-center justify-center text-white/20">
+            <div className="w-9 h-9 rounded bg-admin-border-soft shrink-0 flex items-center justify-center text-admin-text-tertiary">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -236,32 +236,32 @@ export default function AdminSeriesPage() {
             </div>
           )}
           <div>
-            <p className="text-white font-medium">{s.title}</p>
-            <p className="text-white/35 text-xs font-mono">{s.slug}</p>
+            <p className="text-admin-text font-medium">{s.title}</p>
+            <p className="text-admin-text-tertiary text-xs font-mono">{s.slug}</p>
           </div>
         </div>
       </td>
       <td className="px-4 py-3 hidden md:table-cell">
-        <span className="text-white/60 text-xs">{catName(s.category_id)}</span>
+        <span className="text-admin-text-secondary text-xs">{catName(s.category_id)}</span>
       </td>
       <td className="px-4 py-3 hidden lg:table-cell">
         {!isChild && s.season_count > 0 ? (
-          <span className="text-white/60 text-xs">{s.season_count} temporada{s.season_count === 1 ? '' : 's'}</span>
+          <span className="text-admin-text-secondary text-xs">{s.season_count} temporada{s.season_count === 1 ? '' : 's'}</span>
         ) : (
-          <span className="text-white/60 text-xs">{s.season_num != null ? `T${s.season_num}` : '—'}</span>
+          <span className="text-admin-text-secondary text-xs">{s.season_num != null ? `T${s.season_num}` : '—'}</span>
         )}
       </td>
       <td className="px-4 py-3 text-right hidden lg:table-cell">
-        <span className="text-white/40 text-xs tabular-nums">{s.video_count}</span>
+        <span className="text-admin-text-muted text-xs tabular-nums">{s.video_count}</span>
       </td>
       <td className="px-4 py-3 text-right">
-        <span className="text-white/40 text-xs tabular-nums">{s.order_index}</span>
+        <span className="text-admin-text-muted text-xs tabular-nums">{s.order_index}</span>
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-1">
           {!isChild && (
             <button onClick={() => openAddSeason(s)}
-              className="p-1.5 rounded text-white/50 hover:text-white hover:bg-white/8 transition-colors" title="Añadir temporada">
+              className="p-1.5 rounded text-admin-text-secondary hover:text-admin-text hover:bg-admin-hover transition-colors" title="Añadir temporada">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
@@ -269,14 +269,14 @@ export default function AdminSeriesPage() {
             </button>
           )}
           <button onClick={() => openEdit(s)}
-            className="p-1.5 rounded text-white/50 hover:text-white hover:bg-white/8 transition-colors" title="Editar">
+            className="p-1.5 rounded text-admin-text-secondary hover:text-admin-text hover:bg-admin-hover transition-colors" title="Editar">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
           </button>
           <button onClick={() => setPendingDelete(s)}
-            className="p-1.5 rounded text-white/50 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Eliminar">
+            className="p-1.5 rounded text-admin-text-secondary hover:text-[#c0392b] hover:bg-[#fdecea] transition-colors" title="Eliminar">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -292,10 +292,10 @@ export default function AdminSeriesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-[22px] font-bold text-white">Series</h1>
-          <p className="text-white/45 text-sm mt-0.5">Colecciones de episodios por temporada</p>
+          <h1 className="font-display text-[22px] font-bold text-admin-text">Series</h1>
+          <p className="text-admin-text-secondary text-sm mt-0.5">Colecciones de episodios por temporada</p>
         </div>
-        <Button variant="primary" size="sm" onClick={openCreate}>
+        <Button theme="light" variant="primary" size="sm" onClick={openCreate}>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
@@ -307,8 +307,8 @@ export default function AdminSeriesPage() {
       <div>
         <select
           value={filterCat} onChange={e => { setFilterCat(e.target.value); setPage(0); }}
-          className="bg-surface-raised border border-white/12 rounded-md px-3 py-2 text-white text-sm
-                     focus:outline-none focus:border-brand-bright [&>option]:bg-surface-raised"
+          className="bg-white border border-admin-input-border rounded-md px-3 py-2 text-admin-text text-sm
+                     focus:outline-none focus:border-brand-bright [&>option]:bg-white"
         >
           <option value="">Todas las categorías</option>
           {categories.map(c => <option key={c.id} value={c.slug}>{c.name}</option>)}
@@ -316,27 +316,27 @@ export default function AdminSeriesPage() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-md px-4 py-3 text-red-400 text-sm">{error}</div>
+        <div className="bg-[#fdecea] border border-[#f7cfc9] rounded-md px-4 py-3 text-[#c0392b] text-sm">{error}</div>
       )}
 
       {/* Tabla */}
-      <div className="rounded-card border border-white/8 overflow-hidden">
+      <div className="rounded-admin-card border border-admin-border overflow-hidden bg-admin-surface shadow-admin-card">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-white/4 border-b border-white/8">
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide">Serie</th>
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden md:table-cell">Categoría</th>
-              <th className="text-left px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Temporada</th>
-              <th className="text-right px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Eps.</th>
-              <th className="text-right px-4 py-3 text-white/50 font-medium text-xs uppercase tracking-wide w-10">Orden</th>
+            <tr className="bg-admin-thead border-b border-admin-border">
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide">Serie</th>
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden md:table-cell">Categoría</th>
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Temporada</th>
+              <th className="text-right px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Eps.</th>
+              <th className="text-right px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide w-10">Orden</th>
               <th className="px-4 py-3 w-24" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/6">
+          <tbody className="divide-y divide-admin-border-soft">
             {loading ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-white/40">Cargando…</td></tr>
+              <tr><td colSpan={6} className="px-4 py-10 text-center text-admin-text-tertiary">Cargando…</td></tr>
             ) : topLevel.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-white/40">No hay series</td></tr>
+              <tr><td colSpan={6} className="px-4 py-10 text-center text-admin-text-tertiary">No hay series</td></tr>
             ) : topLevel.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(s => (
               <React.Fragment key={s.id}>
                 {renderRow(s, false)}
@@ -348,13 +348,34 @@ export default function AdminSeriesPage() {
       </div>
 
       <Pagination
+        theme="light"
         total={topLevel.length} page={page} pageSize={PAGE_SIZE}
         onPageChange={setPage} loading={loading}
       />
 
       {/* Modal */}
-      <AdminModal title={editing ? 'Editar serie' : 'Nueva serie'} open={showForm} onClose={() => setShowForm(false)}>
-        <form onSubmit={handleSave} className="space-y-4">
+      <AdminModal
+        theme="light"
+        title={editing ? 'Editar serie' : 'Nueva serie'}
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        footer={
+          <>
+            {formError && (
+              <p className="text-[#c0392b] text-sm bg-[#fdecea] border border-[#f7cfc9] rounded px-3 py-2 mb-3">{formError}</p>
+            )}
+            <div className="flex gap-3">
+              <Button theme="light" type="submit" form="series-form" variant="primary" size="md" loading={saving} className="flex-1 justify-center">
+                {editing ? 'Guardar cambios' : 'Crear serie'}
+              </Button>
+              <Button theme="light" type="button" variant="ghost" size="md" onClick={() => setShowForm(false)} disabled={saving}>
+                Cancelar
+              </Button>
+            </div>
+          </>
+        }
+      >
+        <form id="series-form" onSubmit={handleSave} className="space-y-4">
           <Field label="Título *">
             <Input
               value={form.title}
@@ -402,6 +423,7 @@ export default function AdminSeriesPage() {
           </div>
           <Field label="Portada">
             <AvatarUploader
+              light
               shape="cover"
               currentUrl={form.coverUrl || null}
               pendingPreview={coverPreview}
@@ -413,17 +435,6 @@ export default function AdminSeriesPage() {
           <Field label="Orden" hint="Menor número = aparece antes.">
             <Input type="number" value={form.orderIndex ?? 0} onChange={v => setForm(f => ({ ...f, orderIndex: parseInt(v) || 0 }))} placeholder="0" />
           </Field>
-          {formError && (
-            <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded px-3 py-2">{formError}</p>
-          )}
-          <div className="flex gap-3 pt-2 border-t border-white/8">
-            <Button type="submit" variant="primary" size="md" loading={saving} className="flex-1 justify-center">
-              {editing ? 'Guardar cambios' : 'Crear serie'}
-            </Button>
-            <Button type="button" variant="ghost" size="md" onClick={() => setShowForm(false)} disabled={saving}>
-              Cancelar
-            </Button>
-          </div>
         </form>
       </AdminModal>
 

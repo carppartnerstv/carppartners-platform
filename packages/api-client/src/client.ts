@@ -7,6 +7,7 @@ import type {
   Category,
   Series,
   SeriesDetail,
+  SeriesCoverSummary,
   AdminSeries,
   WatchHistoryItem,
   WatchlistItem,
@@ -25,6 +26,11 @@ import type {
   SeriesInput,
   CrewMember,
   CrewMemberInput,
+  Carousel,
+  CarouselDetail,
+  CarouselImage,
+  CarouselInput,
+  PublicCarousel,
   PublicPage,
   AdminPage,
   AdminPageSummary,
@@ -374,6 +380,11 @@ export class ApiClient {
     return this.request('GET', `/series/${id}`);
   }
 
+  /** Portadas públicas (sin sesión) para el bloque de catálogo de la landing. */
+  async getPublicSeriesCovers(): Promise<{ series: SeriesCoverSummary[] }> {
+    return this.request('GET', '/series/public/covers', { auth: false });
+  }
+
   // ─── Historial ─────────────────────────────────────────────────────────────
 
   async saveProgress(videoId: string, progressSec: number, completed?: boolean): Promise<void> {
@@ -548,6 +559,47 @@ export class ApiClient {
 
   async deleteCrewAvatar(id: string): Promise<void> {
     return this.request('DELETE', `/admin/crew/${id}/avatar`);
+  }
+
+  // ── Carrousels ───────────────────────────────────────────────────────────────
+
+  async getAdminCarousels(): Promise<{ carousels: Carousel[] }> {
+    return this.request('GET', '/admin/carousels');
+  }
+
+  async getAdminCarousel(id: string): Promise<{ carousel: CarouselDetail }> {
+    return this.request('GET', `/admin/carousels/${id}`);
+  }
+
+  async createAdminCarousel(data: CarouselInput): Promise<{ carousel: CarouselDetail }> {
+    return this.request('POST', '/admin/carousels', { body: data });
+  }
+
+  async updateAdminCarousel(id: string, data: Partial<CarouselInput>): Promise<{ carousel: Carousel }> {
+    return this.request('PUT', `/admin/carousels/${id}`, { body: data });
+  }
+
+  async deleteAdminCarousel(id: string): Promise<void> {
+    return this.request('DELETE', `/admin/carousels/${id}`);
+  }
+
+  async uploadCarouselImage(id: string, file: File): Promise<{ image: CarouselImage }> {
+    const fd = new FormData();
+    fd.append('image', file);
+    return this.requestMultipart('POST', `/admin/carousels/${id}/images`, fd);
+  }
+
+  async deleteCarouselImage(id: string, imageId: string): Promise<void> {
+    return this.request('DELETE', `/admin/carousels/${id}/images/${imageId}`);
+  }
+
+  async reorderCarouselImages(id: string, order: string[]): Promise<{ images: CarouselImage[] }> {
+    return this.request('PUT', `/admin/carousels/${id}/images/reorder`, { body: { order } });
+  }
+
+  /** Carrousel público por slug (sin sesión) — hero de la landing, shortcode [carrousel:slug]. */
+  async getPublicCarousel(slug: string): Promise<{ carousel: PublicCarousel }> {
+    return this.request('GET', `/carousels/${encodeURIComponent(slug)}`, { auth: false });
   }
 
   async getVimeoMetadata(vimeoId: string): Promise<{

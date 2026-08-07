@@ -21,20 +21,20 @@ function MetricCard({
 }) {
   return (
     <div className={[
-      'rounded-card border p-5 flex flex-col gap-3',
+      'rounded-admin-card border p-5 flex flex-col gap-3 bg-admin-surface shadow-admin-card',
       accent
-        ? 'bg-brand/8 border-brand/25'
-        : 'bg-surface-raised border-white/8',
+        ? 'border-brand/25'
+        : 'border-admin-border',
     ].join(' ')}>
       <div className="flex items-start justify-between">
-        <p className="text-xs font-semibold text-white/50 uppercase tracking-wide">{label}</p>
-        <span className={['p-2 rounded-lg', accent ? 'bg-brand/20 text-brand-bright' : 'bg-white/8 text-white/50'].join(' ')}>
+        <p className="text-xs font-semibold text-admin-text-secondary uppercase tracking-wide">{label}</p>
+        <span className={['p-2 rounded-lg', accent ? 'bg-[#fbebe8] text-brand-bright' : 'bg-admin-bg text-admin-text-secondary'].join(' ')}>
           {icon}
         </span>
       </div>
       <div>
-        <p className="font-display text-[2rem] font-bold text-white leading-none">{value}</p>
-        {sub && <p className="text-white/40 text-xs mt-1">{sub}</p>}
+        <p className="font-display text-[2rem] font-bold text-admin-text leading-none">{value}</p>
+        {sub && <p className="text-admin-text-muted text-xs mt-1">{sub}</p>}
       </div>
     </div>
   );
@@ -44,12 +44,12 @@ function MetricCard({
 
 function SkeletonCard() {
   return (
-    <div className="rounded-card border border-white/8 bg-surface-raised p-5 animate-pulse">
+    <div className="rounded-admin-card border border-admin-border bg-admin-surface shadow-admin-card p-5 animate-pulse">
       <div className="flex items-start justify-between mb-3">
-        <div className="h-3 w-24 rounded bg-white/10" />
-        <div className="w-8 h-8 rounded-lg bg-white/10" />
+        <div className="h-3 w-24 rounded bg-admin-border-soft" />
+        <div className="w-8 h-8 rounded-lg bg-admin-border-soft" />
       </div>
-      <div className="h-8 w-20 rounded bg-white/10" />
+      <div className="h-8 w-20 rounded bg-admin-border-soft" />
     </div>
   );
 }
@@ -72,12 +72,12 @@ export default function AdminDashboardPage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="font-display text-[22px] font-bold text-white">Dashboard</h1>
-        <p className="text-white/45 text-sm mt-0.5">Resumen del estado de la plataforma</p>
+        <h1 className="font-display text-[22px] font-bold text-admin-text">Dashboard</h1>
+        <p className="text-admin-text-secondary text-sm mt-0.5">Resumen del estado de la plataforma</p>
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-md px-4 py-3 text-red-400 text-sm flex items-center gap-2">
+        <div className="bg-[#fdecea] border border-[#f7cfc9] rounded-md px-4 py-3 text-[#c0392b] text-sm flex items-center gap-2">
           <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
@@ -145,7 +145,7 @@ export default function AdminDashboardPage() {
 
       {/* Nota pie */}
       {!loading && !error && (
-        <p className="text-white/25 text-xs">
+        <p className="text-admin-text-tertiary text-xs">
           El MRR es una estimación basada en 9,99 €/mes y 7,50 €/mes equivalente para suscripciones anuales.
           Para datos precisos, consulta el dashboard de Stripe.
         </p>

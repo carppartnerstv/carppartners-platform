@@ -291,6 +291,45 @@ catalogRouter.get(
   }),
 );
 
+// --- Carrousel público por slug (sin auth) ------------------------------
+// Usado por el hero de la landing (slug fijo) y por el shortcode
+// [carrousel:slug] al renderizar el contenido de una página fija. Gestión
+// completa (crear/editar/reordenar imágenes) en /admin/carousels.
+catalogRouter.get(
+  '/carousels/:slug',
+  asyncHandler(async (req, res) => {
+    const carousel = await queryOne(
+      `SELECT id, name, slug FROM carousels WHERE slug = $1`,
+      [req.params.slug],
+    );
+    if (!carousel) throw notFound('Carrousel no encontrado', 'CAROUSEL_NOT_FOUND');
+    const { rows: images } = await query(
+      `SELECT id, image_url, order_index FROM carousel_images
+        WHERE carousel_id = $1 ORDER BY order_index`,
+      [carousel.id],
+    );
+    res.json({ carousel: { ...carousel, images } });
+  }),
+);
+
+// --- Portadas públicas para la landing (sin auth) ----------------------
+// Solo id/title/cover_url de series con portada subida, para el bloque
+// "Un vistazo al catálogo" de la landing pública (page.tsx). No expone nada
+// sensible ni requiere sesión — a diferencia de GET /series, que sí exige JWT.
+catalogRouter.get(
+  '/series/public/covers',
+  asyncHandler(async (_req, res) => {
+    const { rows } = await query(
+      `SELECT id, title, cover_url
+         FROM series
+        WHERE cover_url IS NOT NULL AND parent_series_id IS NULL
+        ORDER BY created_at DESC
+        LIMIT 12`,
+    );
+    res.json({ series: rows });
+  }),
+);
+
 // --- Series (solo de primer nivel; las temporadas quedan anidadas) ---
 // Una serie con temporadas (parent_series_id IS NULL en la fila madre) se
 // devuelve una sola vez aquí; episode_count suma los episodios propios MÁS

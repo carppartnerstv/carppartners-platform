@@ -32,12 +32,14 @@ import sanitizeHtml from 'sanitize-html';
 // imagen social de páginas de contenido) ──────────────────────────────────────
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CREW_UPLOADS_DIR   = path.resolve(__dirname, '../../uploads/crew');
-const SERIES_UPLOADS_DIR = path.resolve(__dirname, '../../uploads/series');
-const PAGES_UPLOADS_DIR  = path.resolve(__dirname, '../../uploads/pages');
+const CREW_UPLOADS_DIR      = path.resolve(__dirname, '../../uploads/crew');
+const SERIES_UPLOADS_DIR    = path.resolve(__dirname, '../../uploads/series');
+const PAGES_UPLOADS_DIR     = path.resolve(__dirname, '../../uploads/pages');
+const CAROUSELS_UPLOADS_DIR = path.resolve(__dirname, '../../uploads/carousels');
 fs.mkdirSync(CREW_UPLOADS_DIR, { recursive: true });
 fs.mkdirSync(SERIES_UPLOADS_DIR, { recursive: true });
 fs.mkdirSync(PAGES_UPLOADS_DIR, { recursive: true });
+fs.mkdirSync(CAROUSELS_UPLOADS_DIR, { recursive: true });
 
 const ALLOWED_IMAGE_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const IMAGE_MAX_BYTES    = 5 * 1024 * 1024;
@@ -79,6 +81,7 @@ function makeImageUpload(uploadsDir, fieldName) {
 const avatarUpload = makeImageUpload(CREW_UPLOADS_DIR, 'avatar');
 const seriesCoverUpload = makeImageUpload(SERIES_UPLOADS_DIR, 'cover');
 const pageImageUpload = makeImageUpload(PAGES_UPLOADS_DIR, 'image');
+const carouselImageUpload = makeImageUpload(CAROUSELS_UPLOADS_DIR, 'image');
 
 function deleteFileIfExists(filePath) {
   fs.unlink(filePath, () => {}); // fire-and-forget; si no existe, sin error
@@ -1031,6 +1034,182 @@ adminRouter.delete(
       'UPDATE crew_members SET avatar_url = NULL WHERE id = $1 RETURNING id',
       [req.params.id],
     );
+    res.status(204).end();
+  }),
+);
+
+// =====================================================================
+// CRUD de carousels + carousel_images
+// Cada carousel es una lista ordenada de imágenes reutilizable en varios
+// sitios: el hero de la landing (slug fijo) y el shortcode [carrousel:slug]
+// dentro del contenido enriquecido de una página (ver pages.js/StaticPageContent).
+// =====================================================================
+const carouselSchema = z.object({
+  name: z.string().min(1),
+  slug: z.string().min(1).regex(/^[a-z0-9-]+$/, 'slug solo puede contener a-z, 0-9 y guiones'),
+});
+
+adminRouter.get(
+  '/carousels',
+  asyncHandler(async (_req, res) => {
+    const { rows } = await query(
+      `SELECT c.id, c.name, c.slug, c.created_at,
+              COUNT(ci.id)::int AS image_count
+         FROM carousels c
+         LEFT JOIN carousel_images ci ON ci.carousel_id = c.id
+        GROUP BY c.id
+        ORDER BY c.created_at DESC`,
+    );
+    res.json({ carousels: rows });
+  }),
+);
+
+adminRouter.get(
+  '/carousels/:id',
+  asyncHandler(async (req, res) => {
+    const carousel = await queryOne(
+      `SELECT id, name, slug, created_at FROM carousels WHERE id = $1`,
+      [req.params.id],
+    );
+    if (!carousel) throw notFound('Carrousel no encontrado', 'CAROUSEL_NOT_FOUND');
+    const { rows: images } = await query(
+      `SELECT id, image_url, order_index FROM carousel_images
+        WHERE carousel_id = $1 ORDER BY order_index`,
+      [req.params.id],
+    );
+    res.json({ carousel: { ...carousel, images } });
+  }),
+);
+
+adminRouter.post(
+  '/carousels',
+  asyncHandler(async (req, res) => {
+    const parsed = carouselSchema.safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+    const carousel = await queryOne(
+      `INSERT INTO carousels (name, slug) VALUES ($1, $2) RETURNING *`,
+      [parsed.data.name, parsed.data.slug],
+    );
+    res.status(201).json({ carousel: { ...carousel, images: [] } });
+  }),
+);
+
+adminRouter.put(
+  '/carousels/:id',
+  asyncHandler(async (req, res) => {
+    const parsed = carouselSchema.partial().safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+
+    const map = { name: 'name', slug: 'slug' };
+    const sets = [];
+    const params = [];
+    for (const [key, col] of Object.entries(map)) {
+      if (parsed.data[key] !== undefined) {
+        params.push(parsed.data[key]);
+        sets.push(`${col} = $${params.length}`);
+      }
+    }
+    if (sets.length === 0) throw badRequest('Nada que actualizar', 'EMPTY_UPDATE');
+
+    params.push(req.params.id);
+    const carousel = await queryOne(
+      `UPDATE carousels SET ${sets.join(', ')} WHERE id = $${params.length} RETURNING *`,
+      params,
+    );
+    if (!carousel) throw notFound('Carrousel no encontrado', 'CAROUSEL_NOT_FOUND');
+    res.json({ carousel });
+  }),
+);
+
+adminRouter.delete(
+  '/carousels/:id',
+  asyncHandler(async (req, res) => {
+    const { rows: images } = await query(
+      `SELECT image_url FROM carousel_images WHERE carousel_id = $1`,
+      [req.params.id],
+    );
+    const carousel = await queryOne(
+      `DELETE FROM carousels WHERE id = $1 RETURNING id`,
+      [req.params.id],
+    );
+    if (!carousel) throw notFound('Carrousel no encontrado', 'CAROUSEL_NOT_FOUND');
+    // Las filas de carousel_images ya se borraron en cascada; limpia también el disco.
+    for (const img of images) {
+      deleteFileIfExists(path.join(CAROUSELS_UPLOADS_DIR, path.basename(img.image_url)));
+    }
+    res.status(204).end();
+  }),
+);
+
+// POST /admin/carousels/:id/images — añade una imagen al final del carrousel
+adminRouter.post(
+  '/carousels/:id/images',
+  carouselImageUpload,
+  asyncHandler(async (req, res) => {
+    if (!req.file) throw badRequest('No se recibió ninguna imagen', 'NO_FILE');
+
+    const carousel = await queryOne('SELECT id FROM carousels WHERE id = $1', [req.params.id]);
+    if (!carousel) {
+      deleteFileIfExists(req.file.path);
+      throw notFound('Carrousel no encontrado', 'CAROUSEL_NOT_FOUND');
+    }
+
+    const { rows: maxRows } = await query(
+      `SELECT COALESCE(MAX(order_index), -1) + 1 AS next FROM carousel_images WHERE carousel_id = $1`,
+      [req.params.id],
+    );
+    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/carousels/${req.file.filename}`;
+    const image = await queryOne(
+      `INSERT INTO carousel_images (carousel_id, image_url, order_index)
+       VALUES ($1, $2, $3) RETURNING *`,
+      [req.params.id, imageUrl, maxRows[0].next],
+    );
+    res.status(201).json({ image });
+  }),
+);
+
+// PUT /admin/carousels/:id/images/reorder — reordena todas las imágenes a la vez
+adminRouter.put(
+  '/carousels/:id/images/reorder',
+  asyncHandler(async (req, res) => {
+    const parsed = z.object({ order: z.array(z.string().uuid()).min(1) }).safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+
+    const { rows: images } = await query(
+      `SELECT id FROM carousel_images WHERE carousel_id = $1 ORDER BY order_index`,
+      [req.params.id],
+    );
+    const currentIds = new Set(images.map((i) => i.id));
+    const { order } = parsed.data;
+    if (order.length !== currentIds.size || !order.every((id) => currentIds.has(id))) {
+      throw badRequest('El orden debe incluir exactamente las imágenes del carrousel', 'INVALID_ORDER');
+    }
+
+    await withTransaction(async (client) => {
+      for (let i = 0; i < order.length; i++) {
+        await client.query('UPDATE carousel_images SET order_index = $1 WHERE id = $2', [i, order[i]]);
+      }
+    });
+
+    const { rows: updated } = await query(
+      `SELECT id, image_url, order_index FROM carousel_images
+        WHERE carousel_id = $1 ORDER BY order_index`,
+      [req.params.id],
+    );
+    res.json({ images: updated });
+  }),
+);
+
+// DELETE /admin/carousels/:id/images/:imageId — quita una imagen del carrousel
+adminRouter.delete(
+  '/carousels/:id/images/:imageId',
+  asyncHandler(async (req, res) => {
+    const image = await queryOne(
+      `DELETE FROM carousel_images WHERE id = $1 AND carousel_id = $2 RETURNING image_url`,
+      [req.params.imageId, req.params.id],
+    );
+    if (!image) throw notFound('Imagen no encontrada', 'CAROUSEL_IMAGE_NOT_FOUND');
+    deleteFileIfExists(path.join(CAROUSELS_UPLOADS_DIR, path.basename(image.image_url)));
     res.status(204).end();
   }),
 );

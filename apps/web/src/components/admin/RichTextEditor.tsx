@@ -23,8 +23,8 @@ function ToolBtn({
       className={[
         'inline-flex items-center justify-center w-7 h-7 rounded text-sm select-none transition-all',
         active
-          ? 'bg-brand/25 text-brand-bright'
-          : 'text-white/50 hover:text-white hover:bg-white/8',
+          ? 'bg-[#fbebe8] text-brand-bright'
+          : 'text-admin-text-secondary hover:text-admin-text hover:bg-admin-hover',
       ].join(' ')}
     >
       {children}
@@ -35,7 +35,7 @@ function ToolBtn({
 // ─── Separador de barra ───────────────────────────────────────────────────────
 
 function Sep() {
-  return <span className="w-px h-4 bg-white/10 mx-0.5 shrink-0" />;
+  return <span className="w-px h-4 bg-admin-border mx-0.5 shrink-0" />;
 }
 
 // ─── Editor ──────────────────────────────────────────────────────────────────
@@ -115,9 +115,9 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
   const isLink = editor.isActive('link');
 
   return (
-    <div className="rounded-md border border-white/12 bg-surface focus-within:border-brand-bright/60 transition-colors overflow-hidden">
+    <div className="rounded-md border border-admin-input-border bg-white focus-within:border-brand-bright transition-colors overflow-hidden">
       {/* Barra de herramientas */}
-      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-white/8 bg-white/3 flex-wrap">
+      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-admin-border-soft bg-admin-thead flex-wrap">
         <ToolBtn onClick={() => editor.chain().focus().toggleBold().run()}
           active={editor.isActive('bold')} title="Negrita (Ctrl+B)">
           <strong>B</strong>
@@ -160,7 +160,7 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
 
       {/* Fila de URL de enlace (cuando está activo) */}
       {linkMode && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-white/3 border-b border-white/8">
+        <div className="flex items-center gap-2 px-3 py-2 bg-admin-thead border-b border-admin-border-soft">
           <input
             ref={linkInputRef}
             type="url"
@@ -171,27 +171,27 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
               if (e.key === 'Escape') { setLinkMode(false); }
             }}
             placeholder="https://…"
-            className="flex-1 bg-transparent text-white text-xs outline-none placeholder-white/30"
+            className="flex-1 bg-transparent text-admin-text text-xs outline-none placeholder-admin-text-tertiary"
           />
           <button type="button" onClick={applyLink}
-            className="text-[11px] font-semibold text-brand-bright hover:text-white px-2 py-1 rounded hover:bg-white/8 transition-colors">
+            className="text-[11px] font-semibold text-brand-bright hover:text-admin-text px-2 py-1 rounded hover:bg-admin-hover transition-colors">
             OK
           </button>
           {isLink && (
             <button type="button" onClick={removeLink}
-              className="text-[11px] text-white/40 hover:text-red-400 px-1 py-1 rounded hover:bg-white/8 transition-colors">
+              className="text-[11px] text-admin-text-tertiary hover:text-red-500 px-1 py-1 rounded hover:bg-admin-hover transition-colors">
               Quitar
             </button>
           )}
           <button type="button" onClick={() => setLinkMode(false)}
-            className="text-[11px] text-white/40 hover:text-white px-1 py-1 rounded hover:bg-white/8 transition-colors">
+            className="text-[11px] text-admin-text-tertiary hover:text-admin-text px-1 py-1 rounded hover:bg-admin-hover transition-colors">
             ✕
           </button>
         </div>
       )}
 
       {/* Área de edición */}
-      <div className="rich-editor px-3 py-2.5 min-h-[90px]">
+      <div className="rich-editor admin-light-editor px-3 py-2.5 min-h-[90px]">
         <EditorContent editor={editor} />
       </div>
     </div>

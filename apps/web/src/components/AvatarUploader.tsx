@@ -17,6 +17,8 @@ interface AvatarUploaderProps {
   onFileSelect: (file: File) => void;
   /** Se llama cuando el usuario pulsa "Eliminar" (solo visible si hay imagen real) */
   onDelete?: () => void;
+  /** Tema claro (panel admin). Por defecto false: sin cambios para /perfil (oscuro). */
+  light?: boolean;
 }
 
 export function AvatarUploader({
@@ -27,6 +29,7 @@ export function AvatarUploader({
   uploading = false,
   onFileSelect,
   onDelete,
+  light = false,
 }: AvatarUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -47,21 +50,21 @@ export function AvatarUploader({
       {/* Previsualización */}
       <div className="relative shrink-0">
         <div
-          className={
-            isCover
-              ? 'w-full max-w-[320px] aspect-video rounded-lg overflow-hidden bg-surface-raised border border-white/12 flex items-center justify-center'
-              : 'w-16 h-16 rounded-full overflow-hidden bg-surface-raised border border-white/12 flex items-center justify-center'
-          }
+          className={[
+            isCover ? 'w-full max-w-[320px] aspect-video rounded-lg' : 'w-16 h-16 rounded-full',
+            'overflow-hidden flex items-center justify-center',
+            light ? 'bg-admin-bg border border-admin-border' : 'bg-surface-raised border border-white/12',
+          ].join(' ')}
         >
           {displayUrl ? (
             <img src={displayUrl} alt="" className="w-full h-full object-cover" />
           ) : isCover ? (
-            <svg className="w-8 h-8 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-8 h-8 ${light ? 'text-admin-text-tertiary' : 'text-white/20'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                 d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M4 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           ) : (
-            <span className="text-white/30 text-lg font-bold select-none">{initials}</span>
+            <span className={`text-lg font-bold select-none ${light ? 'text-admin-text-tertiary' : 'text-white/30'}`}>{initials}</span>
           )}
         </div>
         {uploading && (
@@ -81,9 +84,13 @@ export function AvatarUploader({
           type="button"
           disabled={uploading}
           onClick={() => inputRef.current?.click()}
-          className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md
-                     border border-white/15 text-white/70 hover:text-white hover:border-white/30
-                     disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className={[
+            'inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border transition-colors',
+            'disabled:opacity-40 disabled:cursor-not-allowed',
+            light
+              ? 'border-admin-input-border text-admin-text-secondary hover:text-admin-text hover:border-admin-text-tertiary'
+              : 'border-white/15 text-white/70 hover:text-white hover:border-white/30',
+          ].join(' ')}
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -97,9 +104,13 @@ export function AvatarUploader({
             type="button"
             disabled={uploading}
             onClick={onDelete}
-            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md
-                       text-red-400/70 hover:text-red-400 hover:bg-red-500/10
-                       disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className={[
+              'inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-colors',
+              'disabled:opacity-40 disabled:cursor-not-allowed',
+              light
+                ? 'text-[#c0392b]/80 hover:text-[#c0392b] hover:bg-[#fdecea]'
+                : 'text-red-400/70 hover:text-red-400 hover:bg-red-500/10',
+            ].join(' ')}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -109,7 +120,7 @@ export function AvatarUploader({
           </button>
         )}
 
-        <p className="text-white/25 text-[10px]">
+        <p className={`text-[10px] ${light ? 'text-admin-text-tertiary' : 'text-white/25'}`}>
           JPG, PNG o WebP · máx. 5 MB{isCover ? ' · horizontal 16:9' : ''}
         </p>
       </div>

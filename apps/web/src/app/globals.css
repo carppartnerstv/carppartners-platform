@@ -82,6 +82,18 @@
 .rich-editor .ProseMirror em     { font-style: italic; }
 .rich-editor .ProseMirror s      { text-decoration: line-through; opacity: 0.6; }
 
+/* Override solo para el editor del panel admin (tema claro) — .rich-editor
+   a secas lo sigue usando también el render de solo lectura en la web
+   pública (bio de crew, descripción de series, páginas fijas), que sigue
+   en oscuro; dos clases en el mismo elemento ganan por especificidad sin
+   depender del orden de declaración. */
+.rich-editor.admin-light-editor .ProseMirror {
+  color: #1c2024;
+}
+.rich-editor.admin-light-editor .ProseMirror p.is-editor-empty:first-child::before {
+  color: #b5bac0;
+}
+
 @layer utilities {
   .scrollbar-hide {
     -ms-overflow-style: none;

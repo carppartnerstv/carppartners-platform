@@ -27,7 +27,7 @@ export function PublicHeader({ transparentOnTop = false, onNavClick }: PublicHea
 
   useEffect(() => {
     if (!transparentOnTop) return;
-    const onScroll = () => setScrolled(window.scrollY > 30);
+    const onScroll = () => setScrolled(window.scrollY > 40);
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
@@ -37,7 +37,7 @@ export function PublicHeader({ transparentOnTop = false, onNavClick }: PublicHea
     <header
       className="fixed top-0 left-0 right-0 z-50 flex items-center px-6 md:px-14 py-[18px] transition-all duration-300"
       style={{
-        background: scrolled ? 'rgba(6,9,12,0.92)' : 'rgba(6,9,12,0)',
+        background: scrolled ? 'rgba(6,9,12,0.82)' : 'rgba(6,9,12,0)',
         backdropFilter: scrolled ? 'blur(10px)' : 'none',
         borderBottom: scrolled ? '1px solid rgba(255,255,255,0.07)' : '1px solid transparent',
       }}
@@ -70,6 +70,12 @@ export function PublicHeader({ transparentOnTop = false, onNavClick }: PublicHea
             </Link>
           );
         })}
+        <Link
+          href="/contacto"
+          className="text-[13.5px] font-medium text-white/60 hover:text-white transition-colors"
+        >
+          Contacto
+        </Link>
       </nav>
       <Link href="/login" className="mr-2.5 px-[18px] py-[9px] rounded-lg border border-white/20 text-white text-[13.5px] font-semibold hover:bg-white/8 transition-colors">
         Iniciar sesión

@@ -84,6 +84,13 @@ export interface Series {
   episode_count: number;
 }
 
+// Portada pública mínima para GET /series/public/covers (landing, sin sesión).
+export interface SeriesCoverSummary {
+  id: string;
+  title: string;
+  cover_url: string;
+}
+
 // Temporada = fila de `series` con parent_series_id apuntando a la serie
 // madre. Un array vacío en SeriesDetail.seasons significa serie "plana".
 export interface SeriesSeason {
@@ -355,4 +362,42 @@ export interface SeriesInput {
   // uuid de la serie madre para convertir esta serie en una temporada suya,
   // o null para quitarle la serie madre (solo se permite un nivel).
   parentSeriesId?: string | null;
+}
+
+// ─── Carrousels de imágenes (hero de la landing, shortcode [carrousel:slug]
+// en el contenido de una página) ──────────────────────────────────────────
+
+export interface CarouselImage {
+  id: string;
+  image_url: string;
+  order_index: number;
+}
+
+export interface Carousel {
+  id: string;
+  name: string;
+  slug: string;
+  created_at?: string;
+  image_count: number;
+}
+
+export interface CarouselDetail {
+  id: string;
+  name: string;
+  slug: string;
+  created_at?: string;
+  images: CarouselImage[];
+}
+
+/** Respuesta pública de GET /carousels/:slug — sin sesión, solo lo necesario para pintar el carrousel. */
+export interface PublicCarousel {
+  id: string;
+  name: string;
+  slug: string;
+  images: CarouselImage[];
+}
+
+export interface CarouselInput {
+  name: string;
+  slug: string;
 }
