@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, radii, textStyles, spacing } from '../../theme';
-import type { MockVideo } from '../../data/mock/videos';
 
 // Card dimensions — 16:9 ratio
 const CARD_WIDTH = 220;
@@ -21,21 +20,31 @@ const RANK_CARD_HEIGHT = Math.round(RANK_CARD_WIDTH * (9 / 16));
 
 type CardVariant = 'default' | 'rank' | 'continue' | 'full';
 
+// Forma mínima y desacoplada del modelo real (Video/Series de
+// @carp-partners/api-client) — cada pantalla adapta sus datos a esta forma.
+// Todo lo que no sea id/title/thumbnail_url es opcional y puramente visual.
+export interface VideoCardItem {
+  id: string;
+  title: string;
+  thumbnail_url: string | null;
+  /** Etiqueta de la píldora inferior derecha (p. ej. "34 min" o "8 episodios"). Si no se pasa, no se muestra píldora. */
+  metaLabel?: string | null;
+  /** Etiqueta pequeña sobre el título (p. ej. "EP. 3"). */
+  episodeLabel?: string | null;
+  isNew?: boolean;
+  rank?: number;
+  /** 0-100. Solo se pinta con variant="continue". */
+  progressPct?: number | null;
+}
+
 interface VideoCardProps {
-  video: MockVideo;
+  item: VideoCardItem;
   variant?: CardVariant;
-  onPress?: (video: MockVideo) => void;
-  onLongPress?: (video: MockVideo) => void;
+  onPress?: (item: VideoCardItem) => void;
+  onLongPress?: (item: VideoCardItem) => void;
 }
 
-function formatDuration(sec: number): string {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
-}
-
-export function VideoCard({ video, variant = 'default', onPress, onLongPress }: VideoCardProps) {
+export function VideoCard({ item, variant = 'default', onPress, onLongPress }: VideoCardProps) {
   const screenWidth = Dimensions.get('window').width;
 
   let cardWidth = CARD_WIDTH;
@@ -49,25 +58,21 @@ export function VideoCard({ video, variant = 'default', onPress, onLongPress }: 
     cardHeight = Math.round(cardWidth * (9 / 16));
   }
 
-  const progressRatio =
-    video.progress_sec && video.duration_sec > 0
-      ? Math.min(video.progress_sec / video.duration_sec, 1)
-      : 0;
-
+  const progressRatio = item.progressPct != null ? Math.min(Math.max(item.progressPct / 100, 0), 1) : 0;
   const showProgress = variant === 'continue' && progressRatio > 0;
 
   return (
     <TouchableOpacity
       activeOpacity={0.85}
-      onPress={() => onPress?.(video)}
-      onLongPress={() => onLongPress?.(video)}
+      onPress={() => onPress?.(item)}
+      onLongPress={() => onLongPress?.(item)}
       style={[styles.card, { width: cardWidth }]}
     >
       {/* Thumbnail */}
       <View style={[styles.thumb, { width: cardWidth, height: cardHeight }]}>
-        {video.thumbnail_url ? (
+        {item.thumbnail_url ? (
           <Image
-            source={{ uri: video.thumbnail_url }}
+            source={{ uri: item.thumbnail_url }}
             style={StyleSheet.absoluteFill}
             resizeMode="cover"
           />
@@ -83,21 +88,23 @@ export function VideoCard({ video, variant = 'default', onPress, onLongPress }: 
         />
 
         {/* NEW badge */}
-        {video.is_new && (
+        {item.isNew && (
           <View style={styles.newBadge}>
             <Text style={styles.newBadgeText}>NUEVO</Text>
           </View>
         )}
 
-        {/* Duration pill */}
-        <View style={styles.durationPill}>
-          <Text style={styles.durationText}>{formatDuration(video.duration_sec)}</Text>
-        </View>
+        {/* Meta pill */}
+        {item.metaLabel && (
+          <View style={styles.durationPill}>
+            <Text style={styles.durationText}>{item.metaLabel}</Text>
+          </View>
+        )}
 
         {/* Rank number overlay */}
-        {variant === 'rank' && video.rank != null && (
+        {variant === 'rank' && item.rank != null && (
           <View style={styles.rankOverlay}>
-            <Text style={styles.rankText}>{video.rank}</Text>
+            <Text style={styles.rankText}>{item.rank}</Text>
           </View>
         )}
       </View>
@@ -111,13 +118,13 @@ export function VideoCard({ video, variant = 'default', onPress, onLongPress }: 
 
       {/* Info */}
       <View style={styles.info}>
-        {video.episode_num != null && (
+        {item.episodeLabel && (
           <Text style={styles.episode} numberOfLines={1}>
-            EP. {video.episode_num}
+            {item.episodeLabel}
           </Text>
         )}
         <Text style={styles.title} numberOfLines={2}>
-          {video.title}
+          {item.title}
         </Text>
       </View>
     </TouchableOpacity>

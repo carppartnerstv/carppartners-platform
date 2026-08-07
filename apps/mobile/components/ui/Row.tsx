@@ -1,21 +1,20 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors, textStyles, spacing } from '../../theme';
-import { VideoCard } from './VideoCard';
-import type { MockVideo } from '../../data/mock/videos';
+import { VideoCard, type VideoCardItem } from './VideoCard';
 
 type RowVariant = 'default' | 'rank' | 'continue';
 
 interface RowProps {
   title: string;
-  videos: MockVideo[];
+  items: VideoCardItem[];
   variant?: RowVariant;
-  onVideoPress?: (video: MockVideo) => void;
+  onItemPress?: (item: VideoCardItem) => void;
   onSeeAll?: () => void;
 }
 
-export function Row({ title, videos, variant = 'default', onVideoPress, onSeeAll }: RowProps) {
-  if (videos.length === 0) return null;
+export function Row({ title, items, variant = 'default', onItemPress, onSeeAll }: RowProps) {
+  if (items.length === 0) return null;
 
   const cardVariant = variant === 'rank' ? 'rank' : variant === 'continue' ? 'continue' : 'default';
 
@@ -35,10 +34,10 @@ export function Row({ title, videos, variant = 'default', onVideoPress, onSeeAll
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.list}
       >
-        {videos.map((item, index) => (
+        {items.map((item, index) => (
           <React.Fragment key={item.id}>
             {index > 0 && <View style={{ width: spacing.rowGap }} />}
-            <VideoCard video={item} variant={cardVariant} onPress={onVideoPress} />
+            <VideoCard item={item} variant={cardVariant} onPress={onItemPress} />
           </React.Fragment>
         ))}
       </ScrollView>

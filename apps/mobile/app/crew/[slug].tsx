@@ -1,34 +1,40 @@
-// Perfil de miembro — se abre al pulsar un avatar del Reparto en la ficha
-// de vídeo. "Volver" siempre regresa a esa ficha exacta: como se llega aquí
-// con router.push() desde la ficha, router.back() ya hace lo correcto (a
-// diferencia de la web, aquí el stack de navegación es real, no hace falta
-// ningún truco de replace).
+// Perfil de miembro de la crew — se abre desde el Reparto de una ficha de
+// vídeo o desde la pestaña "Crew" de Explorar. Al ser un stack de navegación
+// real, "volver" ya hace lo correcto sin ningún truco de replace.
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { IconArrowLeft } from '@tabler/icons-react-native';
+import type { CrewMember, Video } from '@carp-partners/api-client';
 import { colors, textStyles, spacing } from '../../theme';
-import { Spinner, Avatar, Badge, VideoCard, ReadMoreText } from '../../components/ui';
-import { getCrewMember, getVideosForCrewMember, ROLE_LABELS } from '../../data';
-import type { MockCrewMember } from '../../data/mock/crew';
-import type { MockVideo } from '../../data/mock/videos';
+import { Spinner, Avatar, Badge, ReadMoreText, CardGrid } from '../../components/ui';
+import type { VideoCardItem } from '../../components/ui';
+import { apiClient } from '../../lib/apiClient';
+import { ROLE_LABELS } from '../../lib/constants';
+import { stripHtml, formatDurationLong } from '../../lib/format';
 
 export default function CrewMemberScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
 
-  const [member, setMember] = useState<MockCrewMember | null>(null);
-  const [videos, setVideos] = useState<MockVideo[]>([]);
+  const [member, setMember] = useState<CrewMember | null>(null);
+  const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!slug) return;
     let cancelled = false;
     setLoading(true);
-    getCrewMember(slug).then((m) => {
-      if (cancelled || !m) return;
-      setMember(m);
-      getVideosForCrewMember(m.id).then((vs) => { if (!cancelled) setVideos(vs); });
+    apiClient.getCrew().then(({ crew }) => {
+      if (cancelled) return;
+      const found = crew.find((m) => m.slug === slug) ?? null;
+      setMember(found);
+      if (found) {
+        apiClient.getVideos({ crew: found.slug, limit: 24 }).then(({ videos }) => {
+          if (!cancelled) setVideos(videos);
+        });
+      }
       setLoading(false);
     });
     return () => { cancelled = true; };
@@ -42,9 +48,16 @@ export default function CrewMemberScreen() {
     );
   }
 
+  const videoCards: VideoCardItem[] = videos.map((v) => ({
+    id: v.id,
+    title: v.title,
+    thumbnail_url: v.thumbnail_url,
+    metaLabel: v.duration_sec > 0 ? formatDurationLong(v.duration_sec) : undefined,
+    episodeLabel: v.episode_num != null ? `EP. ${v.episode_num}` : undefined,
+  }));
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Cabecera con volver */}
       <View style={styles.topBar}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -58,7 +71,6 @@ export default function CrewMemberScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {/* Cabecera compacta: foto + nombre + insignia en una fila */}
         <View style={styles.header}>
           <Avatar uri={member.avatar_url} name={member.name} size="xl" />
           <View style={styles.headerText}>
@@ -67,20 +79,16 @@ export default function CrewMemberScreen() {
           </View>
         </View>
 
-        {/* Biografía */}
-        <View style={styles.bioWrap}>
-          <ReadMoreText text={member.bio} />
-        </View>
+        {member.bio && (
+          <View style={styles.bioWrap}>
+            <ReadMoreText text={stripHtml(member.bio)} />
+          </View>
+        )}
 
-        {/* Vídeos con {nombre} */}
-        {videos.length > 0 && (
+        {videoCards.length > 0 && (
           <View style={styles.videosSection}>
-            <Text style={styles.sectionTitle}>Vídeos con {member.name}</Text>
-            <View style={styles.grid}>
-              {videos.map((v) => (
-                <VideoCard key={v.id} video={v} onPress={(video) => router.push(`/video/${video.id}`)} />
-              ))}
-            </View>
+            <Text style={styles.sectionTitle}>Vídeos con {member.name.split(' ')[0]}</Text>
+            <CardGrid items={videoCards} onPress={(v) => router.push(`/watch/${v.id}`)} />
           </View>
         )}
       </ScrollView>
@@ -140,10 +148,5 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...textStyles.sectionTitle,
     color: colors.textPrimary,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.rowGap,
   },
 });

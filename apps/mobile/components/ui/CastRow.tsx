@@ -1,14 +1,16 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import type { CrewMember } from '@carp-partners/api-client';
 import { colors, textStyles, spacing } from '../../theme';
 import { Avatar } from './Avatar';
 import { Badge } from './Badge';
-import { ROLE_LABELS } from '../../data';
-import type { MockCrewMember } from '../../data/mock/crew';
+import { ROLE_LABELS } from '../../lib/constants';
+
+type CastMember = Pick<CrewMember, 'id' | 'name' | 'slug' | 'role' | 'avatar_url'>;
 
 interface CastRowProps {
-  crew: MockCrewMember[];
-  onPressMember?: (member: MockCrewMember) => void;
+  crew: CastMember[];
+  onPressMember?: (member: CastMember) => void;
 }
 
 // Sección "Reparto" de la ficha de vídeo. No se renderiza si el vídeo no

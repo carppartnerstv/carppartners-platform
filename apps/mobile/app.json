@@ -10,7 +10,9 @@
     "splash": {
       "backgroundColor": "#06090c"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "tv.carppartners.app"
@@ -34,10 +36,20 @@
         {
           "fonts": []
         }
+      ],
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Carp Partners TV necesita acceso a tus fotos para que puedas cambiar tu foto de perfil."
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "apiUrl": "http://localhost:3001"
     }
   }
 }

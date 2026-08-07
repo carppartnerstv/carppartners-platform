@@ -139,7 +139,13 @@
       "Bash(curl -s -X PUT http://localhost:3001/admin/pages/sobre-carp-partners -H 'Authorization: Bearer __CMDSUB_OUTPUT__' -H 'Content-Type: application/json' -d @/private/tmp/claude-501/-Users-estherfrailesanchez-Downloads-CARP-PARTNERS-carp-partners-tv/e0202529-890c-4d35-b0ae-bec075055c53/scratchpad/test_payload.json -o /dev/null -w '%{http_code}\\\\n')",
       "Bash(curl -s http://localhost:3000/sobre-carp-partners)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/sobre-carp-partners)",
-      "Bash(curl -s -X PUT http://localhost:3001/admin/pages/sobre-carp-partners -H 'Authorization: Bearer __CMDSUB_OUTPUT__' -H 'Content-Type: application/json' -d @/private/tmp/claude-501/-Users-estherfrailesanchez-Downloads-CARP-PARTNERS-carp-partners-tv/e0202529-890c-4d35-b0ae-bec075055c53/scratchpad/revert_payload.json -o /dev/null -w 'revert status: %{http_code}\\\\n')"
+      "Bash(curl -s -X PUT http://localhost:3001/admin/pages/sobre-carp-partners -H 'Authorization: Bearer __CMDSUB_OUTPUT__' -H 'Content-Type: application/json' -d @/private/tmp/claude-501/-Users-estherfrailesanchez-Downloads-CARP-PARTNERS-carp-partners-tv/e0202529-890c-4d35-b0ae-bec075055c53/scratchpad/revert_payload.json -o /dev/null -w 'revert status: %{http_code}\\\\n')",
+      "Bash(sips -g pixelWidth -g pixelHeight \"carp-partners-logo.png\")",
+      "Bash(curl -s -o /dev/null -w \"/admin/videos -> %{http_code}\\\\n\" http://localhost:3000/admin/videos)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/admin/carrousels)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001/carousels/landing-hero)",
+      "Bash(curl -s http://localhost:3000/admin/videos)",
+      "Bash(ps -o pid,lstart,command -p 24051 24052)"
     ],
     "additionalDirectories": [
       "/private/tmp",
