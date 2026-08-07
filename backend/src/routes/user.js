@@ -145,15 +145,17 @@ userRouter.post(
     const { plan } = parsed.data;
 
     // Evita una segunda suscripción de pago si ya tiene una vigente (mismo
-    // criterio que requireSubscription: period_end NULL = sin caducidad).
+    // criterio que requireSubscription: period_end NULL = sin caducidad, y el
+    // filtro de "no caducada" va en el WHERE para no descartar una cortesía
+    // indefinida solo porque además exista otra fila con fecha ya caducada).
     const existing = await queryOne(
       `SELECT status, period_end FROM subscriptions
         WHERE user_id = $1 AND status IN ('active', 'trialing', 'past_due')
-        ORDER BY period_end DESC NULLS LAST LIMIT 1`,
+          AND (period_end IS NULL OR period_end > now())
+        LIMIT 1`,
       [req.user.id],
     );
-    const stillValid = existing && (!existing.period_end || new Date(existing.period_end) > new Date());
-    if (stillValid) throw badRequest('Ya tienes una suscripción activa', 'ALREADY_SUBSCRIBED');
+    if (existing) throw badRequest('Ya tienes una suscripción activa', 'ALREADY_SUBSCRIBED');
 
     const customerId = await getOrCreateStripeCustomer(req.user);
     const priceId = await resolvePriceIdForPlan(plan);

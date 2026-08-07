@@ -51,26 +51,29 @@ export async function requireAuth(req, _res, next) {
  */
 export async function requireSubscription(req, _res, next) {
   try {
-    const sub = await queryOne(
-      `SELECT status, period_end
-         FROM subscriptions
-        WHERE user_id = $1
-          AND status IN ('active', 'trialing', 'past_due')
-        ORDER BY period_end DESC NULLS LAST
-        LIMIT 1`,
-      [req.user.id],
-    );
-
+    // Filtra por "no caducada" ya en el WHERE: un usuario puede tener varias
+    // filas (p. ej. un Stripe antiguo ya vencido + una cortesía indefinida
+    // vigente) y antes se elegía solo UNA por orden (period_end DESC NULLS
+    // LAST), lo que podía escoger la fila caducada con fecha en vez de la
+    // indefinida (period_end NULL) y bloquear el acceso aunque sí tocara
+    // darlo. Filtrando aquí, cualquier fila vigente (la que sea) da acceso.
     // period_end NULL = sin fecha de caducidad (p. ej. cortesía indefinida).
     // Para las de pago, los webhooks de Stripe mantienen period_end al día
     // en cada renovación, así que comprobarlo aquí no cambia su comportamiento
     // salvo si un webhook se retrasa (en cuyo caso es lo correcto: cortar el
     // acceso en cuanto el periodo ya pagado/regalado termina de verdad).
-    const notExpired = !sub?.period_end || new Date(sub.period_end) > new Date();
-    const hasAccess =
-      !!sub && notExpired && ['active', 'trialing', 'past_due'].includes(sub.status);
+    const sub = await queryOne(
+      `SELECT status, period_end
+         FROM subscriptions
+        WHERE user_id = $1
+          AND status IN ('active', 'trialing', 'past_due')
+          AND (period_end IS NULL OR period_end > now())
+        ORDER BY period_end DESC NULLS FIRST
+        LIMIT 1`,
+      [req.user.id],
+    );
 
-    if (!hasAccess) {
+    if (!sub) {
       throw forbidden('Necesitas una suscripción activa', 'SUBSCRIPTION_REQUIRED');
     }
 

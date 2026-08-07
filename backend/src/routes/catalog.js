@@ -45,11 +45,14 @@ catalogRouter.get(
     const offset = Math.max(parseInt(req.query.offset ?? '0', 10), 0);
     const { category, series, q, crew } = req.query;
 
+    // La categoría de un vídeo la lleva su serie (series.category_id), no el
+    // vídeo — cada vídeo/película vive dentro de una serie (aunque sea de un
+    // solo episodio), así que category_id se deriva siempre vía join.
     const filters = [VISIBLE];
     const params = [];
     if (category) {
       params.push(category);
-      filters.push(`v.category_id = $${params.length}`);
+      filters.push(`s.category_id = $${params.length}`);
     }
     if (series) {
       params.push(series);
@@ -71,9 +74,10 @@ catalogRouter.get(
     params.push(limit, offset);
     const { rows } = await query(
       `SELECT v.id, v.title, v.slug, v.description, v.duration_sec, v.thumbnail_url,
-              v.category_id, v.series_id, v.episode_num, v.created_at,
+              s.category_id, v.series_id, v.episode_num, v.created_at,
               ${CREW_SUBQUERY}
          FROM videos v
+         LEFT JOIN series s ON s.id = v.series_id
         WHERE ${filters.join(' AND ')}
         ORDER BY v.series_id NULLS LAST, v.episode_num NULLS LAST, v.created_at DESC
         LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -95,9 +99,10 @@ catalogRouter.get(
     // 1. Vídeo marcado manualmente como destacado (si sigue visible)
     let video = await queryOne(
       `SELECT v.id, v.title, v.slug, v.description, v.duration_sec, v.thumbnail_url,
-              v.category_id, v.series_id, v.episode_num, v.created_at,
+              s.category_id, v.series_id, v.episode_num, v.created_at,
               ${CREW_SUBQUERY}
          FROM videos v
+         LEFT JOIN series s ON s.id = v.series_id
         WHERE v.is_featured = true AND ${VISIBLE}
         LIMIT 1`,
     );
@@ -105,13 +110,15 @@ catalogRouter.get(
     // 2. Fallback si no hay ninguno marcado (o el marcado ya no es visible):
     //    mismo criterio que usaba antes el frontend — primer vídeo de la
     //    primera categoría (por order_index) que tenga contenido visible.
+    //    La categoría la lleva la serie del vídeo, no el vídeo.
     if (!video) {
       video = await queryOne(
         `SELECT v.id, v.title, v.slug, v.description, v.duration_sec, v.thumbnail_url,
-                v.category_id, v.series_id, v.episode_num, v.created_at,
+                s.category_id, v.series_id, v.episode_num, v.created_at,
                 ${CREW_SUBQUERY}
            FROM videos v
-           JOIN categories c ON c.id = v.category_id
+           JOIN series s     ON s.id = v.series_id
+           JOIN categories c ON c.id = s.category_id
           WHERE ${VISIBLE}
           ORDER BY c.order_index, c.name, v.series_id NULLS LAST, v.episode_num NULLS LAST, v.created_at DESC
           LIMIT 1`,
@@ -130,23 +137,26 @@ catalogRouter.get(
   asyncHandler(async (req, res) => {
     const video = await queryOne(
       `SELECT v.id, v.title, v.slug, v.description, v.duration_sec, v.thumbnail_url,
-              v.category_id, v.series_id, v.episode_num, v.created_at, v.published_at,
+              s.category_id, v.series_id, v.episode_num, v.created_at, v.published_at,
               ${CREW_SUBQUERY}
          FROM videos v
+         LEFT JOIN series s ON s.id = v.series_id
         WHERE v.id = $1 AND ${VISIBLE}`,
       [req.params.id],
     );
     if (!video) throw notFound('Vídeo no encontrado', 'VIDEO_NOT_FOUND');
 
-    // Vídeos relacionados (misma serie o categoría), con el progreso de visionado
-    // del usuario actual para poder pintar la línea de tiempo en sus tarjetas.
+    // Vídeos relacionados (misma serie o categoría —la de su propia serie—),
+    // con el progreso de visionado del usuario actual para poder pintar la
+    // línea de tiempo en sus tarjetas.
     const { rows: related } = await query(
       `SELECT v.id, v.title, v.slug, v.thumbnail_url, v.duration_sec, v.episode_num,
               wh.progress_sec, wh.completed
          FROM videos v
+         LEFT JOIN series s2 ON s2.id = v.series_id
          LEFT JOIN watch_history wh ON wh.video_id = v.id AND wh.user_id = $4
         WHERE ${VISIBLE} AND v.id <> $1
-          AND (v.series_id = $2 OR v.category_id = $3)
+          AND (v.series_id = $2 OR s2.category_id = $3)
         ORDER BY v.episode_num NULLS LAST, v.created_at DESC
         LIMIT 12`,
       [video.id, video.series_id, video.category_id, req.user.id],

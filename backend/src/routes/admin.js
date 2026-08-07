@@ -137,10 +137,21 @@ adminRouter.get(
 
 // --- Suscriptores -----------------------------------------------------
 
-// Lateral reutilizable para la última suscripción de cada usuario
+// Lateral reutilizable para "la" suscripción de cada usuario a mostrar en el
+// panel: prioriza una fila vigente ahora mismo (status válido y no caducada,
+// incluida la cortesía indefinida con period_end NULL) sobre cualquier otra
+// fila con fecha pero ya caducada — si no, un ORDER BY period_end normal
+// puede elegir un Stripe antiguo y caducado en vez de una cortesía indefinida
+// vigente, mostrando una fecha de fin desactualizada. Si ninguna fila está
+// vigente (usuario sin acceso), cae en la más reciente para poder mostrar su
+// último estado (p. ej. "cancelled").
 const SUB_LATERAL = `LEFT JOIN LATERAL (
   SELECT plan, status, period_end, source FROM subscriptions
-   WHERE user_id = u.id ORDER BY period_end DESC NULLS LAST LIMIT 1
+   WHERE user_id = u.id
+   ORDER BY
+     (status IN ('active','trialing','past_due') AND (period_end IS NULL OR period_end > now())) DESC,
+     period_end DESC NULLS FIRST
+   LIMIT 1
 ) s ON true`;
 
 // Contadores por estado (para las pestañas del panel)
@@ -564,7 +575,7 @@ adminRouter.get(
     }
     if (category) {
       params.push(category);
-      filters.push(`v.category_id = $${params.length}`);
+      filters.push(`s.category_id = $${params.length}`);
     }
     if (series) {
       params.push(series);
@@ -579,8 +590,8 @@ adminRouter.get(
 
     const countRow = await queryOne(
       `SELECT COUNT(*)::int AS total FROM videos v
-         LEFT JOIN categories c ON c.id = v.category_id
          LEFT JOIN series s     ON s.id = v.series_id
+         LEFT JOIN categories c ON c.id = s.category_id
         ${where}`,
       params,
     );
@@ -605,8 +616,8 @@ adminRouter.get(
               ${CREW_SUBQUERY},
               ${RATINGS_SUBQUERY}
          FROM videos v
-         LEFT JOIN categories c ON c.id = v.category_id
          LEFT JOIN series s     ON s.id = v.series_id
+         LEFT JOIN categories c ON c.id = s.category_id
          LEFT JOIN series sp    ON sp.id = s.parent_series_id
         ${where}
         ORDER BY ${sort === 'rated'

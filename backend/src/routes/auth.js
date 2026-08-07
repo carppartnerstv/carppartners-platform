@@ -210,11 +210,16 @@ authRouter.get(
   '/me',
   requireAuth,
   asyncHandler(async (req, res) => {
+    // Mismo criterio que SUB_LATERAL (admin.js): prioriza la fila vigente
+    // ahora mismo (incluida una cortesía indefinida, period_end NULL) sobre
+    // otra fila con fecha pero ya caducada.
     const sub = await queryOne(
       `SELECT plan, status, period_end, cancelled_at, cancel_at_period_end
          FROM subscriptions
         WHERE user_id = $1
-        ORDER BY period_end DESC NULLS LAST
+        ORDER BY
+          (status IN ('active','trialing','past_due') AND (period_end IS NULL OR period_end > now())) DESC,
+          period_end DESC NULLS FIRST
         LIMIT 1`,
       [req.user.id],
     );

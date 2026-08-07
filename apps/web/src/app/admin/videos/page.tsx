@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { AdminVideo, AdminVideoInput, Category, AdminSeries, CrewMember } from '@carp-partners/api-client';
+import type { AdminVideo, AdminVideoInput, AdminSeries, CrewMember } from '@carp-partners/api-client';
 import { Button, Pagination } from '@carp-partners/ui';
 import { AdminModal } from '@/components/admin/AdminModal';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
@@ -28,7 +28,7 @@ const PAGE_SIZE = 25;
 
 const EMPTY: AdminVideoInput = {
   title: '', slug: '', vimeoId: '', description: '',
-  durationSec: 0, thumbnailUrl: '', categoryId: '', seriesId: '',
+  durationSec: 0, thumbnailUrl: '', seriesId: '',
   episodeNum: undefined, published: false, publishedAt: '', crewMemberIds: [],
 };
 
@@ -331,7 +331,6 @@ function CrewMultiSelect({ crewList, selectedIds, onChange }: {
 export default function AdminVideosPage() {
   const { toast } = useToast();
   const [videos, setVideos]         = useState<AdminVideo[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [seriesList, setSeriesList] = useState<AdminSeries[]>([]);
   const [crewList, setCrewList]     = useState<CrewMember[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -360,11 +359,9 @@ export default function AdminVideosPage() {
   // Carga los desplegables del formulario una sola vez
   useEffect(() => {
     Promise.all([
-      apiClient.getCategories(),
       apiClient.getAdminSeries(),
       apiClient.getAdminCrew(),
-    ]).then(([cRes, sRes, crewRes]) => {
-      setCategories(cRes.categories);
+    ]).then(([sRes, crewRes]) => {
       setSeriesList(sRes.series);
       setCrewList(crewRes.crew);
     }).catch(() => {/* no bloquea la tabla */});
@@ -410,7 +407,7 @@ export default function AdminVideosPage() {
     setForm({
       title: v.title, slug: v.slug, vimeoId: v.vimeo_id,
       description: v.description ?? '', durationSec: v.duration_sec,
-      thumbnailUrl: v.thumbnail_url ?? '', categoryId: v.category_id ?? '',
+      thumbnailUrl: v.thumbnail_url ?? '',
       seriesId: v.series_id ?? '', episodeNum: v.episode_num ?? undefined,
       published: v.published,
       publishedAt: toDatetimeLocal(v.published_at),
@@ -429,7 +426,6 @@ export default function AdminVideosPage() {
       ...form,
       description: form.description || undefined,
       thumbnailUrl: form.thumbnailUrl || undefined,
-      categoryId: form.categoryId || undefined,
       seriesId: form.seriesId || undefined,
       // Igual que publishedAt: número si lo hay, o null explícito para
       // borrarlo al editar (undefined en creación simplemente no lo manda).
@@ -847,16 +843,22 @@ export default function AdminVideosPage() {
             />
           </Field>
 
-          {/* 6. Duración, nº episodio y categoría */}
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Duración (seg)">
-              <Input
-                type="number"
-                value={form.durationSec ?? 0}
-                onChange={v => setForm(f => ({ ...f, durationSec: parseInt(v) || 0 }))}
-                placeholder="0"
-              />
-            </Field>
+          {/* 6. Serie + nº episodio, en la misma fila (80% / 20%). La duración
+              no se muestra: se sigue guardando (autorrelleno desde Vimeo),
+              simplemente no hace falta editarla a mano. La categoría la
+              lleva la serie, no el vídeo (ver /admin/series). */}
+          <div className="grid grid-cols-5 gap-3">
+            <div className="col-span-4">
+              <Field label="Serie" hint="Las series con varias temporadas muestran cada temporada por separado; el vídeo va a la temporada, no a la serie madre.">
+                <Select
+                  value={form.seriesId ?? ''}
+                  onChange={v => setForm(f => ({ ...f, seriesId: v }))}
+                >
+                  <option value="">— Sin serie —</option>
+                  {assignableSeries.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                </Select>
+              </Field>
+            </div>
             <Field label="Nº Episodio">
               <Input
                 type="number"
@@ -865,27 +867,7 @@ export default function AdminVideosPage() {
                 placeholder="—"
               />
             </Field>
-            <Field label="Categoría">
-              <Select
-                value={form.categoryId ?? ''}
-                onChange={v => setForm(f => ({ ...f, categoryId: v }))}
-              >
-                <option value="">— Sin categoría —</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </Select>
-            </Field>
           </div>
-
-          {/* 7. Serie */}
-          <Field label="Serie" hint="Las series con varias temporadas muestran cada temporada por separado; el vídeo va a la temporada, no a la serie madre.">
-            <Select
-              value={form.seriesId ?? ''}
-              onChange={v => setForm(f => ({ ...f, seriesId: v }))}
-            >
-              <option value="">— Sin serie —</option>
-              {assignableSeries.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </Select>
-          </Field>
 
           {/* 8. Crew */}
           <Field label="Crew" hint="Personas que aparecen en este vídeo.">
