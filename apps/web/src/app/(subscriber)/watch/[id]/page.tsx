@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import type { Video, RelatedVideo, Category, Series } from '@carp-partners/api-client';
-import { VideoCard, RatingDialog, RATING_META, RATING_LABELS, CastRow } from '@carp-partners/ui';
+import { VideoRow, RatingDialog, RATING_META, RATING_LABELS, CastRow } from '@carp-partners/ui';
 import type { RatingValue } from '@carp-partners/ui';
 import { ToastProvider, useToast } from '@/context/ToastContext';
 
@@ -12,6 +12,12 @@ function formatDuration(sec: number): string {
   const h = Math.floor(sec / 3600);
   const m = Math.round((sec % 3600) / 60);
   return h > 0 ? `${h}h ${m}min` : `${m} min`;
+}
+
+const DESC_WORD_THRESHOLD = 55;
+
+function wordCount(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
 const RATING_TO_VALUE: Record<number, RatingValue> = { [-1]: 'down', 1: 'like', 2: 'love' };
@@ -43,6 +49,7 @@ function DetailContent() {
   const [ratingOpen, setRatingOpen] = useState(false);
   const [ratingSaving, setRatingSaving] = useState(false);
   const [resumeProgress, setResumeProgress] = useState<number | null>(null);
+  const [descExpanded, setDescExpanded] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -199,8 +206,10 @@ function DetailContent() {
 
   return (
     <div className="min-h-screen bg-surface">
-      {/* ── Cabecera ── */}
-      <section className="relative w-full" style={{ height: '66vh', minHeight: 460 }}>
+      {/* ── Cabecera — misma altura que /serie/[id] en cada breakpoint; en
+          móvil ni tan alta como en laptop (vertical) ni demasiado plana
+          (horizontal), un término medio. ── */}
+      <section className="relative w-full h-[42vh] min-h-[320px] max-h-[420px] md:h-[54vh] md:min-h-[380px] md:max-h-[600px]">
         {video.thumbnail_url ? (
           <img src={video.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden />
         ) : (
@@ -224,7 +233,7 @@ function DetailContent() {
           Volver
         </button>
 
-        <div className="absolute left-6 md:left-12 z-10" style={{ bottom: '7vh', maxWidth: 620 }}>
+        <div className="absolute left-6 md:left-12 z-10 bottom-[5vh] md:bottom-[7vh]" style={{ maxWidth: 620 }}>
           {kicker && (
             <div className="text-[12.5px] font-semibold uppercase tracking-[0.1em] mb-3 text-brand-bright">
               {kicker}
@@ -249,12 +258,16 @@ function DetailContent() {
       </section>
 
       {/* ── Contenido ── */}
-      <div className="px-6 md:px-12 pt-2 pb-14 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8 lg:gap-12 max-w-[1180px]">
+      <div className="px-6 md:px-12 pt-2 pb-14 max-w-[1180px]">
         <div>
-          <div className="flex items-center gap-3.5 flex-wrap mb-7">
+          {/* Móvil: una sola fila horizontal — "Reproducir" (color corporativo)
+              crece con flex-1, "Mi Lista" se reduce a solo el icono, igual
+              que el hero de Inicio. En desktop vuelven a su tamaño normal
+              con etiqueta de texto. */}
+          <div className="flex items-center gap-2 sm:gap-3.5 mb-7">
             <button
               onClick={() => router.replace(`/watch/${video.id}/play`)}
-              className="inline-flex items-center gap-[9px] px-[30px] py-[13px] rounded-[9px] bg-brand text-white font-bold text-[15px] transition-transform hover:scale-[1.03]"
+              className="flex-1 md:flex-none inline-flex items-center justify-center gap-[9px] px-5 md:px-[30px] py-[13px] rounded-[9px] bg-brand text-white font-bold text-[14.5px] md:text-[15px] transition-transform hover:scale-[1.03]"
               style={{ boxShadow: '0 6px 22px rgba(104,20,11,0.55)' }}
             >
               <i className="ti ti-player-play-filled text-[19px]" />
@@ -263,16 +276,17 @@ function DetailContent() {
             <button
               onClick={toggleList}
               disabled={listLoading}
-              className="inline-flex items-center gap-[9px] px-[22px] py-[13px] rounded-[9px] font-semibold text-[14.5px] transition-colors disabled:opacity-60"
+              aria-label={inList ? 'Quitar de mi lista' : 'Añadir a mi lista'}
+              className="shrink-0 w-[46px] h-[46px] md:w-auto md:h-auto inline-flex items-center justify-center md:justify-start gap-[9px] px-0 md:px-[22px] py-[13px] rounded-[9px] font-semibold text-[14.5px] transition-colors disabled:opacity-60"
               style={{ border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.07)', color: '#fff' }}
             >
               <i className={`ti ti-${inList ? 'check' : 'plus'} text-[19px]`} style={{ color: inList ? '#cf4a35' : '#fff' }} />
-              {inList ? 'En tu lista' : 'Mi Lista'}
+              <span className="hidden md:inline">{inList ? 'En tu lista' : 'Mi Lista'}</span>
             </button>
             <button
               onClick={() => setRatingOpen(true)}
               aria-label={rating ? `Tu valoración: ${RATING_LABELS[rating]}. Pulsa para cambiarla.` : 'Valorar'}
-              className="w-[46px] h-[46px] rounded-full flex items-center justify-center relative transition-colors hover:bg-white/8"
+              className="w-[46px] h-[46px] rounded-[9px] flex items-center justify-center relative transition-colors hover:bg-white/8"
               style={{
                 border: `1px solid ${rating ? RATING_META[rating].color : 'rgba(255,255,255,0.2)'}`,
                 background: rating ? RATING_META[rating].bgColor : 'transparent',
@@ -298,7 +312,23 @@ function DetailContent() {
           </div>
 
           {video.description && (
-            <p className="text-[16px] leading-[1.7] mb-6" style={{ color: '#cdd6d2' }}>{video.description}</p>
+            <div className="mb-6">
+              <p
+                className={`text-[16px] leading-[1.7] ${!descExpanded && wordCount(video.description) > DESC_WORD_THRESHOLD ? 'line-clamp-4' : ''}`}
+                style={{ color: '#cdd6d2' }}
+              >
+                {video.description}
+              </p>
+              {wordCount(video.description) > DESC_WORD_THRESHOLD && (
+                <button
+                  onClick={() => setDescExpanded((e) => !e)}
+                  className="mt-2.5 text-[13px] font-semibold hover:underline"
+                  style={{ color: '#cf4a35' }}
+                >
+                  {descExpanded ? 'Leer menos' : 'Leer más'}
+                </button>
+              )}
+            </div>
           )}
 
           {chips.length > 0 && (
@@ -318,28 +348,17 @@ function DetailContent() {
           {/* Reparto — solo aparece si el vídeo tiene personas asignadas */}
           <CastRow crew={video.crew ?? []} onSelect={(m) => router.push(`/crew/${m.slug}`)} />
         </div>
-
-        <div className="text-[13px] leading-[1.9]" style={{ color: '#85958e' }}>
-          <MetaRow label="Serie" value={videoSeries?.title ?? '—'} />
-          <MetaRow label="Categoría" value={videoCategory?.name ?? '—'} />
-          <MetaRow label="Duración" value={formatDuration(video.duration_sec)} last />
-        </div>
       </div>
 
-      {/* ── Más como esto ── */}
+      {/* ── Más como esto — mismo carrusel horizontal que "Continuar viendo" en Home ── */}
       {related.length > 0 && (
         <div className="px-6 md:px-12 pb-16">
-          <h2 className="font-display text-[19px] font-semibold text-white mb-4">Más como esto</h2>
-          <div className="grid gap-[22px_18px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(252px, 1fr))' }}>
-            {related.map((v) => (
-              <VideoCard
-                key={v.id}
-                video={toVideo(v)}
-                progress={relatedProgress[v.id]}
-                onClick={(v) => router.push(`/watch/${v.id}`)}
-              />
-            ))}
-          </div>
+          <VideoRow
+            title="Más como esto"
+            videos={related.map(toVideo)}
+            progressMap={relatedProgress}
+            onVideoClick={(v) => router.push(`/watch/${v.id}`)}
+          />
         </div>
       )}
 
@@ -359,21 +378,12 @@ function Dot() {
   return <span className="w-[3px] h-[3px] rounded-full" style={{ background: '#5f6f69' }} />;
 }
 
-function MetaRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
-  return (
-    <div style={{ marginBottom: last ? 0 : 14 }}>
-      <span style={{ color: '#5f6f69' }}>{label}: </span>
-      <span style={{ color: '#cdd6d2' }}>{value}</span>
-    </div>
-  );
-}
-
 function IconButton({ icon, ariaLabel, onClick }: { icon: string; ariaLabel: string; onClick?: () => void }) {
   return (
     <button
       onClick={onClick}
       aria-label={ariaLabel}
-      className="w-[46px] h-[46px] rounded-full flex items-center justify-center transition-colors hover:bg-white/8"
+      className="w-[46px] h-[46px] rounded-[9px] flex items-center justify-center transition-colors hover:bg-white/8"
       style={{ border: '1px solid rgba(255,255,255,0.2)', color: '#cdd6d2' }}
     >
       <i className={`ti ti-${icon} text-[20px]`} />

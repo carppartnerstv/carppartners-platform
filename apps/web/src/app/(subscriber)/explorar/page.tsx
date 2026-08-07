@@ -81,7 +81,7 @@ export default function ExplorarPage() {
 
   return (
     <div className="min-h-screen bg-surface px-6 md:px-12 py-10">
-      <h1 className="font-display font-bold text-white text-[34px] tracking-[-0.02em] mb-[22px]">
+      <h1 className="hidden md:block font-display font-bold text-white text-[34px] tracking-[-0.02em] mb-[22px]">
         Explorar
       </h1>
 
@@ -131,10 +131,7 @@ export default function ExplorarPage() {
           </p>
         </div>
       ) : (
-        <div
-          className="grid gap-[24px_18px]"
-          style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(252px, 1fr))' }}
-        >
+        <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:gap-x-[18px] sm:gap-y-[24px] md:[grid-template-columns:repeat(auto-fill,minmax(252px,1fr))]">
           {isCrewTab
             ? filteredCrew.map((m) => (
                 <CrewCard key={m.id} member={m} onClick={(m) => router.push(`/crew/${m.slug}`)} />

@@ -11,6 +11,13 @@ function formatDuration(sec: number): string {
   return h > 0 ? `${h}h ${m}min` : `${m} min`;
 }
 
+const DESC_WORD_THRESHOLD = 55;
+
+function wordCount(html: string): number {
+  const plain = html.replace(/<[^>]+>/g, ' ');
+  return plain.trim().split(/\s+/).filter(Boolean).length;
+}
+
 export default function SerieDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -24,6 +31,7 @@ export default function SerieDetailPage() {
   const [loading, setLoading] = useState(true);
   const [episodesLoading, setEpisodesLoading] = useState(true);
   const [error, setError] = useState('');
+  const [descExpanded, setDescExpanded] = useState(false);
 
   // Carga la serie/película + su lista de temporadas
   useEffect(() => {
@@ -117,8 +125,10 @@ export default function SerieDetailPage() {
 
   return (
     <div className="min-h-screen bg-surface">
-      {/* ── Cabecera ── */}
-      <section className="relative w-full" style={{ height: '52vh', minHeight: 380 }}>
+      {/* ── Cabecera — misma altura que /watch/[id] en cada breakpoint; en
+          móvil ni tan alta como en laptop (vertical) ni demasiado plana
+          (horizontal), un término medio. ── */}
+      <section className="relative w-full h-[42vh] min-h-[320px] max-h-[420px] md:h-[54vh] md:min-h-[380px] md:max-h-[600px]">
         {series.cover_url ? (
           <img src={series.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden />
         ) : (
@@ -142,7 +152,7 @@ export default function SerieDetailPage() {
           Volver
         </button>
 
-        <div className="absolute left-6 md:left-12 z-10" style={{ bottom: '7vh', maxWidth: 620 }}>
+        <div className="absolute left-6 md:left-12 z-10 bottom-[5vh] md:bottom-[7vh]" style={{ maxWidth: 620 }}>
           {category && (
             <div className="text-[12.5px] font-semibold uppercase tracking-[0.1em] mb-3 text-brand-bright">
               {category.name}
@@ -157,23 +167,39 @@ export default function SerieDetailPage() {
         </div>
       </section>
 
-      {/* ── Sinopsis (HTML enriquecido, sanitizado en el backend al guardar) ── */}
+      {/* ── Sinopsis (HTML enriquecido, sanitizado en el backend al guardar) ──
+          Recortada a 4 líneas si es larga, con "Leer más" para expandirla —
+          mismo patrón que la bio de crew, así no se come toda la pantalla. */}
       {series.description && (
         <div className="px-6 md:px-12 pt-8 pb-2 max-w-[820px]">
-          <div className="rich-editor">
+          <div className={`rich-editor ${!descExpanded && wordCount(series.description) > DESC_WORD_THRESHOLD ? 'line-clamp-4' : ''}`}>
             <div
               className="ProseMirror"
               style={{ fontSize: 16, lineHeight: 1.7, color: '#cdd6d2' }}
               dangerouslySetInnerHTML={{ __html: series.description }}
             />
           </div>
+          {wordCount(series.description) > DESC_WORD_THRESHOLD && (
+            <button
+              onClick={() => setDescExpanded((e) => !e)}
+              className="mt-2.5 text-[13px] font-semibold hover:underline"
+              style={{ color: '#cf4a35' }}
+            >
+              {descExpanded ? 'Leer menos' : 'Leer más'}
+            </button>
+          )}
         </div>
       )}
 
       {/* ── Episodios ── */}
       <div className="px-6 md:px-12 pt-6 pb-16 max-w-[1180px]">
-        <div className="flex items-center justify-between mb-5 flex-wrap gap-3.5">
-          <h2 className="font-display text-[19px] font-semibold text-white m-0">Episodios</h2>
+        {/* Con temporadas, el selector sustituye al título "Episodios" y va
+            alineado a la izquierda (sin el justify-between que lo empujaba
+            a la derecha cuando convivía con el título). */}
+        <div className="flex items-center mb-5 flex-wrap gap-3.5">
+          {!hasSeasons && (
+            <h2 className="font-display text-[19px] font-semibold text-white m-0">Episodios</h2>
+          )}
 
           {hasSeasons && (
             <div className="relative">
@@ -243,20 +269,20 @@ function EpisodeRow({ episode, num, progress, onClick }: {
   return (
     <div
       onClick={onClick}
-      className="flex items-center gap-5 px-3.5 py-[18px] rounded-xl cursor-pointer transition-colors hover:bg-white/[0.04]"
+      className="flex items-center gap-3 sm:gap-5 px-2 sm:px-3.5 py-[14px] sm:py-[18px] rounded-xl cursor-pointer transition-colors hover:bg-white/[0.04]"
     >
-      <div className="w-[26px] shrink-0 text-center font-display text-[19px] font-bold" style={{ color: '#7d8d86' }}>
+      <div className="w-4 sm:w-[26px] shrink-0 text-center font-display text-[15px] sm:text-[19px] font-bold" style={{ color: '#7d8d86' }}>
         {num}
       </div>
-      <div className="relative shrink-0 rounded-[9px] overflow-hidden bg-surface-raised" style={{ width: 168, height: 94 }}>
+      <div className="relative shrink-0 rounded-[9px] overflow-hidden bg-surface-raised w-[104px] h-[58px] sm:w-[168px] sm:h-[94px]">
         {episode.thumbnail_url ? (
           <img src={episode.thumbnail_url} alt="" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full bg-surface-2" />
         )}
         <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.18)' }}>
-          <div className="w-[34px] h-[34px] rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.16)' }}>
-            <i className="ti ti-player-play-filled text-[16px] text-white" />
+          <div className="w-6 h-6 sm:w-[34px] sm:h-[34px] rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.16)' }}>
+            <i className="ti ti-player-play-filled text-[12px] sm:text-[16px] text-white" />
           </div>
         </div>
         {progress && progress.pct > 0 && (
@@ -266,12 +292,13 @@ function EpisodeRow({ episode, num, progress, onClick }: {
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-[14.5px] font-semibold mb-[5px]" style={{ color: '#e9efeb' }}>{episode.title}</div>
+        <div className="text-[13.5px] sm:text-[14.5px] font-semibold mb-[3px] sm:mb-[5px] line-clamp-2 sm:line-clamp-1" style={{ color: '#e9efeb' }}>{episode.title}</div>
         {episode.description && (
-          <div className="text-[13px] leading-[1.55] line-clamp-2" style={{ color: '#85958e' }}>{episode.description}</div>
+          <div className="hidden sm:block text-[13px] leading-[1.55] line-clamp-2" style={{ color: '#85958e' }}>{episode.description}</div>
         )}
+        <div className="sm:hidden text-[11.5px] tabular-nums mt-0.5" style={{ color: '#7d8d86' }}>{formatDuration(episode.duration_sec)}</div>
       </div>
-      <div className="shrink-0 text-right">
+      <div className="hidden sm:block shrink-0 text-right">
         <div className="text-[12.5px] tabular-nums" style={{ color: '#7d8d86' }}>{formatDuration(episode.duration_sec)}</div>
       </div>
     </div>

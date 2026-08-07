@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/context/SessionContext';
 import { Navbar } from '@/components/Navbar';
+import { MobileTabBar } from '@/components/MobileTabBar';
 import { ScrollToTop } from '@/components/ScrollToTop';
 
 /**
@@ -46,7 +47,8 @@ export default function SubscriberLayout({ children }: { children: React.ReactNo
     <>
       <ScrollToTop />
       <Navbar />
-      <main className="pt-16">{children}</main>
+      <main className="pt-16 pb-20 md:pb-0">{children}</main>
+      <MobileTabBar />
     </>
   );
 }

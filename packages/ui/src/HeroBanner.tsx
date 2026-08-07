@@ -34,7 +34,7 @@ export function HeroBanner({
   ].filter(Boolean) as string[];
 
   return (
-    <div className="relative w-full" style={{ height: '84vh', minHeight: 520, maxHeight: 860 }}>
+    <div className="relative w-full h-[58vh] min-h-[420px] max-h-[640px] md:h-[84vh] md:min-h-[520px] md:max-h-[860px]">
       {/* Imagen de fondo */}
       {video.thumbnail_url ? (
         <img
@@ -65,10 +65,7 @@ export function HeroBanner({
       />
 
       {/* Contenido */}
-      <div
-        className="absolute flex flex-col"
-        style={{ left: 48, right: 24, bottom: '8vh', maxWidth: 560 }}
-      >
+      <div className="absolute flex flex-col left-5 right-5 bottom-[6vh] max-w-[520px] md:left-12 md:right-6 md:bottom-[8vh] md:max-w-[560px]">
         {/* Badge temporada */}
         <div
           className="inline-flex items-center gap-[7px] self-start px-[11px] py-[5px] rounded-[6px] mb-[18px]
@@ -106,25 +103,31 @@ export function HeroBanner({
           </p>
         )}
 
-        {/* CTAs */}
-        <div className="flex items-center gap-[14px]">
+        {/* CTAs — en móvil, una sola fila horizontal que ocupa el 100% del
+            ancho disponible: "Ver ahora" (color corporativo) crece con
+            flex-1, "Más info" se reduce a solo el icono. En desktop vuelve
+            al tamaño "lg" normal del Button con !important (los px-8/py-3.5
+            de sizes.lg no se pueden pisar de forma fiable solo por orden de
+            clases; !px-.. sí gana siempre). */}
+        <div className="flex items-center gap-[10px] md:gap-[14px]">
           <Button
             variant="primary"
             size="lg"
             onClick={() => onPlay?.(video)}
-            className="gap-[9px]"
+            className="flex-1 md:flex-none gap-[7px] md:gap-[9px] !px-5 !py-[13px] text-[14.5px] md:!px-8 md:!py-3.5 md:text-base"
           >
-            <i className="ti ti-player-play-filled text-[19px]" />
+            <i className="ti ti-player-play-filled text-[17px] md:text-[19px]" />
             Ver ahora
           </Button>
           <Button
             variant="secondary"
             size="lg"
             onClick={() => onMoreInfo?.(video)}
-            className="gap-[9px]"
+            aria-label="Más info"
+            className="shrink-0 w-[48px] md:w-auto !px-0 md:!px-8 !py-[13px] md:!py-3.5 gap-0 md:gap-[9px]"
           >
             <i className="ti ti-info-circle text-[19px]" />
-            Más info
+            <span className="hidden md:inline">Más info</span>
           </Button>
         </div>
       </div>

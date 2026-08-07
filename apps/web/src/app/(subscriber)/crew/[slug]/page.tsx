@@ -105,23 +105,23 @@ export default function CrewMemberPage() {
         </button>
 
         {/* Cabecera compacta: foto grande + nombre + insignia en una fila */}
-        <div className="flex items-center gap-7 mb-8 flex-wrap">
+        <div className="flex items-center gap-4 sm:gap-7 mb-8 flex-wrap">
           {member.avatar_url ? (
             <img
               src={member.avatar_url}
               alt=""
-              className="w-[136px] h-[136px] rounded-full object-cover border border-white/14 shrink-0"
+              className="w-24 h-24 sm:w-[136px] sm:h-[136px] rounded-full object-cover border border-white/14 shrink-0"
             />
           ) : (
             <div
-              className="w-[136px] h-[136px] rounded-full flex items-center justify-center font-display font-semibold text-4xl text-white border border-white/14 shrink-0"
+              className="w-24 h-24 sm:w-[136px] sm:h-[136px] rounded-full flex items-center justify-center font-display font-semibold text-2xl sm:text-4xl text-white border border-white/14 shrink-0"
               style={{ background: 'linear-gradient(135deg,#5a241d,#2a1411)' }}
             >
               {initials}
             </div>
           )}
-          <div>
-            <h1 className="font-display font-extrabold text-white text-[38px] tracking-[-0.02em] mb-0">
+          <div className="min-w-0">
+            <h1 className="font-display font-extrabold text-white text-[26px] sm:text-[38px] tracking-[-0.02em] mb-0 break-words">
               {member.name}
             </h1>
             <span className="text-[14px] font-medium" style={{ color: '#cf4a35' }}>

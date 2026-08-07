@@ -49,10 +49,12 @@ export function VideoRow({ title, videos, progressMap, onVideoClick, showSeeAll,
 
         <div
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-1"
+          className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-1"
         >
           {videos.map((v) => (
-            <div key={v.id} className="flex-shrink-0 w-[300px]">
+            // Ancho reducido en móvil para que se vean 2-3 tarjetas de un
+            // vistazo (sigue siendo un carrusel deslizable, no una parrilla).
+            <div key={v.id} className="flex-shrink-0 w-[132px] sm:w-[190px] md:w-[230px] lg:w-[300px]">
               <VideoCard
                 video={v}
                 progress={progressMap?.[v.id]}

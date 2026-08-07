@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/context/SessionContext';
 import { apiClient, ApiError } from '@carp-partners/api-client';
@@ -106,7 +107,7 @@ function PerfilContent() {
 
   return (
     <div className="min-h-screen bg-surface px-6 md:px-12 py-10">
-      <h1 className="font-display font-bold text-white text-[34px] tracking-[-0.02em] mb-[30px]">
+      <h1 className="hidden md:block font-display font-bold text-white text-[34px] tracking-[-0.02em] mb-[30px]">
         Perfil
       </h1>
 
@@ -146,7 +147,41 @@ function PerfilContent() {
             </button>
           </div>
 
-          <div className="p-2 flex flex-col">
+          {/* Móvil: pestañas en formato horizontal — el equivalente vertical de abajo es solo desktop */}
+          <div
+            className="flex md:hidden items-center gap-1 p-1 rounded-[11px] mb-3"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <MobileTabButton icon="user-circle" label="Cuenta" active={tab === 'account'} onClick={() => setTab('account')} />
+            <MobileTabButton icon="history" label="Historial" active={tab === 'history'} onClick={() => setTab('history')} />
+            <MobileTabButton icon="bell" label="Avisos" active={tab === 'notifs'} onClick={() => setTab('notifs')} />
+          </div>
+
+          {/* Móvil: el acceso al perfil vive solo en el menú inferior, así que
+              "Cerrar sesión" (y Admin, si aplica) tienen que vivir aquí — en
+              desktop siguen en la lista vertical de abajo. */}
+          <div className="flex md:hidden items-center gap-4 mb-6 px-1">
+            {user?.role === 'admin' && (
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold"
+                style={{ color: '#9aa9a3' }}
+              >
+                <i className="ti ti-shield-lock text-[15px]" />
+                Admin
+              </Link>
+            )}
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold ml-auto"
+              style={{ color: '#c0392b' }}
+            >
+              <i className="ti ti-logout text-[15px]" />
+              Cerrar sesión
+            </button>
+          </div>
+
+          <div className="hidden md:flex flex-col p-2">
             <TabButton icon="user-circle" label="Cuenta y suscripción" active={tab === 'account'} onClick={() => setTab('account')} />
             <TabButton icon="history" label="Historial" active={tab === 'history'} onClick={() => setTab('history')} />
             <TabButton icon="bell" label="Notificaciones" active={tab === 'notifs'} onClick={() => setTab('notifs')} />
@@ -378,6 +413,21 @@ function TabButton({ icon, label, active, onClick }: { icon: string; label: stri
       style={{ background: active ? 'rgba(104,20,11,0.16)' : 'transparent', color: active ? '#fff' : '#9aa9a3' }}
     >
       <i className={`ti ti-${icon} text-[19px]`} />
+      {label}
+    </button>
+  );
+}
+
+// ─── Pestaña horizontal (móvil) ────────────────────────────────────────────
+
+function MobileTabButton({ icon, label, active, onClick }: { icon: string; label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex-1 flex flex-col items-center gap-1 py-2 rounded-[8px] text-[11px] font-semibold transition-colors"
+      style={{ background: active ? 'rgba(104,20,11,0.22)' : 'transparent', color: active ? '#fff' : '#9aa9a3' }}
+    >
+      <i className={`ti ti-${icon} text-[18px]`} />
       {label}
     </button>
   );

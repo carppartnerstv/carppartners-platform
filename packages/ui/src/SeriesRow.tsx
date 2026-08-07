@@ -32,10 +32,12 @@ export function SeriesRow({ title, items, onItemClick }: SeriesRowProps) {
 
         <div
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-1"
+          className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-1"
         >
           {items.map((s) => (
-            <div key={s.id} className="flex-shrink-0 w-[300px]">
+            // Misma medida que VideoRow (Continuar viendo): películas y
+            // series comparten el mismo tamaño de tarjeta en cada breakpoint.
+            <div key={s.id} className="flex-shrink-0 w-[132px] sm:w-[190px] md:w-[230px] lg:w-[300px]">
               <SeriesCard series={s} onClick={onItemClick} />
             </div>
           ))}

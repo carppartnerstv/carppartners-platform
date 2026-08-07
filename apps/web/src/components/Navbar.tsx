@@ -17,6 +17,9 @@ const PLAN_LABELS: Record<string, string> = {
   annual: 'Plan Anual activo',
 };
 
+// La navegación principal (Inicio/Explorar/Mi lista/Perfil) en móvil vive en
+// <MobileTabBar /> (barra fija inferior, mismo patrón que la app nativa) —
+// este navbar superior en pantallas < md solo enseña logo + buscar + avatar.
 export function Navbar() {
   const { user, status, subscription, logout } = useSession();
   const pathname = usePathname();
@@ -50,7 +53,7 @@ export function Navbar() {
         <Logo iconSize={25} />
       </Link>
 
-      {/* Nav links — junto al logo, solo autenticado */}
+      {/* Nav links — junto al logo, solo autenticado, solo desktop (en móvil está en MobileTabBar) */}
       {status === 'authenticated' && (
         <nav className="hidden md:flex items-center gap-[26px] ml-1.5">
           {NAV_LINKS.map(({ href, label }) => (
@@ -87,10 +90,10 @@ export function Navbar() {
                 </button>
               </Link>
 
-              {/* Avatar + chevron */}
+              {/* Avatar + chevron — oculto en móvil: el perfil se accede desde MobileTabBar */}
               <button
                 onClick={() => setMenuOpen((o) => !o)}
-                className="flex items-center gap-1.5 group"
+                className="hidden md:flex items-center gap-1.5 group"
               >
                 {user.avatar_url ? (
                   <img
