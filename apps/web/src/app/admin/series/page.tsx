@@ -6,6 +6,7 @@ import type { AdminSeries, SeriesInput, Category } from '@carp-partners/api-clie
 import { Button, Pagination } from '@carp-partners/ui';
 import { AdminModal } from '@/components/admin/AdminModal';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
+import { ContentIndicator, hasContent } from '@/components/admin/ContentIndicator';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { AvatarUploader } from '@/components/AvatarUploader';
 import { useToast } from '@/context/ToastContext';
@@ -244,6 +245,9 @@ export default function AdminSeriesPage() {
       <td className="px-4 py-3 hidden md:table-cell">
         <span className="text-admin-text-secondary text-xs">{catName(s.category_id)}</span>
       </td>
+      <td className="px-4 py-3 hidden md:table-cell text-center">
+        <ContentIndicator filled={hasContent(s.description)} labelFilled="Tiene descripción" labelEmpty="Sin descripción" />
+      </td>
       <td className="px-4 py-3 hidden lg:table-cell">
         {!isChild && s.season_count > 0 ? (
           <span className="text-admin-text-secondary text-xs">{s.season_count} temporada{s.season_count === 1 ? '' : 's'}</span>
@@ -326,6 +330,7 @@ export default function AdminSeriesPage() {
             <tr className="bg-admin-thead border-b border-admin-border">
               <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide">Serie</th>
               <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden md:table-cell">Categoría</th>
+              <th className="text-center px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden md:table-cell w-16" title="Descripción">Desc.</th>
               <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Temporada</th>
               <th className="text-right px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Eps.</th>
               <th className="text-right px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide w-10">Orden</th>
@@ -334,9 +339,9 @@ export default function AdminSeriesPage() {
           </thead>
           <tbody className="divide-y divide-admin-border-soft">
             {loading ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-admin-text-tertiary">Cargando…</td></tr>
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-admin-text-tertiary">Cargando…</td></tr>
             ) : topLevel.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-admin-text-tertiary">No hay series</td></tr>
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-admin-text-tertiary">No hay series</td></tr>
             ) : topLevel.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(s => (
               <React.Fragment key={s.id}>
                 {renderRow(s, false)}

@@ -6,6 +6,7 @@ import type { AdminVideo, AdminVideoInput, AdminSeries, CrewMember } from '@carp
 import { Button, Pagination } from '@carp-partners/ui';
 import { AdminModal } from '@/components/admin/AdminModal';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
+import { ContentIndicator, hasContent } from '@/components/admin/ContentIndicator';
 import { useToast } from '@/context/ToastContext';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -678,19 +679,7 @@ export default function AdminVideosPage() {
                   <span className="text-admin-text-secondary text-xs tabular-nums">{fmtDuration(v.duration_sec)}</span>
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell text-center">
-                  {v.description && v.description.trim() ? (
-                    <span title="Tiene descripción">
-                      <svg className="w-4 h-4 inline-block text-[#3e9d6b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </span>
-                  ) : (
-                    <span title="Sin descripción">
-                      <svg className="w-4 h-4 inline-block text-admin-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </span>
-                  )}
+                  <ContentIndicator filled={hasContent(v.description)} labelFilled="Tiene descripción" labelEmpty="Sin descripción" />
                 </td>
                 <td className="px-4 py-3 hidden xl:table-cell">
                   <div className="flex flex-wrap gap-1">

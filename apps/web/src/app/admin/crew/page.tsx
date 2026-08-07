@@ -6,6 +6,7 @@ import type { CrewMember, CrewMemberInput } from '@carp-partners/api-client';
 import { Button, Pagination } from '@carp-partners/ui';
 import { AdminModal } from '@/components/admin/AdminModal';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
+import { ContentIndicator, hasContent } from '@/components/admin/ContentIndicator';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { AvatarUploader } from '@/components/AvatarUploader';
 import { useToast } from '@/context/ToastContext';
@@ -309,15 +310,16 @@ function CrewTable({ members, loading, onEdit, onDelete }: {
             <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide">Nombre</th>
             <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden md:table-cell">Slug</th>
             <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide">Rol</th>
+            <th className="text-center px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden md:table-cell w-16" title="Bio">Bio</th>
             <th className="text-right px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide w-10">Orden</th>
             <th className="px-4 py-3 w-20" />
           </tr>
         </thead>
         <tbody className="divide-y divide-admin-border-soft">
           {loading ? (
-            <tr><td colSpan={5} className="px-4 py-10 text-center text-admin-text-tertiary">Cargando…</td></tr>
+            <tr><td colSpan={6} className="px-4 py-10 text-center text-admin-text-tertiary">Cargando…</td></tr>
           ) : members.length === 0 ? (
-            <tr><td colSpan={5} className="px-4 py-8 text-center text-admin-text-tertiary text-sm">Sin miembros</td></tr>
+            <tr><td colSpan={6} className="px-4 py-8 text-center text-admin-text-tertiary text-sm">Sin miembros</td></tr>
           ) : members.map(m => (
             <tr key={m.id} className="hover:bg-admin-hover transition-colors">
               <td className="px-4 py-3">
@@ -337,6 +339,9 @@ function CrewTable({ members, loading, onEdit, onDelete }: {
               </td>
               <td className="px-4 py-3">
                 <RoleBadge role={m.role} />
+              </td>
+              <td className="px-4 py-3 hidden md:table-cell text-center">
+                <ContentIndicator filled={hasContent(m.bio)} labelFilled="Tiene bio" labelEmpty="Sin bio" />
               </td>
               <td className="px-4 py-3 text-right">
                 <span className="text-admin-text-muted text-xs tabular-nums">{m.order_index}</span>
