@@ -231,7 +231,9 @@ function CrewMultiSelect({ crewList, selectedIds, onChange }: {
   onChange: (ids: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -242,10 +244,19 @@ function CrewMultiSelect({ crewList, selectedIds, onChange }: {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, [open]);
 
+  useEffect(() => {
+    if (open) { setQuery(''); searchRef.current?.focus(); }
+  }, [open]);
+
   const selected = crewList.filter(m => selectedIds.includes(m.id));
   const toggle = (id: string) => {
     onChange(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id]);
   };
+
+  const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const filteredCrew = query
+    ? crewList.filter(m => normalize(m.name).includes(normalize(query)))
+    : crewList;
 
   return (
     <div className="relative" ref={containerRef}>
@@ -265,20 +276,36 @@ function CrewMultiSelect({ crewList, selectedIds, onChange }: {
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-1 w-full bg-white border border-admin-border rounded-md shadow-lg max-h-56 overflow-y-auto py-1">
-          {crewList.length === 0 ? (
-            <p className="px-3 py-2 text-admin-text-tertiary text-xs">No hay miembros de crew</p>
-          ) : crewList.map(m => (
-            <label key={m.id} className="flex items-center gap-2 px-3 py-1.5 text-sm text-admin-text hover:bg-admin-hover cursor-pointer">
-              <input
-                type="checkbox"
-                checked={selectedIds.includes(m.id)}
-                onChange={() => toggle(m.id)}
-                className="w-3.5 h-3.5 accent-brand-bright shrink-0"
-              />
-              {m.role === 'socio' ? '★ ' : ''}{m.name}
-            </label>
-          ))}
+        <div className="absolute z-20 mt-1 w-full bg-white border border-admin-border rounded-md shadow-lg py-1">
+          <div className="px-2 pb-1.5 sticky top-0 bg-white">
+            <input
+              ref={searchRef}
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => e.stopPropagation()}
+              placeholder="Buscar…"
+              className="w-full bg-admin-bg border border-admin-input-border rounded px-2.5 py-1.5 text-sm text-admin-text
+                         placeholder-admin-text-tertiary focus:outline-none focus:border-brand-bright transition-colors"
+            />
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {crewList.length === 0 ? (
+              <p className="px-3 py-2 text-admin-text-tertiary text-xs">No hay miembros de crew</p>
+            ) : filteredCrew.length === 0 ? (
+              <p className="px-3 py-2 text-admin-text-tertiary text-xs">Sin resultados para &quot;{query}&quot;</p>
+            ) : filteredCrew.map(m => (
+              <label key={m.id} className="flex items-center gap-2 px-3 py-1.5 text-sm text-admin-text hover:bg-admin-hover cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(m.id)}
+                  onChange={() => toggle(m.id)}
+                  className="w-3.5 h-3.5 accent-brand-bright shrink-0"
+                />
+                {m.role === 'socio' ? '★ ' : ''}{m.name}
+              </label>
+            ))}
+          </div>
         </div>
       )}
 

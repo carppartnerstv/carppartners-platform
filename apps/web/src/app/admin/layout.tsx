@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from '@/context/SessionContext';
@@ -141,10 +142,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="flex h-screen bg-admin-bg overflow-hidden">
       {/* ── Sidebar ── */}
       <aside className="w-56 shrink-0 flex flex-col bg-admin-surface border-r border-admin-border">
-        {/* Logo — wordmark de texto (la imagen del Logo es blanca, invisible sobre fondo claro) */}
+        {/* Logo original (versión oscura, pensada para fondos claros) */}
         <div className="px-4 py-5 border-b border-admin-border-soft">
-          <Link href="/admin/videos" className="font-display font-extrabold text-[16px] tracking-tight text-admin-text flex items-center gap-0.5">
-            CARP<span className="text-brand-bright text-[14px] mx-0.5">◆</span>PARTNERS
+          <Link href="/admin/videos" className="block">
+            <Image
+              src="/carp-partners-logo.png"
+              alt="Carp Partners TV"
+              width={1400} height={243}
+              className="h-6 w-auto"
+              priority
+            />
           </Link>
           <p className="text-[10px] text-brand-bright font-semibold uppercase tracking-widest mt-1.5 ml-0.5">
             Admin

@@ -394,7 +394,7 @@ const videoSchema = z.object({
   seriesId: z.string().uuid().optional(),
   episodeNum: z.number().int().nullable().optional(),
   published: z.boolean().optional(),
-  publishedAt: z.string().optional().refine(
+  publishedAt: z.string().nullable().optional().refine(
     s => !s || !isNaN(Date.parse(s)),
     'publishedAt debe ser una fecha ISO 8601 válida',
   ),
