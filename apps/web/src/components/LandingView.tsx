@@ -31,7 +31,7 @@ const PREVIEW_MOODS = [
 ];
 const PREVIEW_ROWS = [[0, 2, 4, 6, 1, 3, 7], [5, 7, 3, 0, 6, 2, 4]];
 
-const PLAN_PERKS = ['Catálogo completo sin límites', 'Estrenos cada semana', 'Calidad hasta 4K UHD', 'Sin anuncios, sin permanencia', 'Web, iOS y Android'];
+const PLAN_PERKS = ['Catálogo completo sin límites', 'Estrenos cada semana', 'Resolución de vídeo Full HD', 'Sin anuncios, sin permanencia', 'Web, iOS y Android'];
 
 const TESTIMONIALS = [
   { quote: '"Por fin contenido serio de carpfishing en español. Las técnicas de montaje me han hecho mejorar muchísimo esta temporada."', name: 'Javier M.', loc: 'Zaragoza', initials: 'JM', av: 'linear-gradient(135deg,#2f5249,#16302b)' },
@@ -57,6 +57,9 @@ const FAQS = [
 
 export function LandingView() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  // Solo para la tarjeta única de planes en móvil (formato tab) — en
+  // desktop se siguen mostrando las dos tarjetas completas, sin selector.
+  const [mobileBilling, setMobileBilling] = useState<'monthly' | 'annual'>('annual');
 
   const catRef   = useRef<HTMLElement>(null);
   const plansRef = useRef<HTMLElement>(null);
@@ -144,25 +147,27 @@ export function LandingView() {
           </div>
         )}
         <div className="relative max-w-[880px]">
-          <div className="inline-flex items-center gap-2 px-[14px] py-[6px] uppercase mb-7 text-xs font-semibold tracking-[0.04em]">
-            La plataforma de streaming de carpfishing en España
+          <div className="inline-flex items-center gap-2 px-[14px] py-[6px] uppercase mb-7 text-[10.5px] md:text-xs font-semibold tracking-[0.04em]">
+            Streaming de carpfishing en España
           </div>
-          <h1 className="font-display font-extrabold text-white mb-[22px]" style={{ fontSize: 'clamp(40px, 6.5vw, 66px)', lineHeight: 1.04, letterSpacing: '-0.025em', textShadow: '0 6px 40px rgba(0,0,0,0.6)' }}>
+          <h1 className="font-display font-extrabold text-white mb-[22px]" style={{ fontSize: 'clamp(24px, 6.5vw, 66px)', lineHeight: 1.1, letterSpacing: '-0.025em', textShadow: '0 6px 40px rgba(0,0,0,0.6)' }}>
             Series, documentales y películas de carpfishing, en streaming.
           </h1>
-          <p className="mx-auto mb-[38px] max-w-[620px]" style={{ fontSize: 18, lineHeight: 1.6, color: '#dbe4de', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>
+          <p className="mx-auto mb-[38px] max-w-[620px]" style={{ fontSize: 15, lineHeight: 1.6, color: '#dbe4de', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>
             ¡Descubre la mejor plataforma de vídeos y series de carpfishing!
             Disfruta de tu pasión en cualquier sitio. Contenido nuevo cada semana.
           </p>
-          <div className="flex items-center justify-center gap-[14px] flex-wrap">
-            <Link href="/login?mode=register" className="inline-flex items-center gap-[9px] px-[34px] py-4 rounded-[10px] text-white font-bold transition-transform hover:scale-[1.03]" style={{ fontSize: 16, background: '#68140b', boxShadow: '0 8px 28px rgba(104,20,11,0.55)' }}>
+          {/* En móvil, los 2 CTA se apilan a ancho completo (igual que el
+              diseño móvil); en desktop vuelven a ir en fila, a su ancho. */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-center gap-[10px] md:gap-[14px]">
+            <Link href="/login?mode=register" className="w-full md:w-auto inline-flex items-center justify-center gap-[9px] px-[34px] py-4 rounded-[10px] text-white font-bold transition-transform hover:scale-[1.03]" style={{ fontSize: 16, background: '#68140b', boxShadow: '0 8px 28px rgba(104,20,11,0.55)' }}>
               Empezar ahora <i className="ti ti-arrow-right text-[19px]" />
             </Link>
-            <button onClick={scrollTo(catRef)} className="inline-flex items-center gap-[9px] px-7 py-4 rounded-[10px] border text-white font-semibold hover:bg-white/14 transition-colors" style={{ fontSize: 16, borderColor: 'rgba(255,255,255,0.22)', background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(6px)' }}>
+            <button onClick={scrollTo(catRef)} className="w-full md:w-auto inline-flex items-center justify-center gap-[9px] px-7 py-4 rounded-[10px] border text-white font-semibold hover:bg-white/14 transition-colors" style={{ fontSize: 16, borderColor: 'rgba(255,255,255,0.22)', background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(6px)' }}>
               <i className="ti ti-player-play-filled text-[17px]" />Ver catálogo
             </button>
           </div>
-          <div className="flex items-center justify-center gap-[26px] flex-wrap mt-[34px]" style={{ fontSize: 13, color: '#c7d1cb' }}>
+          <div className="hidden md:flex items-center justify-center gap-[26px] flex-wrap mt-[34px]" style={{ fontSize: 13, color: '#c7d1cb' }}>
             {[['ti-circle-check-filled', 'Cancela cuando quieras'], ['ti-device-tv', 'Web, móvil y tablet'], ['ti-badge-4k', 'Calidad 4K']].map(([icon, text]) => (
               <span key={text} className="inline-flex items-center gap-[7px]">
                 <i className={`ti ${icon} text-[16px]`} style={{ color: '#cf4a35' }} />{text}
@@ -184,7 +189,7 @@ export function LandingView() {
                   <i className={`ti ti-${f.icon} text-[26px]`} style={{ color: '#cf4a35' }} />
                 </div>
                 <h3 className="font-display font-semibold text-[20px] mb-2.5" style={{ color: '#eef3f0' }}>{f.title}</h3>
-                <p className="text-[14.5px] leading-relaxed" style={{ color: '#9aa9a3' }}>{f.body}</p>
+                <p className="text-[15px] leading-relaxed" style={{ color: '#9aa9a3' }}>{f.body}</p>
               </div>
             ))}
           </div>
@@ -197,7 +202,57 @@ export function LandingView() {
           <div className="text-[12.5px] font-semibold tracking-[0.12em] uppercase mb-[14px]" style={{ color: '#cf4a35' }}>Un vistazo al catálogo</div>
           <h2 className="font-display font-bold text-white" style={{ fontSize: 'clamp(28px,4vw,42px)', letterSpacing: '-0.02em' }}>Cientos de horas esperándote</h2>
         </div>
-        <div className="relative">
+        {/* Móvil: carrusel horizontal deslizable con portadas reales (o
+            degradados de respaldo si aún no hay ninguna subida), igual que
+            el diseño móvil — nada de filas borrosas decorativas aquí, eso
+            es solo el tratamiento de escritorio. */}
+        <div className="md:hidden">
+          {(() => {
+            const items: { id: string; title: string; cover_url: string; bg: string }[] = covers.length > 0
+              ? covers.map((c) => ({ ...c, bg: '#0e151a' }))
+              : PREVIEW_MOODS.map((bg, i) => ({ id: `ph-${i}`, title: '', cover_url: '', bg }));
+            return (
+              <>
+                <div
+                  className="flex gap-3 overflow-x-auto px-6 pb-4 scrollbar-hide"
+                  style={{ scrollSnapType: 'x mandatory' }}
+                >
+                  {items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex-none rounded-[12px] overflow-hidden relative"
+                      style={{ width: '78%', aspectRatio: '4/3', scrollSnapAlign: 'start', background: item.bg, border: '1px solid rgba(255,255,255,0.06)' }}
+                    >
+                      {item.cover_url && (
+                        <img src={item.cover_url} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+                      )}
+                      <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg,rgba(0,0,0,0) 35%,rgba(4,8,10,0.9) 100%)' }} />
+                      {item.title && (
+                        <div className="absolute left-3.5 right-3.5 bottom-3">
+                          <div className="text-[14px] font-bold text-white leading-[1.25] line-clamp-2">{item.title}</div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-center gap-1.5 mb-6">
+                  {items.map((item) => (
+                    <div key={item.id} className="w-[5px] h-[5px] rounded-full" style={{ background: 'rgba(255,255,255,0.3)' }} />
+                  ))}
+                </div>
+              </>
+            );
+          })()}
+          <div className="text-center px-6">
+            <div className="font-display font-bold text-white text-[17px] mb-3.5">Suscríbete para ver todo el catálogo</div>
+            <button onClick={scrollTo(plansRef)} className="inline-flex items-center gap-2 px-[22px] py-3 rounded-[10px] text-white text-[13.5px] font-bold" style={{ background: '#68140b', boxShadow: '0 8px 24px rgba(104,20,11,0.55)' }}>
+              Ver planes <i className="ti ti-arrow-right text-[16px]" />
+            </button>
+          </div>
+        </div>
+
+        {/* Desktop: filas borrosas decorativas + CTA superpuesto (sin cambios) */}
+        <div className="hidden md:block relative">
           <div className="flex flex-col gap-6" style={{ filter: 'blur(1.5px)', opacity: 0.85, maskImage: 'linear-gradient(180deg,#000 0%,#000 55%,transparent 100%)', WebkitMaskImage: 'linear-gradient(180deg,#000 0%,#000 55%,transparent 100%)' }}>
             {PREVIEW_ROWS.map((row, ri) => (
               <div key={ri} className="flex gap-[18px] px-14 overflow-hidden">
@@ -241,7 +296,69 @@ export function LandingView() {
           <div className="text-[12.5px] font-semibold tracking-[0.12em] uppercase mb-[14px]" style={{ color: '#cf4a35' }}>Planes</div>
           <h2 className="font-display font-bold text-white mb-[44px]" style={{ fontSize: 'clamp(28px,4vw,42px)', letterSpacing: '-0.02em' }}>Elige cómo quieres ver</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-[22px] text-left">
+          {/* Móvil: selector Mensual/Anual en formato tab + una sola tarjeta
+              que cambia según la pestaña, igual que el diseño móvil. En
+              desktop se mantienen las dos tarjetas completas de siempre. */}
+          <div className="md:hidden text-left">
+            <div className="flex justify-center mb-5">
+              <div className="inline-flex items-center gap-1 p-1 rounded-[11px]" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}>
+                <button
+                  onClick={() => setMobileBilling('monthly')}
+                  className="px-4 py-2 rounded-[8px] text-[12.5px] font-semibold transition-colors"
+                  style={{ background: mobileBilling === 'monthly' ? '#68140b' : 'transparent', color: mobileBilling === 'monthly' ? '#fff' : '#9aa9a3' }}
+                >
+                  Mensual
+                </button>
+                <button
+                  onClick={() => setMobileBilling('annual')}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[8px] text-[12.5px] font-semibold transition-colors"
+                  style={{ background: mobileBilling === 'annual' ? '#68140b' : 'transparent', color: mobileBilling === 'annual' ? '#fff' : '#9aa9a3' }}
+                >
+                  Anual
+                  <span className="px-1.5 py-[3px] rounded-[5px] text-[10px] font-bold" style={{ background: 'rgba(216,166,74,0.22)', color: '#e3bd72' }}>−25%</span>
+                </button>
+              </div>
+            </div>
+
+            <div
+              className="relative p-[26px_24px] rounded-[18px]"
+              style={
+                mobileBilling === 'annual'
+                  ? { background: 'linear-gradient(165deg, rgba(104,20,11,0.16), rgba(104,20,11,0.04))', border: '1.5px solid rgba(207,74,53,0.45)' }
+                  : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }
+              }
+            >
+              {mobileBilling === 'annual' && (
+                <div className="absolute -top-[11px] right-6 px-3 py-[5px] rounded-[20px] text-white text-[10.5px] font-bold tracking-[0.04em]" style={{ background: '#68140b' }}>
+                  RECOMENDADO
+                </div>
+              )}
+              <div className="font-display font-semibold text-[17px] text-white mb-1.5">Premium</div>
+              <div className="text-[12.5px] mb-4" style={{ color: '#c4d0cb' }}>Acceso total, sin límites</div>
+              <div className="flex items-baseline gap-1.5 mb-1">
+                <span className="font-display font-extrabold text-white" style={{ fontSize: 34, letterSpacing: '-0.02em' }}>
+                  {mobileBilling === 'annual' ? '89,99€' : '9,99€'}
+                </span>
+                <span className="text-[13px]" style={{ color: '#c4d0cb' }}>/ {mobileBilling === 'annual' ? 'año' : 'mes'}</span>
+              </div>
+              <div className="text-[11.5px] mb-5" style={{ color: mobileBilling === 'annual' ? '#e3bd72' : '#85958e' }}>
+                {mobileBilling === 'annual' ? 'Equivale a 7,50€/mes · Ahorras ~30€/año' : 'Facturación mensual · Cancela cuando quieras'}
+              </div>
+              <Link href="/login?mode=register" className="block w-full text-center py-3 rounded-[10px] text-white font-bold text-[13.5px] mb-4 transition-transform hover:scale-[1.02]" style={{ background: '#68140b', boxShadow: '0 8px 24px rgba(104,20,11,0.5)' }}>
+                Suscribirme
+              </Link>
+              {PLAN_PERKS.map(p => (
+                <div key={p} className="flex items-center gap-[9px] py-1.5 text-[15px]" style={{ color: mobileBilling === 'annual' ? '#e9efeb' : '#b3c0ba' }}>
+                  <i className="ti ti-check text-[16px]" style={{ color: mobileBilling === 'annual' ? '#cf4a35' : '#6a7a73' }} />{p}
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 text-[11.5px] text-center" style={{ color: '#6a7a73' }}>
+              Pago seguro con tarjeta vía Stripe · Sin permanencia
+            </div>
+          </div>
+
+          <div className="hidden md:grid grid-cols-2 gap-[22px] text-left">
 
             {/* Plan Mensual */}
             <div className="p-[36px_32px] rounded-[18px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -255,7 +372,7 @@ export function LandingView() {
                 Empezar
               </Link>
               {PLAN_PERKS.map(p => (
-                <div key={p} className="flex items-center gap-[11px] py-2 text-[14px]" style={{ color: '#b3c0ba' }}>
+                <div key={p} className="flex items-center gap-[11px] py-2 text-[15px]" style={{ color: '#b3c0ba' }}>
                   <i className="ti ti-check text-[18px]" style={{ color: '#6a7a73' }} />{p}
                 </div>
               ))}
@@ -277,13 +394,13 @@ export function LandingView() {
                 Empezar
               </Link>
               {PLAN_PERKS.map(p => (
-                <div key={p} className="flex items-center gap-[11px] py-2 text-[14px]" style={{ color: '#e9efeb' }}>
+                <div key={p} className="flex items-center gap-[11px] py-2 text-[15px]" style={{ color: '#e9efeb' }}>
                   <i className="ti ti-check text-[18px]" style={{ color: '#cf4a35' }} />{p}
                 </div>
               ))}
             </div>
           </div>
-          <div className="mt-6 text-[12.5px]" style={{ color: '#6a7a73' }}>
+          <div className="hidden md:block mt-6 text-[12.5px]" style={{ color: '#6a7a73' }}>
             Pago seguro con tarjeta vía Stripe · Sin permanencia · Cancela en un clic
           </div>
         </div>
@@ -335,7 +452,7 @@ export function LandingView() {
                   <i className={`ti ti-${openFaq === i ? 'minus' : 'plus'} text-[21px] shrink-0`} style={{ color: openFaq === i ? '#cf4a35' : '#85958e' }} />
                 </div>
                 {openFaq === i && (
-                  <div className="px-6 pb-[22px] text-[14.5px] leading-[1.65]" style={{ color: '#9aa9a3' }}>{faq.a}</div>
+                  <div className="px-6 pb-[22px] text-[15px] leading-[1.65]" style={{ color: '#9aa9a3' }}>{faq.a}</div>
                 )}
               </div>
             ))}
@@ -352,7 +469,7 @@ export function LandingView() {
             <h2 className="font-display font-extrabold text-white mb-4" style={{ fontSize: 'clamp(28px,4vw,46px)', letterSpacing: '-0.025em' }}>
               Tu próxima gran captura<br />empieza aquí.
             </h2>
-            <p className="mx-auto mb-8 max-w-[480px] text-[17px]" style={{ color: '#d8c0bb' }}>
+            <p className="mx-auto mb-8 max-w-[480px] text-[15px]" style={{ color: '#d8c0bb' }}>
               Únete a la comunidad de carpfishing más grande de España. Primer contenido gratis al registrarte.
             </p>
             <Link href="/login?mode=register" className="inline-flex items-center gap-[9px] px-9 py-4 rounded-[11px] font-bold text-[16px] transition-transform hover:scale-[1.03]" style={{ background: '#fff', color: '#68140b', boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}>

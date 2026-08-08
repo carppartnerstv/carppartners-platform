@@ -84,10 +84,19 @@ export function PublicHeader({ transparentOnTop = false, onNavClick }: PublicHea
             Contacto
           </Link>
         </nav>
-        <Link href="/login" className="mr-1.5 sm:mr-2.5 px-2.5 sm:px-[18px] py-[9px] rounded-lg border border-white/20 text-white text-[12.5px] sm:text-[13.5px] font-semibold hover:bg-white/8 transition-colors whitespace-nowrap">
+        {/* En móvil solo el botón de iniciar sesión — "Suscríbete" solo aparece
+            desde md (en el diseño móvil de referencia el CTA visible del
+            header es distinto y el resto de accesos viven en el menú). */}
+        {/* En móvil es el único botón visible, así que lleva el color
+            corporativo para destacar como el CTA principal; desde md vuelve
+            al estilo con borde (ahí ya va acompañado de "Suscríbete"). */}
+        <Link
+          href="/login"
+          className="mr-1.5 sm:mr-2.5 px-2.5 sm:px-[18px] py-[9px] rounded-lg text-white text-[12.5px] sm:text-[13.5px] font-semibold transition-colors whitespace-nowrap bg-[#68140b] hover:brightness-110 md:bg-transparent md:border md:border-white/20 md:hover:bg-white/8 md:hover:brightness-100"
+        >
           Iniciar sesión
         </Link>
-        <Link href="/login?mode=register" className="px-3 sm:px-5 py-[9px] rounded-lg text-white text-[12.5px] sm:text-[13.5px] font-bold transition-transform hover:scale-[1.04] whitespace-nowrap" style={{ background: '#68140b', boxShadow: '0 4px 16px rgba(104,20,11,0.45)' }}>
+        <Link href="/login?mode=register" className="hidden md:inline-flex px-3 sm:px-5 py-[9px] rounded-lg text-white text-[12.5px] sm:text-[13.5px] font-bold transition-transform hover:scale-[1.04] whitespace-nowrap" style={{ background: '#68140b', boxShadow: '0 4px 16px rgba(104,20,11,0.45)' }}>
           Suscríbete
         </Link>
         <button
