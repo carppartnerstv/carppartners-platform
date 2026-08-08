@@ -21,7 +21,13 @@ export const metadata: Metadata = {
   description: 'La plataforma de vídeo especializada en carpfishing',
 };
 
+// maximumScale:1 evita el zoom automático de iOS/Android al enfocar un
+// <input> — sin esto, tocar un campo de texto en móvil hacía zoom y la
+// página quedaba desencuadrada al perder el foco.
 export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
   themeColor: '#06090c',
 };
 

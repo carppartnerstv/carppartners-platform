@@ -152,7 +152,7 @@ export default function SerieDetailPage() {
           Volver
         </button>
 
-        <div className="absolute left-6 md:left-12 z-10 bottom-[5vh] md:bottom-[7vh]" style={{ maxWidth: 620 }}>
+        <div className="absolute left-6 md:left-12 z-10 bottom-[2.5vh] md:bottom-[3.5vh]" style={{ maxWidth: 620 }}>
           {category && (
             <div className="text-[12.5px] font-semibold uppercase tracking-[0.1em] mb-3 text-brand-bright">
               {category.name}
@@ -171,7 +171,7 @@ export default function SerieDetailPage() {
           Recortada a 4 líneas si es larga, con "Leer más" para expandirla —
           mismo patrón que la bio de crew, así no se come toda la pantalla. */}
       {series.description && (
-        <div className="px-6 md:px-12 pt-8 pb-2 max-w-[820px]">
+        <div className="px-6 md:px-12 pt-2 pb-2 max-w-[820px]">
           <div className={`rich-editor ${!descExpanded && wordCount(series.description) > DESC_WORD_THRESHOLD ? 'line-clamp-4' : ''}`}>
             <div
               className="ProseMirror"
@@ -294,7 +294,7 @@ function EpisodeRow({ episode, num, progress, onClick }: {
       <div className="flex-1 min-w-0">
         <div className="text-[13.5px] sm:text-[14.5px] font-semibold mb-[3px] sm:mb-[5px] line-clamp-2 sm:line-clamp-1" style={{ color: '#e9efeb' }}>{episode.title}</div>
         {episode.description && (
-          <div className="hidden sm:block text-[13px] leading-[1.55] line-clamp-2" style={{ color: '#85958e' }}>{episode.description}</div>
+          <div className="text-[12px] sm:text-[13px] leading-[1.45] sm:leading-[1.55] line-clamp-2" style={{ color: '#85958e' }}>{episode.description}</div>
         )}
         <div className="sm:hidden text-[11.5px] tabular-nums mt-0.5" style={{ color: '#7d8d86' }}>{formatDuration(episode.duration_sec)}</div>
       </div>

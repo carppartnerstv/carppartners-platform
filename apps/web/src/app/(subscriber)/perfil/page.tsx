@@ -114,7 +114,8 @@ function PerfilContent() {
       <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6 max-w-[1080px]">
         {/* ── Columna izquierda ── */}
         <div>
-          <div className="rounded-[16px] border border-cp-border bg-white/[0.03] p-[28px_26px] mb-5">
+          {/* Desktop: tarjeta con avatar + botón "Editar perfil" a ancho completo */}
+          <div className="hidden md:block rounded-[16px] border border-cp-border bg-white/[0.03] p-[28px_26px] mb-5">
             <div className="flex items-center gap-3.5 mb-5">
               {user?.avatar_url ? (
                 <img
@@ -147,38 +148,52 @@ function PerfilContent() {
             </button>
           </div>
 
-          {/* Móvil: pestañas en formato horizontal — el equivalente vertical de abajo es solo desktop */}
-          <div
-            className="flex md:hidden items-center gap-1 p-1 rounded-[11px] mb-3"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-          >
-            <MobileTabButton icon="user-circle" label="Cuenta" active={tab === 'account'} onClick={() => setTab('account')} />
-            <MobileTabButton icon="history" label="Historial" active={tab === 'history'} onClick={() => setTab('history')} />
-            <MobileTabButton icon="bell" label="Avisos" active={tab === 'notifs'} onClick={() => setTab('notifs')} />
+          {/* Móvil: fila compacta avatar + nombre/email + icono de lápiz —
+              mismo patrón que Carp Partners TV - Mobile.dc.html (sin tarjeta
+              con borde ni botón a ancho completo). */}
+          <div className="flex md:hidden items-center gap-3.5 mb-5">
+            {user?.avatar_url ? (
+              <img
+                src={user.avatar_url}
+                alt=""
+                className="w-[60px] h-[60px] rounded-full object-cover border border-white/14 shrink-0"
+              />
+            ) : (
+              <div
+                className="w-[60px] h-[60px] rounded-full flex items-center justify-center shrink-0
+                           font-display font-bold text-[20px] text-white"
+                style={{ background: 'linear-gradient(135deg,#5a241d,#2a1411)' }}
+              >
+                {initials}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="font-display text-[17px] font-bold truncate" style={{ color: '#fff' }}>
+                {user?.name ?? user?.email}
+              </div>
+              <div className="text-[12.5px] truncate" style={{ color: '#85958e' }}>{user?.email}</div>
+            </div>
+            <button
+              onClick={() => setShowEditModal(true)}
+              aria-label="Editar perfil"
+              className="w-9 h-9 rounded-[9px] flex items-center justify-center shrink-0"
+              style={{ background: 'rgba(255,255,255,0.06)', color: '#cdd6d2' }}
+            >
+              <i className="ti ti-pencil text-[16px]" />
+            </button>
           </div>
 
-          {/* Móvil: el acceso al perfil vive solo en el menú inferior, así que
-              "Cerrar sesión" (y Admin, si aplica) tienen que vivir aquí — en
-              desktop siguen en la lista vertical de abajo. */}
-          <div className="flex md:hidden items-center gap-4 mb-6 px-1">
-            {user?.role === 'admin' && (
-              <Link
-                href="/admin"
-                className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold"
-                style={{ color: '#9aa9a3' }}
-              >
-                <i className="ti ti-shield-lock text-[15px]" />
-                Admin
-              </Link>
-            )}
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold ml-auto"
-              style={{ color: '#c0392b' }}
-            >
-              <i className="ti ti-logout text-[15px]" />
-              Cerrar sesión
-            </button>
+          {/* Móvil: pestañas en formato horizontal — mismas medidas que el
+              diseño (Carp Partners TV - Mobile.dc.html): contenedor
+              rounded-[10px] p-[3px], segmentos 12px/600 con py-[9px]. El
+              equivalente vertical de abajo es solo desktop. */}
+          <div
+            className="flex md:hidden items-center rounded-[10px] mb-2.5"
+            style={{ background: 'rgba(255,255,255,0.04)', padding: 3 }}
+          >
+            <MobileTabButton label="Cuenta" active={tab === 'account'} onClick={() => setTab('account')} />
+            <MobileTabButton label="Historial" active={tab === 'history'} onClick={() => setTab('history')} />
+            <MobileTabButton label="Avisos" active={tab === 'notifs'} onClick={() => setTab('notifs')} />
           </div>
 
           <div className="hidden md:flex flex-col p-2">
@@ -201,7 +216,7 @@ function PerfilContent() {
           {tab === 'account' && (
             <>
               <div
-                className="p-[30px_32px] rounded-[16px] mb-5"
+                className="p-4 md:p-[30px_32px] rounded-[16px] mb-5"
                 style={{
                   background: 'linear-gradient(165deg, rgba(104,20,11,0.14), rgba(104,20,11,0.03))',
                   border: '1px solid rgba(207,74,53,0.3)',
@@ -211,24 +226,24 @@ function PerfilContent() {
                   <div>
                     {subscription && (
                       pendingCancel ? (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] mb-3
-                                        bg-white/8 text-white/70 text-[11px] font-bold uppercase tracking-[0.03em]">
-                          <i className="ti ti-clock text-[13px]" />
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] mb-2 md:mb-3
+                                        bg-white/8 text-white/70 text-[10px] md:text-[11px] font-bold uppercase tracking-[0.03em]">
+                          <i className="ti ti-clock text-[12px] md:text-[13px]" />
                           Cancelación programada
                         </div>
                       ) : (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] mb-3
-                                        bg-brand-dim text-brand-bright text-[11px] font-bold uppercase tracking-[0.03em]">
-                          <i className="ti ti-circle-check-filled text-[13px]" />
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] mb-2 md:mb-3
+                                        bg-brand-dim text-brand-bright text-[10px] md:text-[11px] font-bold uppercase tracking-[0.03em]">
+                          <i className="ti ti-circle-check-filled text-[12px] md:text-[13px]" />
                           Plan {planLabel} activo
                         </div>
                       )
                     )}
-                    <div className="font-display text-[22px] font-bold text-white">
+                    <div className="font-display text-[17px] md:text-[22px] font-bold text-white">
                       {planPrice ?? 'Sin suscripción'}
                     </div>
                     {subscription?.period_end && (
-                      <div className="text-[13px] mt-1.5" style={{ color: '#9aa9a3' }}>
+                      <div className="text-[12px] md:text-[13px] mt-1 md:mt-1.5" style={{ color: '#9aa9a3' }}>
                         {subscription.status === 'cancelled' || pendingCancel ? 'Acceso hasta el ' : 'Se renueva el '}
                         {new Date(subscription.period_end).toLocaleDateString('es-ES', {
                           day: 'numeric', month: 'long', year: 'numeric',
@@ -237,7 +252,13 @@ function PerfilContent() {
                     )}
                   </div>
                   {user?.stripe_customer_id && (
-                    <Button variant="primary" size="md" onClick={openBillingPortal} loading={portalLoading}>
+                    <Button
+                      variant="primary"
+                      size="md"
+                      onClick={openBillingPortal}
+                      loading={portalLoading}
+                      className="!px-4 !py-2 text-[13px] md:!px-6 md:!py-2.5 md:text-[0.9375rem]"
+                    >
                       Gestionar suscripción
                     </Button>
                   )}
@@ -245,7 +266,7 @@ function PerfilContent() {
                 {portalError && <p className="text-red-400 text-[12.5px] mt-3">{portalError}</p>}
               </div>
 
-              <div className="rounded-[16px] border border-cp-border bg-white/[0.03] p-[26px_28px]">
+              <div className="rounded-[16px] border border-cp-border bg-white/[0.03] p-[26px_28px] mb-5 md:mb-0">
                 <div className="font-display text-[15.5px] font-semibold mb-4" style={{ color: '#eef3f0' }}>
                   Datos de la cuenta
                 </div>
@@ -273,6 +294,31 @@ function PerfilContent() {
                   }
                   last
                 />
+              </div>
+
+              {/* Móvil: el acceso al perfil vive solo en el menú inferior, así
+                  que "Cerrar sesión" (y Admin, si aplica) tienen que vivir
+                  aquí, al final de la pestaña Cuenta — mismo sitio que en
+                  Carp Partners TV - Mobile.dc.html. En desktop siguen en la
+                  lista vertical de la izquierda. */}
+              <div className="flex md:hidden flex-col items-stretch gap-3 mt-6">
+                {user?.role === 'admin' && (
+                  <Link
+                    href="/admin"
+                    className="inline-flex items-center justify-center gap-2 text-[13px] font-semibold"
+                    style={{ color: '#9aa9a3' }}
+                  >
+                    <i className="ti ti-shield-lock text-[16px]" />
+                    Admin
+                  </Link>
+                )}
+                <button
+                  onClick={handleLogout}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-[9px] bg-brand text-white font-bold text-[14.5px]"
+                >
+                  <i className="ti ti-logout text-[18px]" />
+                  Cerrar sesión
+                </button>
               </div>
             </>
           )}
@@ -420,14 +466,13 @@ function TabButton({ icon, label, active, onClick }: { icon: string; label: stri
 
 // ─── Pestaña horizontal (móvil) ────────────────────────────────────────────
 
-function MobileTabButton({ icon, label, active, onClick }: { icon: string; label: string; active: boolean; onClick: () => void }) {
+function MobileTabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="flex-1 flex flex-col items-center gap-1 py-2 rounded-[8px] text-[11px] font-semibold transition-colors"
-      style={{ background: active ? 'rgba(104,20,11,0.22)' : 'transparent', color: active ? '#fff' : '#9aa9a3' }}
+      className="flex-1 text-center rounded-[8px] text-[12px] font-semibold transition-colors"
+      style={{ padding: '9px 0', background: active ? 'rgba(104,20,11,0.16)' : 'transparent', color: active ? '#fff' : '#9aa9a3' }}
     >
-      <i className={`ti ti-${icon} text-[18px]`} />
       {label}
     </button>
   );

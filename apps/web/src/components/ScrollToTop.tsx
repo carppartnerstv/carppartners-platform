@@ -12,16 +12,30 @@ const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffec
  * volver no es fiable; consistente > fiel al historial.
  *
  * Next.js App Router tiene su propia restauración automática de scroll al
- * volver atrás, que se aplica DESPUÉS de este efecto y puede pisarlo — por
- * eso se repite el scrollTo en el siguiente frame, para ganar esa carrera.
+ * volver atrás, que se aplica DESPUÉS de este efecto y puede pisarlo. En
+ * móvil, además, la barra de direcciones se contrae/expande durante la
+ * navegación y ese cambio de altura del viewport puede introducir un
+ * pequeño desplazamiento hacia abajo aunque ya hayamos puesto scrollY a 0.
+ * Por eso se reafirma varias veces en la ventana justo después de navegar
+ * (frames + timeouts cortos) en vez de una sola vez — a partir de ahí se
+ * deja de tocar el scroll para no pelear con el usuario si decide bajar.
  */
 export function ScrollToTop() {
   const pathname = usePathname();
 
   useIsomorphicLayoutEffect(() => {
     window.scrollTo(0, 0);
-    const raf = requestAnimationFrame(() => window.scrollTo(0, 0));
-    return () => cancelAnimationFrame(raf);
+
+    const raf1 = requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+      requestAnimationFrame(() => window.scrollTo(0, 0));
+    });
+    const timers = [50, 150, 300].map((ms) => setTimeout(() => window.scrollTo(0, 0), ms));
+
+    return () => {
+      cancelAnimationFrame(raf1);
+      timers.forEach(clearTimeout);
+    };
   }, [pathname]);
 
   return null;

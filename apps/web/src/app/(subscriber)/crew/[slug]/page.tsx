@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { apiClient } from '@carp-partners/api-client';
 import type { CrewMember, Video } from '@carp-partners/api-client';
-import { VideoCard } from '@carp-partners/ui';
+import { VideoRow } from '@carp-partners/ui';
 
 const ROLE_LABELS: Record<string, string> = {
   socio: 'Socio',
@@ -84,59 +84,56 @@ export default function CrewMemberPage() {
     );
   }
 
-  const initials = member.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase();
-
-  // Misma estructura sección-por-sección que la ficha de vídeo: el padding
-  // horizontal (px-6 md:px-12) va en CADA sección, no en un wrapper exterior
-  // — así el grid [1fr 300px] max-w-[1180px] de la bio mide exactamente
-  // igual que el de la sinopsis del vídeo (si el padding estuviera en un
-  // contenedor exterior distinto, el max-width se mediría desde otro punto
-  // de partida y la columna 1fr saldría más ancha de lo que debería).
   return (
-    <div className="min-h-screen bg-surface py-10">
-      <div className="px-6 md:px-12">
+    <div className="min-h-screen bg-surface">
+      {/* ── Cabecera — mismo patrón que /serie/[id] y /watch/[id]: imagen a
+          sangre + degradados + Volver + título superpuesto abajo a la
+          izquierda. Por ahora usa la misma foto que la de perfil
+          (member.avatar_url); si el resultado visual convence, más adelante
+          se añadirá una portada independiente (ver comentario del usuario). */}
+      <section className="relative w-full h-[42vh] min-h-[320px] max-h-[420px] md:h-[54vh] md:min-h-[380px] md:max-h-[600px]">
+        {member.avatar_url ? (
+          <img src={member.avatar_url} alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden />
+        ) : (
+          <div className="absolute inset-0 bg-surface-raised" />
+        )}
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(90deg, rgba(6,9,12,0.9) 0%, rgba(6,9,12,0.4) 45%, rgba(6,9,12,0) 75%)' }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(0deg, #06090c 1%, rgba(6,9,12,0.1) 40%, rgba(6,9,12,0) 60%)' }}
+        />
+
         <button
           onClick={() => router.back()}
-          className="inline-flex items-center gap-2 px-4 py-[9px] rounded-[9px] text-[13.5px] font-medium mb-8"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#e9efeb' }}
+          className="absolute top-6 left-6 md:left-12 inline-flex items-center gap-2 px-4 py-[9px] rounded-[9px] text-[13.5px] font-medium z-10"
+          style={{ background: 'rgba(6,9,12,0.55)', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(6px)', color: '#e9efeb' }}
         >
           <i className="ti ti-arrow-left text-[18px]" />
           Volver
         </button>
 
-        {/* Cabecera compacta: foto grande + nombre + insignia en una fila */}
-        <div className="flex items-center gap-4 sm:gap-7 mb-8 flex-wrap">
-          {member.avatar_url ? (
-            <img
-              src={member.avatar_url}
-              alt=""
-              className="w-24 h-24 sm:w-[136px] sm:h-[136px] rounded-full object-cover border border-white/14 shrink-0"
-            />
-          ) : (
-            <div
-              className="w-24 h-24 sm:w-[136px] sm:h-[136px] rounded-full flex items-center justify-center font-display font-semibold text-2xl sm:text-4xl text-white border border-white/14 shrink-0"
-              style={{ background: 'linear-gradient(135deg,#5a241d,#2a1411)' }}
-            >
-              {initials}
-            </div>
-          )}
-          <div className="min-w-0">
-            <h1 className="font-display font-extrabold text-white text-[26px] sm:text-[38px] tracking-[-0.02em] mb-0 break-words">
-              {member.name}
-            </h1>
-            <span className="text-[14px] font-medium" style={{ color: '#cf4a35' }}>
-              {ROLE_LABELS[member.role] ?? member.role}
-            </span>
+        <div className="absolute left-6 md:left-12 z-10 bottom-[2.5vh] md:bottom-[3.5vh]" style={{ maxWidth: 620 }}>
+          <div className="text-[12.5px] font-semibold uppercase tracking-[0.1em] mb-3 text-brand-bright">
+            {ROLE_LABELS[member.role] ?? member.role}
+          </div>
+          <h1 className="font-display font-extrabold text-white text-[32px] md:text-[50px] leading-[1.05] tracking-[-0.02em] mb-4 break-words">
+            {member.name}
+          </h1>
+          <div className="flex items-center gap-[10px] flex-wrap text-[13px]" style={{ color: '#c4d0cb' }}>
+            <span>{videos.length} vídeo{videos.length === 1 ? '' : 's'}</span>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Biografía — mismas clases que la sinopsis de la ficha de vídeo
           (px-6 md:px-12 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8
           lg:gap-12 max-w-[1180px]) para que la columna 1fr mida exactamente
           lo mismo en cualquier ancho de pantalla. */}
       {member.bio && (
-        <div className="px-6 md:px-12 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8 lg:gap-12 max-w-[1180px] mb-10">
+        <div className="px-6 md:px-12 pt-2 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8 lg:gap-12 max-w-[1180px] mb-10">
           <div>
             {/* .rich-editor .ProseMirror trae su propio font-size/line-height/color
                 (pensados para el editor de admin) — el style inline de aquí los
@@ -162,20 +159,14 @@ export default function CrewMemberPage() {
         </div>
       )}
 
-      {/* Vídeos con {nombre} */}
+      {/* Vídeos con {nombre} — mismo carrusel horizontal que en Home */}
       {videos.length > 0 && (
-        <div className="px-6 md:px-12">
-          <h2 className="font-display text-[19px] font-semibold text-white mb-4">
-            Vídeos con {member.name}
-          </h2>
-          <div
-            className="grid gap-[24px_18px]"
-            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(252px, 1fr))' }}
-          >
-            {videos.map((v) => (
-              <VideoCard key={v.id} video={v} onClick={(v) => router.push(`/watch/${v.id}`)} />
-            ))}
-          </div>
+        <div className="px-6 md:px-12 pt-6 pb-16">
+          <VideoRow
+            title={`Vídeos con ${member.name}`}
+            videos={videos}
+            onVideoClick={(v) => router.push(`/watch/${v.id}`)}
+          />
         </div>
       )}
     </div>

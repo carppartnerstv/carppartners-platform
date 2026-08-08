@@ -233,7 +233,7 @@ function DetailContent() {
           Volver
         </button>
 
-        <div className="absolute left-6 md:left-12 z-10 bottom-[5vh] md:bottom-[7vh]" style={{ maxWidth: 620 }}>
+        <div className="absolute left-6 md:left-12 z-10 bottom-[2.5vh] md:bottom-[3.5vh]" style={{ maxWidth: 620 }}>
           {kicker && (
             <div className="text-[12.5px] font-semibold uppercase tracking-[0.1em] mb-3 text-brand-bright">
               {kicker}

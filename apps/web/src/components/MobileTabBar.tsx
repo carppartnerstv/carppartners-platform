@@ -5,8 +5,10 @@ import { usePathname } from 'next/navigation';
 
 // Mismos 4 destinos, mismos iconos (Tabler) y mismos colores activo/inactivo
 // que la tab bar inferior de la app nativa (apps/mobile) — visible solo por
-// debajo de md, y solo en las 4 pantallas "de app" (Inicio/Explorar/Mi
-// Lista/Perfil); nunca en detalle/reproductor/login, igual que en la app.
+// debajo de md. A diferencia de la app nativa, aquí se mantiene visible en
+// TODAS las pantallas del área de suscriptor (detalle de serie/vídeo, ficha
+// de crew, etc.) y solo se oculta en el reproductor a pantalla completa
+// (/watch/[id]/play), que además ya la cubre visualmente (z-[60] > z-50).
 const TABS = [
   { href: '/home', label: 'Inicio', icon: 'home' },
   { href: '/explorar', label: 'Explorar', icon: 'compass' },
@@ -14,13 +16,12 @@ const TABS = [
   { href: '/perfil', label: 'Perfil', icon: 'user' },
 ] as const;
 
+const PLAY_ROUTE = /^\/watch\/[^/]+\/play/;
+
 export function MobileTabBar() {
   const pathname = usePathname();
 
-  // Igual que en la app nativa (showTabs): solo en las 4 pantallas de app,
-  // nunca en detalle de vídeo/serie, reproductor o ficha de crew.
-  const showTabs = TABS.some((t) => pathname.startsWith(t.href));
-  if (!showTabs) return null;
+  if (PLAY_ROUTE.test(pathname)) return null;
 
   return (
     <nav

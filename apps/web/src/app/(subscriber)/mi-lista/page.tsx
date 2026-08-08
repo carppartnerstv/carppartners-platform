@@ -75,10 +75,7 @@ export default function MiListaPage() {
           </button>
         </div>
       ) : (
-        <div
-          className="grid gap-[24px_18px]"
-          style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(252px, 1fr))' }}
-        >
+        <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:gap-x-[18px] sm:gap-y-[24px] md:[grid-template-columns:repeat(auto-fill,minmax(252px,1fr))]">
           {items.map((item) => (
             <VideoCard
               key={item.id}
