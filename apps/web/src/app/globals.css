@@ -52,6 +52,13 @@
   animation: modal-fade-in 0.18s ease forwards;
 }
 
+/* ── Flash de doble toque en el reproductor (±10s) ── */
+@keyframes seekFlashFade {
+  0%   { opacity: 0; transform: scale(0.8); }
+  25%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
+}
+
 /* ── Rich-text editor (Tiptap / ProseMirror) ── */
 .rich-editor .ProseMirror {
   outline: none;

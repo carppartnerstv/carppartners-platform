@@ -203,6 +203,43 @@ export default function PlayPage() {
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
 
+  // Safari en iOS no implementa requestFullscreen() en elementos normales
+  // (solo <video> tiene su propio método nativo aparte) — llamarlo ahí
+  // lanzaba un TypeError sin hacer nada. Se detecta el soporte real una vez
+  // al montar y, si no existe, se oculta el botón en vez de dejarlo roto.
+  const [fullscreenSupported, setFullscreenSupported] = useState(false);
+  useEffect(() => {
+    setFullscreenSupported(typeof document.documentElement.requestFullscreen === 'function');
+  }, []);
+
+  // ── Móvil en vertical: "gira" el reproductor a horizontal por CSS ───────────
+  // No dependemos de la Screen Orientation API (screen.orientation.lock)
+  // porque en la mayoría de navegadores móviles solo funciona dentro de un
+  // elemento en Fullscreen API real, y ese permiso requiere un gesto de
+  // usuario "fresco" que ya se ha perdido al llegar aquí tras la navegación
+  // — por eso el truco fiable (funciona en iOS Safari incluido) es rotar el
+  // contenedor 90° con CSS cuando el viewport sigue en vertical. Si el
+  // usuario gira el móvil de verdad, el listener detecta el cambio de
+  // orientación y desactiva la rotación (el navegador ya da un landscape real).
+  const [forceRotate, setForceRotate] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px) and (orientation: portrait)');
+    const update = () => setForceRotate(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  // Además, intento de mejora progresiva: en los navegadores que sí soportan
+  // bloquear la orientación (Chrome/Android) lo pedimos también — si falla
+  // (Safari, sin fullscreen activo, etc.) no pasa nada, ya tenemos el CSS.
+  useEffect(() => {
+    if (!forceRotate) return;
+    const orientation = screen.orientation as (ScreenOrientation & { lock?: (o: string) => Promise<void> }) | undefined;
+    orientation?.lock?.('landscape')?.catch(() => null);
+    return () => { orientation?.unlock?.(); };
+  }, [forceRotate]);
+
   // ── Auto-ocultar controles tras 3s de inactividad (solo en reproducción) ────
   useEffect(() => { playingRef.current = playing; }, [playing]);
 
@@ -272,12 +309,65 @@ export default function PlayPage() {
     if (el.paused) el.play().catch(() => null); else el.pause();
   };
 
-  const seekToFraction = (e: React.MouseEvent<HTMLDivElement>) => {
+  // Icono play/pausa en el centro — solo en escritorio (en móvil se quitó a
+  // petición). Se deriva del estado real `playing` (no de quién llamó a
+  // togglePlay), así que se mantiene correcto pase lo que pase — reanudar
+  // el autoplay del siguiente episodio, perder el foco de la pestaña, etc.
+  // En pausa se queda visible de forma persistente (invita a reanudar); al
+  // reanudar hace un breve destello de confirmación y desaparece.
+  const [playFlash, setPlayFlash] = useState<'play' | 'pause' | null>(null);
+  const playFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!playerReady) return;
+    if (playFlashTimerRef.current) { clearTimeout(playFlashTimerRef.current); playFlashTimerRef.current = null; }
+
+    if (playing) {
+      setPlayFlash('pause');
+      playFlashTimerRef.current = setTimeout(() => setPlayFlash(null), 500);
+    } else {
+      setPlayFlash('play');
+    }
+
+    return () => { if (playFlashTimerRef.current) clearTimeout(playFlashTimerRef.current); };
+  }, [playing, playerReady]);
+
+  // Con forceRotate, todo el reproductor (incluida esta barra) está girado
+  // 90° por CSS — su caja de "left/width" en pantalla pasa a ser vertical
+  // (angosta y alta), así que la fracción hay que leerla en el eje Y, no en
+  // X. Sin esto, arrastrar sobre la barra no hacía nada útil y, al no haber
+  // ningún handler de touchmove, el navegador interpretaba el gesto como un
+  // scroll normal de página (de ahí que "avanzar la línea de tiempo" se
+  // sintiera como si la página entera se desplazara).
+  const fractionFromPoint = useCallback(
+    (clientX: number, clientY: number, el: Element) => {
+      const rect = el.getBoundingClientRect();
+      if (forceRotate) {
+        return Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
+      }
+      return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    },
+    [forceRotate],
+  );
+
+  const handleScrubStart = (e: React.PointerEvent<HTMLDivElement>) => {
     const el = videoRef.current;
     if (!el || !duration) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const f = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const f = fractionFromPoint(e.clientX, e.clientY, e.currentTarget);
     el.currentTime = f * duration;
+    setCurrentTime(el.currentTime);
+  };
+
+  const handleScrubMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = videoRef.current;
+    // e.buttons === 0 en pointermove sin el botón/dedo pulsado (o tras un
+    // pointerup que no disparó pointercancel a tiempo) — evita "seguir
+    // arrastrando" por accidente.
+    if (!el || !duration || e.buttons === 0) return;
+    const f = fractionFromPoint(e.clientX, e.clientY, e.currentTarget);
+    el.currentTime = f * duration;
+    setCurrentTime(el.currentTime);
   };
 
   const rewind = () => {
@@ -292,13 +382,54 @@ export default function PlayPage() {
     el.currentTime = Math.min(duration, el.currentTime + 10);
   };
 
-  const setVolumeFraction = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleVolumeStart = (e: React.PointerEvent<HTMLDivElement>) => {
     const el = videoRef.current;
     if (!el) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const f = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const f = fractionFromPoint(e.clientX, e.clientY, e.currentTarget);
     el.volume = f;
     el.muted = false;
+  };
+
+  const handleVolumeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = videoRef.current;
+    if (!el || e.buttons === 0) return;
+    const f = fractionFromPoint(e.clientX, e.clientY, e.currentTarget);
+    el.volume = f;
+    el.muted = false;
+  };
+
+  // ── Doble toque en el vídeo: retrocede/avanza 10s (mitad izquierda/derecha
+  // en local, no en pantalla — con forceRotate eso puede ser arriba/abajo
+  // físicamente, pero es "izquierda" en el mismo sentido que el scrubber:
+  // el lado del botón de retroceder). Un solo toque sigue siendo play/pausa,
+  // pero se retrasa DOUBLE_TAP_MS para poder cancelarlo si llega un segundo
+  // toque a tiempo — mismo patrón que YouTube/Netflix. ────────────────────────
+  const DOUBLE_TAP_MS = 300;
+  const lastTapRef = useRef<{ time: number; side: 'left' | 'right' } | null>(null);
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [seekFlash, setSeekFlash] = useState<'left' | 'right' | null>(null);
+
+  const handleVideoAreaClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const side: 'left' | 'right' = fractionFromPoint(e.clientX, e.clientY, e.currentTarget) < 0.5 ? 'left' : 'right';
+    const now = Date.now();
+    const last = lastTapRef.current;
+
+    if (last && last.side === side && now - last.time < DOUBLE_TAP_MS) {
+      if (singleTapTimerRef.current) { clearTimeout(singleTapTimerRef.current); singleTapTimerRef.current = null; }
+      lastTapRef.current = null;
+      if (side === 'left') rewind(); else forward();
+      setSeekFlash(side);
+      setTimeout(() => setSeekFlash((s) => (s === side ? null : s)), 500);
+      return;
+    }
+
+    lastTapRef.current = { time: now, side };
+    singleTapTimerRef.current = setTimeout(() => {
+      togglePlay();
+      singleTapTimerRef.current = null;
+      lastTapRef.current = null;
+    }, DOUBLE_TAP_MS);
   };
 
   const toggleMute = () => {
@@ -318,7 +449,7 @@ export default function PlayPage() {
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => null);
     } else {
-      playerSectionRef.current?.requestFullscreen().catch(() => null);
+      playerSectionRef.current?.requestFullscreen?.().catch(() => null);
     }
   };
 
@@ -364,8 +495,26 @@ export default function PlayPage() {
   return (
     <div
       ref={playerSectionRef}
-      className="fixed inset-0 z-[60] bg-black flex flex-col"
-      style={{ cursor: controlsVisible ? 'default' : 'none' }}
+      className={`fixed z-[60] bg-black flex flex-col ${forceRotate ? '' : 'inset-0'}`}
+      style={
+        forceRotate
+          ? {
+              cursor: controlsVisible ? 'default' : 'none',
+              top: '50%',
+              left: '50%',
+              // dvh/dvw (no vh/vw): en Safari/Chrome móvil, "100vh" mide el
+              // alto máximo del viewport como si la barra de direcciones
+              // estuviera oculta, así que la caja rotada salía más grande
+              // que el área visible real y recortaba el borde donde caen el
+              // círculo del scrubber y el botón de pantalla completa. Los
+              // -16px dejan además un margen de 8px por cada lado.
+              width: 'calc(100dvh - 16px)',
+              height: 'calc(100dvw - 16px)',
+              transform: 'translate(-50%, -50%) rotate(90deg)',
+              transformOrigin: 'center center',
+            }
+          : { cursor: controlsVisible ? 'default' : 'none' }
+      }
     >
       <video
         ref={videoRef}
@@ -412,7 +561,7 @@ export default function PlayPage() {
         <>
           {/* Cabecera superior */}
           <div
-            className={`relative z-10 flex items-center gap-4 px-8 py-6 transition-opacity duration-300 ease-out ${
+            className={`relative z-10 flex items-center gap-3 sm:gap-4 px-5 sm:px-8 py-4 sm:py-6 transition-opacity duration-300 ease-out ${
               controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
           >
@@ -436,23 +585,51 @@ export default function PlayPage() {
             </div>
           </div>
 
-          {/* Botón central play/pausa */}
-          <div className="relative z-10 flex-1 flex items-center justify-center">
-            <button
-              onClick={togglePlay}
-              aria-label={playing ? 'Pausar' : 'Reproducir'}
-              className="w-[88px] h-[88px] rounded-full flex items-center justify-center transition-transform hover:scale-[1.07]"
-              style={{
-                background: 'rgba(0,0,0,0.35)',
-                border: '1.5px solid rgba(255,255,255,0.5)',
-                backdropFilter: 'blur(8px)',
-              }}
-            >
-              <i
-                className={`ti ti-${playing ? 'player-pause-filled' : 'player-play-filled'} text-[42px] text-white`}
-                style={{ marginLeft: playing ? 0 : 4 }}
-              />
-            </button>
+          {/* Espaciador central — sin botón de play/pausa (se quitó a
+              petición). Un toque alterna play/pausa; doble toque en la mitad
+              izquierda/derecha retrocede/avanza 10s, como en YouTube/Netflix.
+              Se mantiene el div para que el header y la barra de controles
+              sigan anclados arriba/abajo con flex-col. */}
+          <div className="relative z-10 flex-1" onClick={handleVideoAreaClick}>
+            {playFlash && (
+              <div className="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none">
+                <div
+                  className="w-[76px] h-[76px] rounded-full flex items-center justify-center"
+                  style={{
+                    // Mismo estilo que el botón "Volver" de la cabecera: fondo
+                    // blanco muy tenue + línea blanca fina de 1px alrededor.
+                    background: 'rgba(255,255,255,0.1)',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    // "pause" = destello transitorio al reanudar → se desvanece.
+                    // "play" = en pausa, persistente → SIN animación, si no
+                    // seekFlashFade lo deja en opacity:0 a los 0.5s pase lo
+                    // que pase (era justo el bug: se quedaba invisible aunque
+                    // el estado de React siguiera diciendo que había que
+                    // mostrarlo).
+                    ...(playFlash === 'pause' ? { animation: 'seekFlashFade 0.5s ease-out forwards' } : {}),
+                  }}
+                >
+                  <i
+                    className={`ti ti-${playFlash === 'play' ? 'player-play-filled' : 'player-pause-filled'} text-[34px] text-white`}
+                    style={{ marginLeft: playFlash === 'play' ? 4 : 0 }}
+                  />
+                </div>
+              </div>
+            )}
+            {seekFlash && (
+              <div
+                className={`absolute top-0 bottom-0 w-1/2 flex items-center pointer-events-none ${
+                  seekFlash === 'left' ? 'left-0 justify-start pl-[10%]' : 'right-0 justify-end pr-[10%]'
+                }`}
+              >
+                <div
+                  className="w-16 h-16 rounded-full flex items-center justify-center"
+                  style={{ background: 'rgba(0,0,0,0.4)', animation: 'seekFlashFade 0.5s ease-out forwards' }}
+                >
+                  <i className={`ti ti-rewind-${seekFlash === 'left' ? 'backward' : 'forward'}-10 text-[30px] text-white`} />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Tarjeta de autoplay del siguiente episodio real — cuenta atrás,
@@ -537,15 +714,18 @@ export default function PlayPage() {
 
           {/* Barra de controles inferior */}
           <div
-            className={`relative z-10 px-8 pb-[26px] transition-opacity duration-300 ease-out ${
+            className={`relative z-10 px-5 sm:px-8 pb-4 sm:pb-[26px] transition-opacity duration-300 ease-out ${
               controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
           >
-            {/* Scrubber */}
+            {/* Scrubber — pointer events (no onClick) para poder arrastrar,
+                y touchAction:none para que el navegador no interprete el
+                gesto como scroll de la página. */}
             <div
-              onClick={seekToFraction}
+              onPointerDown={handleScrubStart}
+              onPointerMove={handleScrubMove}
               className="relative h-[6px] rounded-[4px] cursor-pointer mb-4"
-              style={{ background: 'rgba(255,255,255,0.22)' }}
+              style={{ background: 'rgba(255,255,255,0.22)', touchAction: 'none' }}
             >
               <div
                 className="absolute left-0 top-0 h-full rounded-[4px] bg-brand-bright"
@@ -557,31 +737,32 @@ export default function PlayPage() {
               />
             </div>
 
-            <div className="flex items-center gap-5 text-white">
+            <div className="flex items-center gap-2.5 sm:gap-5 text-white">
               <button onClick={togglePlay} aria-label={playing ? 'Pausar' : 'Reproducir'} className="hover:opacity-80">
-                <i className={`ti ti-${playing ? 'player-pause-filled' : 'player-play-filled'} text-[30px]`} />
+                <i className={`ti ti-${playing ? 'player-pause-filled' : 'player-play-filled'} text-[26px] sm:text-[30px]`} />
               </button>
               <button onClick={rewind} aria-label="Retroceder 10s" className="hover:opacity-80">
-                <i className="ti ti-rewind-backward-10 text-[25px]" />
+                <i className="ti ti-rewind-backward-10 text-[21px] sm:text-[25px]" />
               </button>
               <button onClick={forward} aria-label="Avanzar 10s" className="hover:opacity-80">
-                <i className="ti ti-rewind-forward-10 text-[25px]" />
+                <i className="ti ti-rewind-forward-10 text-[21px] sm:text-[25px]" />
               </button>
 
-              <div className="flex items-center gap-[9px]">
+              <div className="flex items-center gap-[7px] sm:gap-[9px]">
                 <button onClick={toggleMute} aria-label={volEff === 0 ? 'Activar sonido' : 'Silenciar'}>
-                  <i className={`ti ti-${volEff === 0 ? 'volume-off' : volEff < 0.5 ? 'volume-2' : 'volume'} text-[24px]`} />
+                  <i className={`ti ti-${volEff === 0 ? 'volume-off' : volEff < 0.5 ? 'volume-2' : 'volume'} text-[21px] sm:text-[24px]`} />
                 </button>
                 <div
-                  onClick={setVolumeFraction}
-                  className="relative w-[84px] h-[5px] rounded-[3px] cursor-pointer"
-                  style={{ background: 'rgba(255,255,255,0.25)' }}
+                  onPointerDown={handleVolumeStart}
+                  onPointerMove={handleVolumeMove}
+                  className="relative w-[52px] sm:w-[84px] h-[5px] rounded-[3px] cursor-pointer"
+                  style={{ background: 'rgba(255,255,255,0.25)', touchAction: 'none' }}
                 >
                   <div className="absolute left-0 top-0 h-full rounded-[3px] bg-white" style={{ width: `${volEff * 100}%` }} />
                 </div>
               </div>
 
-              <div className="text-[13px] tabular-nums" style={{ color: '#dfe7e3', letterSpacing: '0.02em' }}>
+              <div className="text-[12px] sm:text-[13px] tabular-nums" style={{ color: '#dfe7e3', letterSpacing: '0.02em' }}>
                 {fmt(currentTime)} <span style={{ color: '#7d8d86' }}>/ {fmt(duration)}</span>
               </div>
 
@@ -589,17 +770,27 @@ export default function PlayPage() {
 
               <button
                 onClick={cycleSpeed}
-                className="text-[13.5px] font-semibold px-[11px] py-[5px] rounded-[7px] min-w-[52px] text-center hover:bg-white/10"
+                className="text-[12px] sm:text-[13.5px] font-semibold px-2 sm:px-[11px] py-[5px] rounded-[7px] min-w-[42px] sm:min-w-[52px] text-center hover:bg-white/10"
                 style={{ border: '1px solid rgba(255,255,255,0.25)' }}
               >
                 {speed}x
               </button>
-              <button aria-label="Ajustes" className="hover:opacity-80">
+              <button aria-label="Ajustes" className="hidden sm:inline-flex hover:opacity-80">
                 <i className="ti ti-settings text-[24px]" />
               </button>
-              <button onClick={toggleFullscreen} aria-label="Pantalla completa" className="hover:opacity-80">
-                <i className={`ti ti-${fullscreen ? 'minimize' : 'maximize'} text-[24px]`} />
-              </button>
+              {/* Oculto mientras forceRotate está activo: pedir fullscreen
+                  real sobre un elemento que ya tiene nuestro
+                  transform:rotate(90deg) hace que el navegador (confirmado
+                  en Chrome/Android) reajuste esa caja para el fullscreen y
+                  se pierda la rotación — son dos mecanismos compitiendo por
+                  el mismo elemento. Sin forceRotate (desktop, o el móvil ya
+                  girado físicamente a horizontal) no hay transform con el
+                  que competir y funciona con normalidad. */}
+              {fullscreenSupported && !forceRotate && (
+                <button onClick={toggleFullscreen} aria-label="Pantalla completa" className="hover:opacity-80">
+                  <i className={`ti ti-${fullscreen ? 'minimize' : 'maximize'} text-[21px] sm:text-[24px]`} />
+                </button>
+              )}
             </div>
           </div>
         </>
