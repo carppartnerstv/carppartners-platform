@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, Sora } from 'next/font/google';
 import './globals.css';
 import { SessionProvider } from '@/context/SessionContext';
+import { CookieConsentGate } from '@/components/CookieConsentGate';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -41,7 +42,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="bg-surface text-white min-h-screen antialiased">
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          <CookieConsentGate>{children}</CookieConsentGate>
+        </SessionProvider>
       </body>
     </html>
   );
