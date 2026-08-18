@@ -149,6 +149,7 @@ export default function HomePage() {
             videos={continueVideos}
             progressMap={progressMap}
             onVideoClick={goToPlay}
+            showPlayButton
           />
         )}
 

@@ -14,12 +14,15 @@ const AUTOPLAY_MS = 6000;
 const DRAG_THRESHOLD_PX = 60;
 const CARD_GAP = 14;
 const DESCRIPTION_MAX_CHARS = 150;
-// Deben coincidir con las clases w-[...]/h-[...] de más abajo: la
-// protagonista es 16:9 (mismo formato que el resto de filas); las demás son
-// verticales 2:3, tipo póster, para dar a esta fila un formato distinto.
-const BIG_WIDTH = { base: 260, sm: 380, md: 500, lg: 620 };
-const CONTAINER_HEIGHT = { base: 152, sm: 220, md: 288, lg: 356 };
-const POSTER_WIDTH = { base: 101, sm: 147, md: 192, lg: 237 }; // = CONTAINER_HEIGHT * 2/3
+// Deben coincidir con las clases w-[...]/h-[...] de más abajo. De sm en
+// adelante la protagonista es 16:9 y más ancha que los pósters (efecto
+// "hero"); en móvil pasa a ser vertical 2:3 del MISMO tamaño que los
+// pósters pequeños (sin protagonista destacada, toda la fila uniforme). En
+// móvil, esta fila es deliberadamente mucho más grande que el resto (solo
+// 2-3 elementos visibles a la vez, frente a los ~3,5 de las demás filas).
+const CONTAINER_HEIGHT = { base: 300, sm: 220, md: 288, lg: 356 };
+const POSTER_WIDTH = { base: 200, sm: 147, md: 192, lg: 237 }; // = CONTAINER_HEIGHT * 2/3
+const BIG_WIDTH = { base: POSTER_WIDTH.base, sm: 380, md: 500, lg: 620 };
 
 function bpFromWidth(w: number): keyof typeof BIG_WIDTH {
   if (w >= 1024) return 'lg';
@@ -158,7 +161,7 @@ export function TopTenCarousel({ title, items, categories, onItemClick }: TopTen
       >
         <div
           ref={wrapRef}
-          className="relative overflow-hidden h-[152px] sm:h-[220px] md:h-[288px] lg:h-[356px] touch-pan-y"
+          className="relative overflow-hidden h-[300px] sm:h-[220px] md:h-[288px] lg:h-[356px] touch-pan-y"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={endDrag}
@@ -195,8 +198,18 @@ export function TopTenCarousel({ title, items, categories, onItemClick }: TopTen
                 x={x + dragPx}
                 dragging={dragging}
               >
-                {s.cover_url ? (
-                  <img src={s.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+                {s.cover_url || s.cover_vertical_url ? (
+                  <picture>
+                    {s.cover_vertical_url && (
+                      <source media="(max-width: 639px)" srcSet={s.cover_vertical_url} />
+                    )}
+                    <img
+                      src={s.cover_url ?? s.cover_vertical_url ?? ''}
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-cover"
+                      draggable={false}
+                    />
+                  </picture>
                 ) : (
                   <div className="absolute inset-0 bg-surface-raised" />
                 )}
@@ -218,7 +231,7 @@ export function TopTenCarousel({ title, items, categories, onItemClick }: TopTen
                 >
                   <div
                     className={`font-display font-bold text-white mb-1 sm:mb-1.5 line-clamp-2 ${
-                      featured ? 'text-[15px] sm:text-[20px] lg:text-[26px]' : 'text-[10.5px] sm:text-[13px] md:text-[14.5px] lg:text-[16px]'
+                      featured ? 'text-[10.5px] sm:text-[20px] lg:text-[26px]' : 'text-[10.5px] sm:text-[13px] md:text-[14.5px] lg:text-[16px]'
                     }`}
                   >
                     {s.title}
@@ -282,8 +295,8 @@ function CarouselCard({ featured, x, dragging, onClick, children }: CarouselCard
       onClick={onClick}
       className={`group/card absolute top-1/2 left-0 rounded-[12px] overflow-hidden text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
         featured
-          ? 'w-[260px] sm:w-[380px] md:w-[500px] lg:w-[620px] aspect-video'
-          : 'w-[101px] sm:w-[147px] md:w-[192px] lg:w-[237px] aspect-[2/3]'
+          ? 'w-[200px] sm:w-[380px] md:w-[500px] lg:w-[620px] aspect-[2/3] sm:aspect-video'
+          : 'w-[200px] sm:w-[147px] md:w-[192px] lg:w-[237px] aspect-[2/3]'
       }`}
       style={{
         // Los pósters ya no se solapan entre sí en reposo (van en fila, cada

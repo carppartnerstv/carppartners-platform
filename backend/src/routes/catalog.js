@@ -89,7 +89,7 @@ catalogRouter.get(
 
     params.push(limit, offset);
     const { rows } = await query(
-      `SELECT v.id, v.title, v.slug, v.description, v.duration_sec, v.thumbnail_url,
+      `SELECT v.id, v.title, v.slug, v.description, v.duration_sec, v.thumbnail_url, v.cover_vertical_url,
               s.category_id, v.series_id, v.episode_num, v.created_at,
               s.title AS series_title, s.season_num,
               ${CREW_SUBQUERY}
@@ -153,7 +153,7 @@ catalogRouter.get(
   requireSubscription,
   asyncHandler(async (req, res) => {
     const video = await queryOne(
-      `SELECT v.id, v.title, v.slug, v.description, v.duration_sec, v.thumbnail_url,
+      `SELECT v.id, v.title, v.slug, v.description, v.duration_sec, v.thumbnail_url, v.cover_vertical_url,
               s.category_id, v.series_id, v.episode_num, v.created_at, v.published_at,
               ${CREW_SUBQUERY}
          FROM videos v
@@ -167,7 +167,7 @@ catalogRouter.get(
     // con el progreso de visionado del usuario actual para poder pintar la
     // línea de tiempo en sus tarjetas.
     const { rows: related } = await query(
-      `SELECT v.id, v.title, v.slug, v.thumbnail_url, v.duration_sec, v.episode_num,
+      `SELECT v.id, v.title, v.slug, v.thumbnail_url, v.cover_vertical_url, v.duration_sec, v.episode_num,
               wh.progress_sec, wh.completed
          FROM videos v
          LEFT JOIN series s2 ON s2.id = v.series_id
@@ -223,7 +223,7 @@ catalogRouter.get(
     }
 
     const next = await queryOne(
-      `SELECT v.id, v.title, v.slug, v.thumbnail_url, v.duration_sec, v.episode_num,
+      `SELECT v.id, v.title, v.slug, v.thumbnail_url, v.cover_vertical_url, v.duration_sec, v.episode_num,
               s.season_num,
               wh.progress_sec, wh.completed
          FROM videos v
@@ -380,7 +380,7 @@ catalogRouter.get(
 
     const { rows } = await query(
       `SELECT s.id, s.title, s.slug, s.description, s.category_id, s.season_num,
-              s.cover_url, s.order_index, s.created_at, s.is_curated,
+              s.cover_url, s.cover_vertical_url, s.order_index, s.created_at, s.is_curated,
               COUNT(DISTINCT ch.id)::int AS season_count,
               COUNT(DISTINCT v.id) FILTER (WHERE ${VISIBLE})::int AS episode_count
          FROM series s
@@ -406,14 +406,14 @@ catalogRouter.get(
   asyncHandler(async (req, res) => {
     const series = await queryOne(
       `SELECT id, title, slug, description, category_id, season_num,
-              cover_url, order_index, parent_series_id
+              cover_url, cover_vertical_url, order_index, parent_series_id
          FROM series WHERE id = $1`,
       [req.params.id],
     );
     if (!series) throw notFound('Serie no encontrada', 'SERIES_NOT_FOUND');
 
     const { rows: seasons } = await query(
-      `SELECT s.id, s.title, s.slug, s.season_num, s.cover_url, s.order_index,
+      `SELECT s.id, s.title, s.slug, s.season_num, s.cover_url, s.cover_vertical_url, s.order_index,
               COUNT(v.id) FILTER (WHERE ${VISIBLE})::int AS episode_count
          FROM series s
          LEFT JOIN videos v ON v.series_id = s.id

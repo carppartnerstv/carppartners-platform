@@ -483,6 +483,16 @@ export class ApiClient {
     return this.request('DELETE', `/admin/videos/${id}`);
   }
 
+  async uploadVideoCoverVertical(id: string, file: File): Promise<{ video: Video }> {
+    const fd = new FormData();
+    fd.append('coverVertical', file);
+    return this.requestMultipart('POST', `/admin/videos/${id}/cover-vertical`, fd);
+  }
+
+  async deleteVideoCoverVertical(id: string): Promise<void> {
+    return this.request('DELETE', `/admin/videos/${id}/cover-vertical`);
+  }
+
   async getAdminVideos(params?: {
     published?: boolean;
     /** Más fino que `published`: distingue programado (visible en el futuro) de publicado ya visible. Si se envía, manda sobre `published`. */
@@ -537,6 +547,16 @@ export class ApiClient {
 
   async deleteSeriesCover(id: string): Promise<void> {
     return this.request('DELETE', `/admin/series/${id}/cover`);
+  }
+
+  async uploadSeriesCoverVertical(id: string, file: File): Promise<{ series: Series }> {
+    const fd = new FormData();
+    fd.append('coverVertical', file);
+    return this.requestMultipart('POST', `/admin/series/${id}/cover-vertical`, fd);
+  }
+
+  async deleteSeriesCoverVertical(id: string): Promise<void> {
+    return this.request('DELETE', `/admin/series/${id}/cover-vertical`);
   }
 
   async getCrew(): Promise<{ crew: CrewMember[] }> {

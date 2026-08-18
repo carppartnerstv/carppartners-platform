@@ -27,6 +27,8 @@ export interface Video {
   description: string | null;
   duration_sec: number;
   thumbnail_url: string | null;
+  /** Portada vertical 2:3 opcional (Fase C: preferida en móvil, cae a thumbnail_url si no existe). */
+  cover_vertical_url?: string | null;
   category_id: string | null;
   series_id: string | null;
   episode_num: number | null;
@@ -45,6 +47,7 @@ export interface RelatedVideo {
   title: string;
   slug: string;
   thumbnail_url: string | null;
+  cover_vertical_url?: string | null;
   duration_sec: number;
   episode_num: number | null;
   progress_sec: number | null;
@@ -58,6 +61,7 @@ export interface NextEpisode {
   title: string;
   slug: string;
   thumbnail_url: string | null;
+  cover_vertical_url?: string | null;
   duration_sec: number;
   episode_num: number | null;
   season_num: number | null;
@@ -82,6 +86,7 @@ export interface Series {
   category_id: string | null;
   season_num: number | null;
   cover_url: string | null;
+  cover_vertical_url?: string | null;
   order_index: number;
   created_at: string;
   /** Marcada a mano desde /admin/series — alimenta "Mejores seleccionados para ti" en Home. */
@@ -105,6 +110,7 @@ export interface SeriesSeason {
   slug: string;
   season_num: number | null;
   cover_url: string | null;
+  cover_vertical_url?: string | null;
   order_index: number;
   episode_count: number;
 }
@@ -118,6 +124,7 @@ export interface SeriesDetail {
     category_id: string | null;
     season_num: number | null;
     cover_url: string | null;
+    cover_vertical_url?: string | null;
     order_index: number;
     parent_series_id: string | null;
   };
@@ -132,6 +139,7 @@ export interface AdminSeries {
   category_id: string | null;
   season_num: number | null;
   cover_url: string | null;
+  cover_vertical_url: string | null;
   order_index: number;
   parent_series_id: string | null;
   created_at: string;
@@ -147,6 +155,7 @@ export interface WatchHistoryItem {
   title: string;
   slug: string;
   thumbnail_url: string | null;
+  cover_vertical_url?: string | null;
   duration_sec: number;
   progress_sec: number;
   last_watched_at: string;
@@ -157,6 +166,7 @@ export interface WatchlistItem {
   title: string;
   slug: string;
   thumbnail_url: string | null;
+  cover_vertical_url?: string | null;
   duration_sec: number;
   added_at: string;
 }

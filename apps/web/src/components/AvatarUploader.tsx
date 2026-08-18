@@ -9,8 +9,8 @@ interface AvatarUploaderProps {
   pendingPreview: string | null;
   /** Iniciales para el placeholder cuando no hay imagen (solo shape="circle") */
   initials?: string;
-  /** "circle" (avatar de persona, por defecto) o "cover" (portada 16:9 de serie/película) */
-  shape?: 'circle' | 'cover';
+  /** "circle" (avatar de persona, por defecto), "cover" (portada horizontal 16:9) o "poster" (portada vertical 2:3) */
+  shape?: 'circle' | 'cover' | 'poster';
   /** Estado de carga mientras se sube o elimina */
   uploading?: boolean;
   /** Se llama cuando el usuario selecciona un archivo */
@@ -35,7 +35,8 @@ export function AvatarUploader({
 
   const displayUrl = pendingPreview ?? currentUrl;
   const hasRealImage = !!currentUrl && !pendingPreview;
-  const isCover = shape === 'cover';
+  const isPoster = shape === 'poster';
+  const isCover = shape === 'cover' || isPoster;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -51,7 +52,8 @@ export function AvatarUploader({
       <div className="relative shrink-0">
         <div
           className={[
-            isCover ? 'w-full max-w-[320px] aspect-video rounded-lg' : 'w-16 h-16 rounded-full',
+            isPoster ? 'w-full max-w-[160px] aspect-[2/3] rounded-lg'
+              : isCover ? 'w-full max-w-[320px] aspect-video rounded-lg' : 'w-16 h-16 rounded-full',
             'overflow-hidden flex items-center justify-center',
             light ? 'bg-admin-bg border border-admin-border' : 'bg-surface-raised border border-white/12',
           ].join(' ')}
@@ -121,7 +123,7 @@ export function AvatarUploader({
         )}
 
         <p className={`text-[10px] ${light ? 'text-admin-text-tertiary' : 'text-white/25'}`}>
-          JPG, PNG o WebP · máx. 5 MB{isCover ? ' · horizontal 16:9' : ''}
+          JPG, PNG o WebP · máx. 5 MB{isPoster ? ' · vertical 2:3' : isCover ? ' · horizontal 16:9' : ''}
         </p>
       </div>
 

@@ -17,19 +17,24 @@ export function SeriesCard({ series, onClick }: SeriesCardProps) {
       className="group relative w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       style={{ transition: 'transform .25s ease' }}
     >
-      {/* Portada 16:9 */}
+      {/* Portada: vertical 2:3 en móvil (estilo Netflix), 16:9 desde sm */}
       <div
-        className="relative aspect-video rounded-card overflow-hidden bg-surface-raised border border-cp-border shadow-card
+        className="relative aspect-[2/3] sm:aspect-video rounded-card overflow-hidden bg-surface-raised border border-cp-border shadow-card
                    transition-transform duration-[250ms] ease-out
                    group-hover:-translate-y-[5px]"
       >
-        {series.cover_url ? (
-          <img
-            src={series.cover_url}
-            alt={series.title}
-            loading="lazy"
-            className="w-full h-full object-cover"
-          />
+        {series.cover_url || series.cover_vertical_url ? (
+          <picture>
+            {series.cover_vertical_url && (
+              <source media="(max-width: 639px)" srcSet={series.cover_vertical_url} />
+            )}
+            <img
+              src={series.cover_url ?? series.cover_vertical_url ?? ''}
+              alt={series.title}
+              loading="lazy"
+              className="w-full h-full object-cover"
+            />
+          </picture>
         ) : (
           <div className="w-full h-full bg-surface-2 flex items-center justify-center">
             <PlayIcon className="w-10 h-10 text-white/20" />
@@ -42,14 +47,6 @@ export function SeriesCard({ series, onClick }: SeriesCardProps) {
           style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 38%, rgba(4,8,10,0.82) 100%)' }}
         />
         <div className="absolute inset-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]" />
-
-        {/* Círculo de reproducción */}
-        <div
-          className="absolute right-3 bottom-[14px] w-9 h-9 rounded-full flex items-center justify-center"
-          style={{ background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.32)', backdropFilter: 'blur(6px)' }}
-        >
-          <PlayIcon className="w-4 h-4 text-white ml-0.5" />
-        </div>
       </div>
 
       {/* Info debajo de la portada */}

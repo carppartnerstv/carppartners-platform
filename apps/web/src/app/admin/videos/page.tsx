@@ -7,6 +7,7 @@ import { Button, Pagination } from '@carp-partners/ui';
 import { AdminModal } from '@/components/admin/AdminModal';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { ContentIndicator, hasContent } from '@/components/admin/ContentIndicator';
+import { AvatarUploader } from '@/components/AvatarUploader';
 import { useToast } from '@/context/ToastContext';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -357,6 +358,19 @@ export default function AdminVideosPage() {
   const [deleting, setDeleting]           = useState(false);
   const [fetchingVimeo, setFetchingVimeo] = useState(false);
 
+  // Portada vertical (2:3) — subida de archivo, campo independiente de
+  // thumbnailUrl (que sigue siendo una URL pegada/autorellenada desde Vimeo)
+  const [pendingCoverVerticalFile, setPendingCoverVerticalFile] = useState<File | null>(null);
+  const [coverVerticalPreview, setCoverVerticalPreview]         = useState<string | null>(null);
+  const [coverVerticalUploading, setCoverVerticalUploading]     = useState(false);
+  const [coverVerticalUrl, setCoverVerticalUrl]                 = useState<string | null>(null);
+
+  const resetCoverVerticalState = () => {
+    setPendingCoverVerticalFile(null);
+    setCoverVerticalPreview(null);
+    setCoverVerticalUrl(null);
+  };
+
   // Carga los desplegables del formulario una sola vez
   useEffect(() => {
     Promise.all([
@@ -400,6 +414,7 @@ export default function AdminVideosPage() {
     setEditing(null);
     setForm(EMPTY);
     setFormError('');
+    resetCoverVerticalState();
     setShowForm(true);
   };
 
@@ -415,7 +430,30 @@ export default function AdminVideosPage() {
       crewMemberIds: (v.crew ?? []).map(c => c.id),
     });
     setFormError('');
+    resetCoverVerticalState();
+    setCoverVerticalUrl(v.cover_vertical_url ?? null);
     setShowForm(true);
+  };
+
+  const handleCoverVerticalFileSelect = (file: File) => {
+    setPendingCoverVerticalFile(file);
+    const url = URL.createObjectURL(file);
+    setCoverVerticalPreview(url);
+  };
+
+  const handleDeleteCoverVertical = async () => {
+    if (!editing) return;
+    setCoverVerticalUploading(true);
+    try {
+      await apiClient.deleteVideoCoverVertical(editing.id);
+      toast('success', 'Portada vertical eliminada');
+      setCoverVerticalUrl(null);
+      setPendingCoverVerticalFile(null);
+      setCoverVerticalPreview(null);
+      await load();
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'No se pudo eliminar la portada vertical');
+    } finally { setCoverVerticalUploading(false); }
   };
 
   // ── Guardar (crear o editar) ────────────────────────────────────────────────
@@ -437,14 +475,29 @@ export default function AdminVideosPage() {
         : (editing ? null : undefined),
     };
     try {
+      let savedId: string;
       if (editing) {
         await apiClient.updateAdminVideo(editing.id, payload);
+        savedId = editing.id;
         toast('success', 'Vídeo actualizado');
       } else {
-        await apiClient.createAdminVideo(payload);
+        const { video } = await apiClient.createAdminVideo(payload);
+        savedId = video.id;
         toast('success', 'Vídeo creado');
       }
+
+      if (pendingCoverVerticalFile) {
+        setCoverVerticalUploading(true);
+        try {
+          await apiClient.uploadVideoCoverVertical(savedId, pendingCoverVerticalFile);
+        } catch (uploadErr) {
+          const msg = uploadErr instanceof ApiError ? uploadErr.message : 'Error al subir la portada vertical';
+          toast('error', msg);
+        } finally { setCoverVerticalUploading(false); }
+      }
+
       setShowForm(false);
+      resetCoverVerticalState();
       await load();
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Error al guardar';
@@ -909,12 +962,25 @@ export default function AdminVideosPage() {
             />
           </Field>
 
-          {/* 9. Miniatura URL */}
-          <Field label="Miniatura URL">
+          {/* 9. Miniatura URL (horizontal 16:9) */}
+          <Field label="Miniatura horizontal (16:9) — URL" hint="Autorellenada desde Vimeo. Se usa en escritorio y como respaldo si no hay portada vertical.">
             <Input
               value={form.thumbnailUrl ?? ''}
               onChange={v => setForm(f => ({ ...f, thumbnailUrl: v }))}
               placeholder="https://…"
+            />
+          </Field>
+
+          {/* 9b. Portada vertical (2:3) */}
+          <Field label="Portada vertical (2:3)" hint="Opcional. Se usa en móvil; si no la subes, se usa la horizontal recortada.">
+            <AvatarUploader
+              light
+              shape="poster"
+              currentUrl={coverVerticalUrl}
+              pendingPreview={coverVerticalPreview}
+              uploading={coverVerticalUploading}
+              onFileSelect={handleCoverVerticalFileSelect}
+              onDelete={editing ? handleDeleteCoverVertical : undefined}
             />
           </Field>
 

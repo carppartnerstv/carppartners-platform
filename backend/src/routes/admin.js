@@ -34,10 +34,12 @@ import sanitizeHtml from 'sanitize-html';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CREW_UPLOADS_DIR      = path.resolve(__dirname, '../../uploads/crew');
 const SERIES_UPLOADS_DIR    = path.resolve(__dirname, '../../uploads/series');
+const VIDEOS_UPLOADS_DIR    = path.resolve(__dirname, '../../uploads/videos');
 const PAGES_UPLOADS_DIR     = path.resolve(__dirname, '../../uploads/pages');
 const CAROUSELS_UPLOADS_DIR = path.resolve(__dirname, '../../uploads/carousels');
 fs.mkdirSync(CREW_UPLOADS_DIR, { recursive: true });
 fs.mkdirSync(SERIES_UPLOADS_DIR, { recursive: true });
+fs.mkdirSync(VIDEOS_UPLOADS_DIR, { recursive: true });
 fs.mkdirSync(PAGES_UPLOADS_DIR, { recursive: true });
 fs.mkdirSync(CAROUSELS_UPLOADS_DIR, { recursive: true });
 
@@ -80,6 +82,12 @@ function makeImageUpload(uploadsDir, fieldName) {
 
 const avatarUpload = makeImageUpload(CREW_UPLOADS_DIR, 'avatar');
 const seriesCoverUpload = makeImageUpload(SERIES_UPLOADS_DIR, 'cover');
+// Portada vertical (2:3): misma carpeta que la horizontal en series (nombres
+// de archivo únicos, no colisionan); vídeos no tenían carpeta de subida
+// propia hasta ahora (la miniatura horizontal siempre fue una URL pegada/
+// autorellenada desde Vimeo, nunca un archivo subido).
+const seriesCoverVerticalUpload = makeImageUpload(SERIES_UPLOADS_DIR, 'coverVertical');
+const videoCoverVerticalUpload = makeImageUpload(VIDEOS_UPLOADS_DIR, 'coverVertical');
 const pageImageUpload = makeImageUpload(PAGES_UPLOADS_DIR, 'image');
 const carouselImageUpload = makeImageUpload(CAROUSELS_UPLOADS_DIR, 'image');
 
@@ -540,6 +548,49 @@ adminRouter.put(
   }),
 );
 
+// POST /admin/videos/:id/cover-vertical — sube o reemplaza la portada vertical (2:3)
+adminRouter.post(
+  '/videos/:id/cover-vertical',
+  videoCoverVerticalUpload,
+  asyncHandler(async (req, res) => {
+    if (!req.file) throw badRequest('No se recibió ninguna imagen', 'NO_FILE');
+
+    const current = await queryOne('SELECT id, cover_vertical_url FROM videos WHERE id = $1', [req.params.id]);
+    if (!current) {
+      deleteFileIfExists(req.file.path);
+      throw notFound('Vídeo no encontrado', 'VIDEO_NOT_FOUND');
+    }
+
+    if (current.cover_vertical_url) {
+      const oldFilename = path.basename(current.cover_vertical_url);
+      deleteFileIfExists(path.join(VIDEOS_UPLOADS_DIR, oldFilename));
+    }
+
+    const coverVerticalUrl = `${req.protocol}://${req.get('host')}/uploads/videos/${req.file.filename}`;
+    const video = await queryOne(
+      'UPDATE videos SET cover_vertical_url = $1 WHERE id = $2 RETURNING *',
+      [coverVerticalUrl, req.params.id],
+    );
+    res.json({ video });
+  }),
+);
+
+// DELETE /admin/videos/:id/cover-vertical — elimina la portada vertical
+adminRouter.delete(
+  '/videos/:id/cover-vertical',
+  asyncHandler(async (req, res) => {
+    const current = await queryOne('SELECT id, cover_vertical_url FROM videos WHERE id = $1', [req.params.id]);
+    if (!current) throw notFound('Vídeo no encontrado', 'VIDEO_NOT_FOUND');
+
+    if (current.cover_vertical_url) {
+      const filename = path.basename(current.cover_vertical_url);
+      deleteFileIfExists(path.join(VIDEOS_UPLOADS_DIR, filename));
+    }
+    await queryOne('UPDATE videos SET cover_vertical_url = NULL WHERE id = $1 RETURNING id', [req.params.id]);
+    res.status(204).end();
+  }),
+);
+
 // --- Despublicar (no borra: pone published = false) ------------------
 adminRouter.delete(
   '/videos/:id',
@@ -614,7 +665,7 @@ adminRouter.get(
 
     const { rows } = await query(
       `SELECT v.id, v.title, v.slug, v.description, v.vimeo_id,
-              v.duration_sec, v.thumbnail_url, v.category_id,
+              v.duration_sec, v.thumbnail_url, v.cover_vertical_url, v.category_id,
               v.series_id, v.episode_num, v.published, v.published_at,
               v.is_featured, v.is_trending, v.created_at, v.updated_at,
               c.name AS category_name,
@@ -779,7 +830,7 @@ adminRouter.get(
     const params = category ? [category] : [];
     const { rows } = await query(
       `SELECT s.id, s.title, s.slug, s.description, s.category_id, s.season_num,
-              s.cover_url, s.order_index, s.parent_series_id, s.created_at, s.is_curated,
+              s.cover_url, s.cover_vertical_url, s.order_index, s.parent_series_id, s.created_at, s.is_curated,
               c.name  AS category_name,
               p.title AS parent_title,
               COUNT(DISTINCT ch.id)::int AS season_count,
@@ -866,13 +917,17 @@ adminRouter.delete(
   '/series/:id',
   asyncHandler(async (req, res) => {
     const series = await queryOne(
-      `DELETE FROM series WHERE id = $1 RETURNING id, cover_url`,
+      `DELETE FROM series WHERE id = $1 RETURNING id, cover_url, cover_vertical_url`,
       [req.params.id],
     );
     if (!series) throw notFound('Serie no encontrada', 'SERIES_NOT_FOUND');
-    // Borra el archivo del disco si la portada era una imagen local
+    // Borra los archivos del disco si las portadas eran imágenes locales
     if (series.cover_url) {
       const filename = path.basename(series.cover_url);
+      deleteFileIfExists(path.join(SERIES_UPLOADS_DIR, filename));
+    }
+    if (series.cover_vertical_url) {
+      const filename = path.basename(series.cover_vertical_url);
       deleteFileIfExists(path.join(SERIES_UPLOADS_DIR, filename));
     }
     res.status(204).end();
@@ -904,6 +959,49 @@ adminRouter.post(
       [coverUrl, req.params.id],
     );
     res.json({ series });
+  }),
+);
+
+// POST /admin/series/:id/cover-vertical — sube o reemplaza la portada vertical (2:3)
+adminRouter.post(
+  '/series/:id/cover-vertical',
+  seriesCoverVerticalUpload,
+  asyncHandler(async (req, res) => {
+    if (!req.file) throw badRequest('No se recibió ninguna imagen', 'NO_FILE');
+
+    const current = await queryOne('SELECT id, cover_vertical_url FROM series WHERE id = $1', [req.params.id]);
+    if (!current) {
+      deleteFileIfExists(req.file.path);
+      throw notFound('Serie no encontrada', 'SERIES_NOT_FOUND');
+    }
+
+    if (current.cover_vertical_url) {
+      const oldFilename = path.basename(current.cover_vertical_url);
+      deleteFileIfExists(path.join(SERIES_UPLOADS_DIR, oldFilename));
+    }
+
+    const coverVerticalUrl = `${req.protocol}://${req.get('host')}/uploads/series/${req.file.filename}`;
+    const series = await queryOne(
+      'UPDATE series SET cover_vertical_url = $1 WHERE id = $2 RETURNING *',
+      [coverVerticalUrl, req.params.id],
+    );
+    res.json({ series });
+  }),
+);
+
+// DELETE /admin/series/:id/cover-vertical — elimina la portada vertical
+adminRouter.delete(
+  '/series/:id/cover-vertical',
+  asyncHandler(async (req, res) => {
+    const current = await queryOne('SELECT id, cover_vertical_url FROM series WHERE id = $1', [req.params.id]);
+    if (!current) throw notFound('Serie no encontrada', 'SERIES_NOT_FOUND');
+
+    if (current.cover_vertical_url) {
+      const filename = path.basename(current.cover_vertical_url);
+      deleteFileIfExists(path.join(SERIES_UPLOADS_DIR, filename));
+    }
+    await queryOne('UPDATE series SET cover_vertical_url = NULL WHERE id = $1 RETURNING id', [req.params.id]);
+    res.status(204).end();
   }),
 );
 

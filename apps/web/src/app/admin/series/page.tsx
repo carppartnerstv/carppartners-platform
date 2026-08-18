@@ -79,10 +79,16 @@ export default function AdminSeriesPage() {
   const [pendingDelete, setPendingDelete] = useState<AdminSeries | null>(null);
   const [deleting, setDeleting]           = useState(false);
 
-  // Portada: archivo pendiente de subir + preview local + estado de subida/borrado
+  // Portada horizontal: archivo pendiente de subir + preview local + estado de subida/borrado
   const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview]         = useState<string | null>(null);
   const [coverUploading, setCoverUploading]     = useState(false);
+
+  // Portada vertical (2:3) — mismo patrón, campo independiente
+  const [pendingCoverVerticalFile, setPendingCoverVerticalFile] = useState<File | null>(null);
+  const [coverVerticalPreview, setCoverVerticalPreview]         = useState<string | null>(null);
+  const [coverVerticalUploading, setCoverVerticalUploading]     = useState(false);
+  const [coverVerticalUrl, setCoverVerticalUrl]                 = useState<string | null>(null);
 
   // Filter by category
   const [filterCat, setFilterCat] = useState('');
@@ -114,6 +120,9 @@ export default function AdminSeriesPage() {
   const resetCoverState = () => {
     setPendingCoverFile(null);
     setCoverPreview(null);
+    setPendingCoverVerticalFile(null);
+    setCoverVerticalPreview(null);
+    setCoverVerticalUrl(null);
   };
 
   const openCreate = () => {
@@ -128,7 +137,7 @@ export default function AdminSeriesPage() {
       coverUrl: s.cover_url ?? '', orderIndex: s.order_index,
       parentSeriesId: s.parent_series_id ?? null,
     });
-    setFormError(''); resetCoverState(); setShowForm(true);
+    setFormError(''); resetCoverState(); setCoverVerticalUrl(s.cover_vertical_url ?? null); setShowForm(true);
   };
 
   const openAddSeason = (parent: AdminSeries) => {
@@ -159,6 +168,27 @@ export default function AdminSeriesPage() {
     } catch (e) {
       toast('error', e instanceof ApiError ? e.message : 'No se pudo eliminar la portada');
     } finally { setCoverUploading(false); }
+  };
+
+  const handleCoverVerticalFileSelect = (file: File) => {
+    setPendingCoverVerticalFile(file);
+    const url = URL.createObjectURL(file);
+    setCoverVerticalPreview(url);
+  };
+
+  const handleDeleteCoverVertical = async () => {
+    if (!editing) return;
+    setCoverVerticalUploading(true);
+    try {
+      await apiClient.deleteSeriesCoverVertical(editing.id);
+      toast('success', 'Portada vertical eliminada');
+      setCoverVerticalUrl(null);
+      setPendingCoverVerticalFile(null);
+      setCoverVerticalPreview(null);
+      await load();
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'No se pudo eliminar la portada vertical');
+    } finally { setCoverVerticalUploading(false); }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -192,6 +222,16 @@ export default function AdminSeriesPage() {
           const msg = uploadErr instanceof ApiError ? uploadErr.message : 'Error al subir la portada';
           toast('error', msg);
         } finally { setCoverUploading(false); }
+      }
+
+      if (pendingCoverVerticalFile) {
+        setCoverVerticalUploading(true);
+        try {
+          await apiClient.uploadSeriesCoverVertical(savedId, pendingCoverVerticalFile);
+        } catch (uploadErr) {
+          const msg = uploadErr instanceof ApiError ? uploadErr.message : 'Error al subir la portada vertical';
+          toast('error', msg);
+        } finally { setCoverVerticalUploading(false); }
       }
 
       toast('success', editing ? 'Serie actualizada' : 'Serie creada');
@@ -454,7 +494,7 @@ export default function AdminSeriesPage() {
               />
             </Field>
           </div>
-          <Field label="Portada">
+          <Field label="Portada horizontal (16:9)" hint="Se usa en escritorio y como respaldo si no hay portada vertical.">
             <AvatarUploader
               light
               shape="cover"
@@ -463,6 +503,17 @@ export default function AdminSeriesPage() {
               uploading={coverUploading}
               onFileSelect={handleCoverFileSelect}
               onDelete={editing ? handleDeleteCover : undefined}
+            />
+          </Field>
+          <Field label="Portada vertical (2:3)" hint="Opcional. Se usa en móvil; si no la subes, se usa la horizontal recortada.">
+            <AvatarUploader
+              light
+              shape="poster"
+              currentUrl={coverVerticalUrl}
+              pendingPreview={coverVerticalPreview}
+              uploading={coverVerticalUploading}
+              onFileSelect={handleCoverVerticalFileSelect}
+              onDelete={editing ? handleDeleteCoverVertical : undefined}
             />
           </Field>
           <Field label="Orden" hint="Menor número = aparece antes.">

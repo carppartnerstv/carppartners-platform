@@ -52,7 +52,7 @@ userRouter.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { rows } = await query(
-      `SELECT v.id, v.title, v.slug, v.thumbnail_url, v.duration_sec,
+      `SELECT v.id, v.title, v.slug, v.thumbnail_url, v.cover_vertical_url, v.duration_sec,
               h.progress_sec, h.last_watched_at
          FROM watch_history h
          JOIN videos v ON v.id = h.video_id
@@ -73,7 +73,7 @@ userRouter.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { rows } = await query(
-      `SELECT v.id, v.title, v.slug, v.thumbnail_url, v.duration_sec, w.added_at
+      `SELECT v.id, v.title, v.slug, v.thumbnail_url, v.cover_vertical_url, v.duration_sec, w.added_at
          FROM watchlist w
          JOIN videos v ON v.id = w.video_id
             AND v.published = true

@@ -17,29 +17,38 @@ export interface VideoCardProps {
   rank?: number;
   /** Muestra badge "Nuevo" dorado */
   isNew?: boolean;
+  /** Círculo de reproducción centrado — solo pensado para "Continuar viendo" */
+  showPlayButton?: boolean;
   onClick?: (video: Video) => void;
 }
 
-export function VideoCard({ video, progress, rank, isNew, onClick }: VideoCardProps) {
+export function VideoCard({ video, progress, rank, isNew, showPlayButton, onClick }: VideoCardProps) {
   return (
     <button
       onClick={() => onClick?.(video)}
       className="group relative w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       style={{ transition: 'transform .25s ease' }}
     >
-      {/* Thumbnail 16:9 */}
+      {/* Portada: vertical 2:3 en móvil (estilo Netflix), 16:9 desde sm */}
       <div
-        className="relative aspect-video rounded-card overflow-hidden bg-surface-raised border border-cp-border shadow-card
+        className="relative aspect-[2/3] sm:aspect-video rounded-card overflow-hidden bg-surface-raised border border-cp-border shadow-card
                    transition-transform duration-[250ms] ease-out
                    group-hover:-translate-y-[5px]"
       >
-        {video.thumbnail_url ? (
-          <img
-            src={video.thumbnail_url}
-            alt={video.title}
-            loading="lazy"
-            className="w-full h-full object-cover"
-          />
+        {video.thumbnail_url || video.cover_vertical_url ? (
+          <picture>
+            {/* Por debajo de 640px, si hay portada vertical subida, se usa
+                esa — si no, el navegador cae solo a la horizontal de abajo. */}
+            {video.cover_vertical_url && (
+              <source media="(max-width: 639px)" srcSet={video.cover_vertical_url} />
+            )}
+            <img
+              src={video.thumbnail_url ?? video.cover_vertical_url ?? ''}
+              alt={video.title}
+              loading="lazy"
+              className="w-full h-full object-cover"
+            />
+          </picture>
         ) : (
           <div className="w-full h-full bg-surface-2 flex items-center justify-center">
             <PlayIcon className="w-10 h-10 text-white/20" />
@@ -81,23 +90,25 @@ export function VideoCard({ video, progress, rank, isNew, onClick }: VideoCardPr
           </span>
         )}
 
-        {/* Duración (top-right) */}
+        {/* Duración (top-right) — en móvil, solo en "Continuar viendo" (showPlayButton) */}
         {video.duration_sec > 0 && (
           <span
-            className="absolute top-[10px] right-[10px] px-[7px] py-[3px] rounded-[5px] text-[11px]"
+            className={`absolute top-[10px] right-[10px] px-[7px] py-[3px] rounded-[5px] text-[11px] ${showPlayButton ? '' : 'hidden sm:block'}`}
             style={{ background: 'rgba(4,8,10,0.72)', color: '#dfe7e3', backdropFilter: 'blur(4px)' }}
           >
             {formatDuration(video.duration_sec)}
           </span>
         )}
 
-        {/* Círculo de reproducción */}
-        <div
-          className="absolute right-3 bottom-[14px] w-9 h-9 rounded-full flex items-center justify-center"
-          style={{ background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.32)', backdropFilter: 'blur(6px)' }}
-        >
-          <PlayIcon className="w-4 h-4 text-white ml-0.5" />
-        </div>
+        {/* Círculo de reproducción — centrado, solo en "Continuar viendo" */}
+        {showPlayButton && (
+          <div
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.32)', backdropFilter: 'blur(6px)' }}
+          >
+            <PlayIcon className="w-5 h-5 text-white ml-0.5" />
+          </div>
+        )}
 
         {/* Barra de progreso */}
         {progress !== undefined && progress > 0 && (
