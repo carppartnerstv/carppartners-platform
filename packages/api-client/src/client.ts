@@ -332,6 +332,12 @@ export class ApiClient {
     q?: string;
     /** Filtra por slug de un miembro de la crew — "Vídeos con {nombre}" */
     crew?: string;
+    /** 'recent' = todo el catálogo por created_at DESC, sin agrupar por serie — fila de Home "Añadido recientemente" */
+    sort?: 'recent';
+    /** Solo películas/vídeos sueltos sin serie — fila de Home "Películas" */
+    standalone?: boolean;
+    /** Solo marcados a mano desde /admin/videos — fila de Home "Tendencias en Carp Partners" */
+    trending?: boolean;
   }): Promise<{ videos: Video[]; limit: number; offset: number }> {
     return this.request('GET', '/videos', { query: params });
   }
@@ -372,7 +378,7 @@ export class ApiClient {
     return this.request('GET', '/categories');
   }
 
-  async getSeries(params?: { category?: string }): Promise<{ series: Series[] }> {
+  async getSeries(params?: { category?: string; curated?: boolean }): Promise<{ series: Series[] }> {
     return this.request('GET', '/series', { query: params });
   }
 

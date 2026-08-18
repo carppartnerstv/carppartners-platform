@@ -411,6 +411,10 @@ const videoSchema = z.object({
   ),
   crewMemberIds: z.array(z.string().uuid()).optional(),
   isFeatured: z.boolean().optional(),
+  // Fila de Home "Tendencias en Carp Partners" — a diferencia de isFeatured
+  // (un único destacado, con lógica de "desmarcar los demás"), aquí pueden
+  // marcarse varios vídeos a la vez, así que va en el `map` genérico del PUT.
+  isTrending: z.boolean().optional(),
 });
 
 adminRouter.post(
@@ -437,13 +441,14 @@ adminRouter.post(
       const { rows } = await client.query(
         `INSERT INTO videos
           (title, slug, description, vimeo_id, duration_sec, thumbnail_url,
-           category_id, series_id, episode_num, published, published_at, is_featured)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+           category_id, series_id, episode_num, published, published_at, is_featured, is_trending)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
          RETURNING *`,
         [
           v.title, v.slug, v.description ?? null, v.vimeoId, v.durationSec ?? 0,
           v.thumbnailUrl ?? null, v.categoryId ?? null, v.seriesId ?? null,
           v.episodeNum ?? null, v.published ?? false, publishedAt, v.isFeatured ?? false,
+          v.isTrending ?? false,
         ],
       );
       const created = rows[0];
@@ -468,6 +473,7 @@ adminRouter.put(
       title: 'title', slug: 'slug', description: 'description', vimeoId: 'vimeo_id',
       durationSec: 'duration_sec', thumbnailUrl: 'thumbnail_url', categoryId: 'category_id',
       seriesId: 'series_id', episodeNum: 'episode_num', published: 'published',
+      isTrending: 'is_trending',
     };
     const sets = [];
     const params = [];
@@ -610,7 +616,7 @@ adminRouter.get(
       `SELECT v.id, v.title, v.slug, v.description, v.vimeo_id,
               v.duration_sec, v.thumbnail_url, v.category_id,
               v.series_id, v.episode_num, v.published, v.published_at,
-              v.is_featured, v.created_at, v.updated_at,
+              v.is_featured, v.is_trending, v.created_at, v.updated_at,
               c.name AS category_name,
               s.title AS series_title,
               s.season_num,
@@ -727,6 +733,11 @@ const seriesSchema = z.object({
   coverUrl:       z.string().url().optional(),
   orderIndex:     z.number().int().min(0).optional(),
   parentSeriesId: z.string().uuid().nullable().optional(),
+  // Fila de Home "Mejores seleccionados para ti" — a diferencia de
+  // videos.is_featured (un único destacado, con índice único parcial en
+  // BD) aquí pueden marcarse varias series a la vez, así que no hay
+  // ninguna lógica de "desmarcar las demás".
+  isCurated:      z.boolean().optional(),
 });
 
 // Valida que `parentSeriesId` pueda usarse como padre de `currentSeriesId`
@@ -768,7 +779,7 @@ adminRouter.get(
     const params = category ? [category] : [];
     const { rows } = await query(
       `SELECT s.id, s.title, s.slug, s.description, s.category_id, s.season_num,
-              s.cover_url, s.order_index, s.parent_series_id, s.created_at,
+              s.cover_url, s.order_index, s.parent_series_id, s.created_at, s.is_curated,
               c.name  AS category_name,
               p.title AS parent_title,
               COUNT(DISTINCT ch.id)::int AS season_count,
@@ -797,11 +808,12 @@ adminRouter.post(
     const safeDescription = d.description ? sanitizeHtml(d.description, RICH_TEXT_SANITIZE_OPTIONS) : null;
 
     const series = await queryOne(
-      `INSERT INTO series (title, slug, description, category_id, season_num, cover_url, order_index, parent_series_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      `INSERT INTO series (title, slug, description, category_id, season_num, cover_url, order_index, parent_series_id, is_curated)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
       [
         d.title, d.slug, safeDescription, d.categoryId ?? null,
         d.seasonNum ?? 1, d.coverUrl ?? null, d.orderIndex ?? 0, d.parentSeriesId ?? null,
+        d.isCurated ?? false,
       ],
     );
     res.status(201).json({ series });
@@ -828,7 +840,7 @@ adminRouter.put(
       title: 'title', slug: 'slug', description: 'description',
       categoryId: 'category_id', seasonNum: 'season_num',
       coverUrl: 'cover_url', orderIndex: 'order_index',
-      parentSeriesId: 'parent_series_id',
+      parentSeriesId: 'parent_series_id', isCurated: 'is_curated',
     };
     const sets   = [];
     const params = [];

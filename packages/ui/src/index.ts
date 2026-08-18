@@ -13,6 +13,9 @@ export type { SeriesCardProps } from './SeriesCard';
 export { SeriesRow } from './SeriesRow';
 export type { SeriesRowProps } from './SeriesRow';
 
+export { TopTenCarousel } from './TopTenCarousel';
+export type { TopTenCarouselProps } from './TopTenCarousel';
+
 export { HeroBanner } from './HeroBanner';
 export type { HeroBannerProps } from './HeroBanner';
 

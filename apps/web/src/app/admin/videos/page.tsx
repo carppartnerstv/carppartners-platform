@@ -502,6 +502,19 @@ export default function AdminVideosPage() {
     }
   };
 
+  // ── Toggle "Tendencias en Carp Partners" (Home) ─────────────────────────────
+  // A diferencia del destacado, aquí pueden estar varios vídeos a la vez —
+  // no hay lógica de "desmarcar los demás".
+  const toggleTrending = async (v: AdminVideo) => {
+    try {
+      await apiClient.updateAdminVideo(v.id, { isTrending: !v.is_trending });
+      await load();
+      toast('success', v.is_trending ? `"${v.title}" ya no aparece en Tendencias` : `"${v.title}" aparece ahora en "Tendencias en Carp Partners"`);
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'No se pudo cambiar la tendencia');
+    }
+  };
+
   // ── Edición inline del nº de episodio (columna "Serie") ────────────────────
   // silent=true en el load(): no queremos que toda la tabla parpadee a
   // "Cargando…" por cambiar un solo campo de una fila.
@@ -640,6 +653,18 @@ export default function AdminVideosPage() {
                       <svg className="w-[18px] h-[18px]" fill={v.is_featured ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round"
                           d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => toggleTrending(v)}
+                      title={v.is_trending ? 'En "Tendencias en Carp Partners" — pulsa para quitarlo' : 'Añadir a "Tendencias en Carp Partners"'}
+                      className={`shrink-0 p-1 rounded transition-colors ${
+                        v.is_trending ? 'text-[#cf4a35]' : 'text-admin-text-tertiary hover:text-admin-text-secondary'
+                      }`}
+                    >
+                      <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={v.is_trending ? 2.25 : 1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round"
+                          d="M2.25 18L9 11.25l4.306 4.306a11.95 11.95 0 015.814-5.518l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
                       </svg>
                     </button>
                     {v.thumbnail_url ? (

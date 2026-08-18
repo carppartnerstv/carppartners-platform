@@ -1,37 +1,32 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
+import { PublicHeader } from '@/components/PublicHeader';
 import { ContactForm } from '@/components/ContactForm';
 
-// Página de contacto — diseño dividido: cabecera mínima (logo + volver al
-// inicio), tarjeta central con fondo de rejilla + viñeta, copia + cita del
-// equipo a la izquierda y el formulario a la derecha.
+// Página de contacto — mismo PublicHeader (con su menú de navegación) que el
+// resto de páginas públicas: sin él, en móvil no había forma de seguir
+// navegando sin volver primero a la landing. Debajo: en desktop, tarjeta
+// central con fondo de rejilla + viñeta, copia + cita del equipo a la
+// izquierda y el formulario a la derecha; en móvil, sin esa tarjeta, título +
+// subtítulo + formulario directos sobre el fondo.
 export function ContactPageView() {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#06090c', fontFamily: 'Inter, sans-serif' }}>
-      <header className="flex items-center px-6 md:px-10 py-6">
-        <Link href="/">
-          <Image
-            src="/carp-partners-logo blanc.png"
-            alt="Carp Partners TV"
-            width={130} height={24}
-            className="h-6 w-auto"
-          />
-        </Link>
-        <div className="flex-1" />
-        <Link
-          href="/"
-          className="inline-flex items-center gap-[7px] text-[13px] transition-colors"
-          style={{ color: '#9aa9a3' }}
-        >
-          <i className="ti ti-arrow-left text-[17px]" />
-          Volver al inicio
-        </Link>
-      </header>
+      <PublicHeader />
 
-      <div className="flex-1 flex items-center justify-center px-6 pb-[60px]">
+      {/* pt-[110px] deja hueco al header, que va fixed — mismo valor que StaticPageLayout */}
+      <div className="md:hidden px-5 pt-[110px] pb-12">
+        <h1 className="font-display font-extrabold text-white mb-2.5" style={{ fontSize: 26, lineHeight: 1.15, letterSpacing: '-0.02em' }}>
+          ¿Tienes alguna duda?<br />Escríbenos.
+        </h1>
+        <p className="mb-6" style={{ fontSize: 13.5, lineHeight: 1.6, color: '#9aa9a3' }}>
+          Nuestro equipo te responderá en menos de 24h.
+        </p>
+        <ContactForm />
+      </div>
+
+      <div className="hidden md:flex flex-1 items-center justify-center px-6 pt-[110px] pb-[60px]">
         <div
           className="relative w-full max-w-[1020px] rounded-[24px] overflow-hidden"
           style={{ background: '#0a0d10', border: '1px solid rgba(255,255,255,0.08)' }}

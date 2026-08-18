@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import type { Video, Category, Series, WatchHistoryItem } from '@carp-partners/api-client';
-import { HeroBanner, VideoRow, SeriesRow } from '@carp-partners/ui';
+import { HeroBanner, VideoRow, SeriesRow, TopTenCarousel } from '@carp-partners/ui';
 
 interface CategoryRow {
   category: Category;
@@ -19,6 +19,9 @@ export default function HomePage() {
   const [hero, setHero] = useState<Video | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [series, setSeries] = useState<Series[]>([]);
+  const [recentVideos, setRecentVideos] = useState<Video[]>([]);
+  const [trendingVideos, setTrendingVideos] = useState<Video[]>([]);
+  const [curatedSeries, setCuratedSeries] = useState<Series[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Clic en una tarjeta → pantalla de detalle. "Ver ahora" del hero → reproducción directa.
@@ -36,13 +39,19 @@ export default function HomePage() {
 
     async function load() {
       try {
-        // Cargamos categorías, series, "Continuar viendo" y el destacado de portada en paralelo
-        const [{ categories }, { series: allSeries }, { items: continueWatching }, { video: featured }] =
-          await Promise.all([
+        // Categorías, series, "Continuar viendo", destacado de portada,
+        // añadido recientemente, tendencias y lo seleccionado a mano, todo en paralelo
+        const [
+          { categories }, { series: allSeries }, { items: continueWatching }, { video: featured },
+          { videos: recent }, { videos: trending }, { series: curated },
+        ] = await Promise.all([
             apiClient.getCategories(),
             apiClient.getSeries(),
             apiClient.getContinueWatching(),
             apiClient.getFeaturedVideo(),
+            apiClient.getVideos({ sort: 'recent', limit: 20 }),
+            apiClient.getVideos({ trending: true, limit: 10 }),
+            apiClient.getSeries({ curated: true }),
           ]);
 
         if (cancelled) return;
@@ -50,6 +59,9 @@ export default function HomePage() {
         setSeries(allSeries);
         setContinueItems(continueWatching);
         setHero(featured);
+        setRecentVideos(recent);
+        setTrendingVideos(trending);
+        setCuratedSeries(curated);
 
         // Cargamos las series/películas de cada categoría en paralelo
         const rowsData = await Promise.all(
@@ -85,7 +97,7 @@ export default function HomePage() {
     }
   }
 
-  // Convertimos WatchHistoryItem → Video (misma forma)
+  // Convertimos WatchHistoryItem → Video (misma forma) — fila "Continuar viendo" sin cambios
   const continueVideos: Video[] = continueItems.map((item) => ({
     id: item.id,
     title: item.title,
@@ -140,7 +152,34 @@ export default function HomePage() {
           />
         )}
 
-        {/* Filas por categoría: una tarjeta por serie/película, no vídeos sueltos */}
+        {/* Añadido recientemente — a nivel de vídeo/episodio, con el badge
+            "Nuevo" en lo publicado en los últimos 45 días */}
+        <VideoRow
+          title="Añadido recientemente"
+          videos={recentVideos}
+          onVideoClick={goToDetail}
+          showNewBadge
+        />
+
+        {/* Tendencias en Carp Partners — cards estándar con numeral de ranking (marcadas a mano desde /admin/videos) */}
+        <VideoRow
+          title="Tendencias en Carp Partners"
+          videos={trendingVideos}
+          onVideoClick={goToDetail}
+          showRank
+        />
+
+        {/* Mejores seleccionados para ti — carrusel tipo "Top 10", una card
+            central con info sincronizada debajo; series/películas marcadas
+            a mano desde /admin/series */}
+        <TopTenCarousel
+          title="Mejores seleccionados para ti"
+          items={curatedSeries}
+          categories={categories}
+          onItemClick={(s) => router.push(`/serie/${s.id}`)}
+        />
+
+        {/* Filas por categoría: una tarjeta por serie/película, no vídeos sueltos — sin cambios */}
         {rows.map(({ category, series }) => (
           <SeriesRow
             key={category.id}

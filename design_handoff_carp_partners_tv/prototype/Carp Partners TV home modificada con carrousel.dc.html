@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.7.0/dist/tabler-icons.min.css">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#06090c}
+  [data-row]::-webkit-scrollbar{height:0px;display:none}
+  [data-row]{scrollbar-width:none}
+  ::selection{background:#68140b;color:#fff}
+  @keyframes cpfade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes cpspin{to{transform:rotate(360deg)}}
+</style>
+</helmet>
+<template id="__bundler_thumbnail" data-bg-color="#06090c">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#06090c"/>
+    <rect x="380" y="330" width="440" height="140" rx="16" fill="#68140b"/>
+    <circle cx="600" cy="400" r="46" fill="#fff" opacity="0.92"/>
+    <path d="M588 380 L622 400 L588 420 Z" fill="#68140b"/>
+  </svg>
+</template>
+<div style="min-height:100vh;background:#06090c;font-family:Inter,sans-serif;color:#e9efeb;position:relative;overflow-x:hidden">
+
+  <sc-if value="{{ showChrome }}" hint-placeholder-val="{{ true }}">
+  <header style="position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:34px;padding:15px 48px;background:linear-gradient(180deg, rgba(6,9,12,0.96) 0%, rgba(6,9,12,0.55) 60%, rgba(6,9,12,0) 100%);backdrop-filter:blur(6px)">
+    <div style="display:flex;align-items:center;cursor:pointer" onClick="{{ goHome }}">
+      <img src="assets/carp-partners-logo.png" alt="Carp Partners" style="height:25px;width:auto;display:block" />
+    </div>
+    <nav style="display:flex;align-items:center;gap:26px;margin-left:6px">
+      <span onClick="{{ goHome }}" style="font-size:13.5px;font-weight:500;cursor:pointer;color:{{ navHome }}">Inicio</span>
+      <span onClick="{{ goExplore }}" style="font-size:13.5px;font-weight:500;cursor:pointer;color:{{ navExplore }}">Explorar</span>
+      <span onClick="{{ goList }}" style="font-size:13.5px;font-weight:500;cursor:pointer;color:{{ navList }}">Mi Lista</span>
+    </nav>
+    <div style="flex:1"></div>
+    <div onClick="{{ goExplore }}" style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#cdd6d2;transition:background .2s" style-hover="background:rgba(255,255,255,0.08)"><i class="ti ti-search" style="font-size:20px"></i></div>
+    <div style="position:relative">
+      <div onClick="{{ toggleMenu }}" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#5a241d,#2a1411);border:1px solid rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center;font-family:Sora,sans-serif;font-weight:600;font-size:13px;color:#d4e4dd">{{ initials }}</div>
+        <i class="ti ti-chevron-down" style="font-size:15px;color:#9aa9a3"></i>
+      </div>
+      <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;top:48px;right:0;width:230px;background:#0e151a;border:1px solid rgba(255,255,255,0.1);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,0.6);overflow:hidden;animation:cpfade .18s ease">
+          <div style="padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.07)">
+            <div style="font-size:13.5px;font-weight:600;color:#eef3f0">{{ displayName }}</div>
+            <div style="font-size:11.5px;color:#7d8d86;margin-top:2px">{{ displayEmail }}</div>
+            <div style="display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:3px 8px;border-radius:5px;background:rgba(104,20,11,0.2);color:{{ accentBright }};font-size:10.5px;font-weight:600"><i class="ti ti-circle-check-filled" style="font-size:12px"></i>Plan Anual activo</div>
+          </div>
+          <div onClick="{{ goProfile }}" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;color:#cdd6d2;cursor:pointer" style-hover="background:rgba(255,255,255,0.05)"><i class="ti ti-user" style="font-size:17px;color:#85958e"></i>Perfil</div>
+          <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;color:#cdd6d2;cursor:pointer;border-top:1px solid rgba(255,255,255,0.07)" style-hover="background:rgba(255,255,255,0.05)"><i class="ti ti-logout" style="font-size:17px;color:#85958e"></i>Cerrar sesi&oacute;n</div>
+        </div>
+      </sc-if>
+    </div>
+  </header>
+  </sc-if>
+
+  <!-- ===================== HOME ===================== -->
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+  <div style="margin-top:-88px">
+    <section style="position:relative;width:100%;height:84vh;min-height:580px">
+      <div style="position:absolute;inset:0;background:{{ heroBg }}"></div>
+      <div style="position:absolute;inset:0;background:linear-gradient(90deg, rgba(6,9,12,0.92) 0%, rgba(6,9,12,0.55) 38%, rgba(6,9,12,0) 70%)"></div>
+      <div style="position:absolute;inset:0;background:linear-gradient(0deg, #06090c 2%, rgba(6,9,12,0.2) 30%, rgba(6,9,12,0) 55%)"></div>
+      <div style="position:absolute;left:48px;bottom:8vh;max-width:560px">
+        <div style="display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:6px;background:rgba(216,166,74,0.16);border:1px solid rgba(216,166,74,0.35);color:#e3bd72;font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:18px"><i class="ti ti-sparkles" style="font-size:14px"></i>Nueva temporada</div>
+        <h1 style="font-family:Sora,sans-serif;font-weight:800;font-size:62px;line-height:1.02;letter-spacing:-0.02em;color:#fff;margin:0 0 16px;text-shadow:0 4px 30px rgba(0,0,0,0.5)">{{ heroTitle }}</h1>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;font-size:13px;color:#c4d0cb">
+          <span style="font-weight:600">2026</span>
+          <span style="width:3px;height:3px;border-radius:50%;background:#5f6f69"></span>
+          <span>Serie &middot; Aguas Salvajes</span>
+          <span style="width:3px;height:3px;border-radius:50%;background:#5f6f69"></span>
+          <span>8 episodios</span>
+          <span style="padding:1px 6px;border:1px solid rgba(255,255,255,0.28);border-radius:4px;font-size:11px">4K UHD</span>
+        </div>
+        <p style="font-size:15.5px;line-height:1.6;color:#c4d0cb;margin:0 0 26px;max-width:500px">{{ heroSyn }}</p>
+        <div style="display:flex;align-items:center;gap:14px">
+          <button onClick="{{ playFeatured }}" style="display:inline-flex;align-items:center;gap:9px;padding:13px 28px;border:none;border-radius:9px;background:{{ accent }};color:#fff;font-family:Inter,sans-serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 6px 22px rgba(104,20,11,0.55);transition:transform .15s" style-hover="transform:scale(1.03)"><i class="ti ti-player-play-filled" style="font-size:19px"></i>Ver ahora</button>
+          <button onClick="{{ infoFeatured }}" style="display:inline-flex;align-items:center;gap:9px;padding:13px 24px;border:1px solid rgba(255,255,255,0.2);border-radius:9px;background:rgba(255,255,255,0.1);backdrop-filter:blur(6px);color:#fff;font-family:Inter,sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s" style-hover="background:rgba(255,255,255,0.18)"><i class="ti ti-info-circle" style="font-size:19px"></i>M&aacute;s info</button>
+        </div>
+      </div>
+      <div style="position:absolute;right:48px;bottom:8vh;display:flex;align-items:center;gap:14px">
+        <div onClick="{{ toggleHeroMute }}" style="width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;background:rgba(6,9,12,0.3)"><i class="ti ti-{{ heroMuteIcon }}" style="font-size:20px"></i></div>
+        <div style="padding:5px 10px;border-left:3px solid {{ accent }};font-size:12px;color:#c4d0cb;background:rgba(6,9,12,0.4)">+12</div>
+      </div>
+    </section>
+
+    <div style="position:relative;z-index:2;padding-top:6px;padding-bottom:60px">
+      <sc-for list="{{ homeRows }}" as="row" hint-placeholder-count="5">
+        <div style="margin-bottom:{{ row.marginBottom }}">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 48px;margin-bottom:14px">
+            <h2 style="font-family:Sora,sans-serif;font-size:{{ row.titleSize }};font-weight:{{ row.titleWeight }};color:#eef3f0;margin:0">{{ row.title }}</h2>
+            <span style="display:inline-flex;align-items:center;gap:3px;font-size:12.5px;color:#7d8d86;cursor:pointer;font-weight:500" style-hover="color:#c4d0cb">Ver todos <i class="ti ti-chevron-right" style="font-size:14px"></i></span>
+          </div>
+
+          <sc-if value="{{ row.isSpotlight }}" hint-placeholder-val="{{ false }}">
+            <div data-row style="display:flex;gap:16px;overflow-x:auto;padding:6px 48px 12px;height:300px">
+              <sc-for list="{{ row.items }}" as="v" hint-placeholder-count="3">
+                <div onClick="{{ v.open }}" style="flex:0 0 {{ v.spotW }};height:100%;position:relative;border-radius:12px;overflow:hidden;background:{{ v.bg }};border:{{ v.spotBorder }};box-shadow:{{ v.spotShadow }};cursor:pointer;transition:transform .25s ease" style-hover="transform:translateY(-5px)">
+                  <div style="position:absolute;inset:0;background:linear-gradient(0deg, rgba(4,8,10,0.94) 0%, rgba(4,8,10,0.3) 55%, rgba(4,8,10,0) 100%)"></div>
+                  <div style="position:absolute;top:14px;left:14px;padding:4px 9px;border-radius:6px;background:rgba(216,166,74,0.95);color:#1a1206;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase">{{ v.spotBadge }}</div>
+                  <div style="position:absolute;left:20px;right:20px;bottom:18px">
+                    <div style="font-family:Sora,sans-serif;font-weight:700;font-size:{{ v.spotTitleSize }};color:#fff;margin-bottom:10px">{{ v.title }}</div>
+                    <sc-if value="{{ v.spotIsFeatured }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                        <span style="padding:3px 8px;border-radius:5px;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.25);color:#eef3f0;font-size:11px;font-weight:600">TOP 10</span>
+                        <span style="font-size:12px;color:#c4d0cb">{{ v.metaline }}</span>
+                        <span style="width:3px;height:3px;border-radius:50%;background:#5f6f69"></span>
+                        <span style="font-size:12px;color:#c4d0cb">{{ v.cat }}</span>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ row.isRanked }}" hint-placeholder-val="{{ false }}">
+            <div data-row style="display:flex;gap:30px;overflow-x:auto;padding:6px 48px 30px">
+              <sc-for list="{{ row.items }}" as="v" hint-placeholder-count="6">
+                <div style="flex:0 0 280px;padding-left:36px"><dc-import name="VideoCard" item="{{ v }}" accent="{{ accentBright }}" new-label="{{ newLabel }}" w="100%" hint-size="100%,232px"></dc-import></div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ row.isSeries }}" hint-placeholder-val="{{ false }}">
+            <div data-row style="display:flex;gap:18px;overflow-x:auto;padding:6px 48px 12px">
+              <sc-for list="{{ row.items }}" as="v" hint-placeholder-count="5">
+                <div onClick="{{ v.open }}" style="flex:0 0 320px;position:relative;aspect-ratio:2/3;border-radius:12px;overflow:hidden;background:{{ v.bg }};border:1px solid rgba(255,255,255,0.08);box-shadow:0 8px 24px rgba(0,0,0,0.4);cursor:pointer;transition:transform .25s ease" style-hover="transform:translateY(-5px)">
+                  <div style="position:absolute;inset:0;background:linear-gradient(0deg, rgba(4,8,10,0.88) 0%, rgba(4,8,10,0.15) 50%, rgba(4,8,10,0) 75%)"></div>
+                  <div style="position:absolute;left:18px;right:18px;bottom:18px">
+                    <div style="font-family:Sora,sans-serif;font-weight:700;font-size:19px;color:#fff;margin-bottom:6px">{{ v.title }}</div>
+                    <div style="font-size:12px;color:#c4d0cb">{{ v.metaline }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ row.isStandard }}" hint-placeholder-val="{{ true }}">
+            <div data-row style="display:flex;gap:16px;overflow-x:auto;padding:6px 48px 12px">
+              <sc-for list="{{ row.items }}" as="v" hint-placeholder-count="6">
+                <div style="flex:0 0 {{ row.cardW }}"><dc-import name="VideoCard" item="{{ v }}" accent="{{ accentBright }}" new-label="{{ newLabel }}" w="100%" hint-size="100%,232px"></dc-import></div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===================== DETAIL ===================== -->
+  <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-top:-88px;min-height:100vh">
+    <section style="position:relative;width:100%;height:66vh;min-height:460px">
+      <div style="position:absolute;inset:0;background:{{ curBg }}"></div>
+      <div style="position:absolute;inset:0;background:linear-gradient(90deg, rgba(6,9,12,0.9) 0%, rgba(6,9,12,0.4) 45%, rgba(6,9,12,0) 75%)"></div>
+      <div style="position:absolute;inset:0;background:linear-gradient(0deg, #06090c 1%, rgba(6,9,12,0.1) 40%, rgba(6,9,12,0) 60%)"></div>
+      <div onClick="{{ back }}" style="position:absolute;top:104px;left:48px;display:inline-flex;align-items:center;gap:8px;padding:9px 16px 9px 12px;border-radius:9px;background:rgba(6,9,12,0.55);border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(6px);color:#e9efeb;font-size:13.5px;font-weight:500;cursor:pointer;z-index:5" style-hover="background:rgba(6,9,12,0.8)"><i class="ti ti-arrow-left" style="font-size:18px"></i>Volver</div>
+      <div style="position:absolute;left:48px;bottom:7vh;max-width:620px">
+        <div style="font-size:12.5px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:{{ accentBright }};margin-bottom:12px">{{ curKicker }}</div>
+        <h1 style="font-family:Sora,sans-serif;font-weight:800;font-size:50px;line-height:1.05;letter-spacing:-0.02em;color:#fff;margin:0 0 16px">{{ curTitle }}</h1>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:#c4d0cb">
+          <span style="color:{{ accentBright }};font-weight:600">98% para ti</span>
+          <span>2026</span>
+          <span style="width:3px;height:3px;border-radius:50%;background:#5f6f69"></span>
+          <span>{{ curCat }}</span>
+          <span style="width:3px;height:3px;border-radius:50%;background:#5f6f69"></span>
+          <span>{{ curDur }}</span>
+          <span style="padding:1px 6px;border:1px solid rgba(255,255,255,0.28);border-radius:4px;font-size:11px">4K UHD</span>
+          <span style="padding:1px 6px;border:1px solid rgba(255,255,255,0.28);border-radius:4px;font-size:11px">+12</span>
+        </div>
+      </div>
+    </section>
+    <div style="padding:8px 48px 60px;display:grid;grid-template-columns:1fr 300px;gap:48px;max-width:1180px">
+      <div>
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px">
+          <button onClick="{{ playCurrent }}" style="display:inline-flex;align-items:center;gap:9px;padding:13px 30px;border:none;border-radius:9px;background:{{ accent }};color:#fff;font-family:Inter,sans-serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 6px 22px rgba(104,20,11,0.55);transition:transform .15s" style-hover="transform:scale(1.03)"><i class="ti ti-player-play-filled" style="font-size:19px"></i>Reproducir</button>
+          <button onClick="{{ toggleCurrentList }}" style="display:inline-flex;align-items:center;gap:9px;padding:13px 22px;border:1px solid rgba(255,255,255,0.2);border-radius:9px;background:rgba(255,255,255,0.07);color:#fff;font-family:Inter,sans-serif;font-size:14.5px;font-weight:600;cursor:pointer;transition:background .2s" style-hover="background:rgba(255,255,255,0.14)"><i class="ti ti-{{ listIcon }}" style="font-size:19px;color:{{ listIconColor }}"></i>{{ listLabel }}</button>
+          <div onClick="{{ openRating }}" style="width:46px;height:46px;border-radius:50%;border:1px solid {{ rateBorder }};background:{{ rateBg }};display:flex;align-items:center;justify-content:center;cursor:pointer;color:{{ rateColor }}" style-hover="background:rgba(255,255,255,0.08)"><i class="ti ti-{{ rateIcon }}" style="font-size:20px"></i></div>
+          <div style="width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#cdd6d2" style-hover="background:rgba(255,255,255,0.08)"><i class="ti ti-share-2" style="font-size:20px"></i></div>
+        </div>
+        <p style="font-size:16px;line-height:1.7;color:#cdd6d2;margin:0 0 24px">{{ curSyn }}</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <span style="padding:6px 12px;border-radius:7px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);font-size:12.5px;color:#a9b8b1">Carpfishing</span>
+          <span style="padding:6px 12px;border-radius:7px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);font-size:12.5px;color:#a9b8b1">Aguas de r&iacute;o</span>
+          <span style="padding:6px 12px;border-radius:7px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);font-size:12.5px;color:#a9b8b1">Trofeo</span>
+          <span style="padding:6px 12px;border-radius:7px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);font-size:12.5px;color:#a9b8b1">T&eacute;cnica avanzada</span>
+        </div>
+
+        <sc-if value="{{ curHasCrew }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:34px">
+            <div style="font-size:12.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#7d8d86;margin-bottom:16px">Reparto</div>
+            <div style="display:flex;gap:22px;flex-wrap:wrap">
+              <sc-for list="{{ curCrew }}" as="p" hint-placeholder-count="2">
+                <div onClick="{{ p.open }}" style="display:flex;flex-direction:column;align-items:center;gap:10px;width:88px;cursor:pointer;text-align:center" style-hover="opacity:0.85">
+                  <div style="width:64px;height:64px;border-radius:50%;background:{{ p.avatarBg }};border:1px solid rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center"><i class="ti ti-user" style="font-size:26px;color:rgba(255,255,255,0.55)"></i></div>
+                  <div>
+                    <div style="font-size:12.5px;font-weight:600;color:#e9efeb;line-height:1.3">{{ p.name }}</div>
+                    <div style="font-size:11px;color:#7d8d86;margin-top:2px;line-height:1.3">{{ p.role }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+      <div style="font-size:13px;line-height:1.9;color:#85958e">
+        <div style="margin-bottom:14px"><span style="color:#5f6f69">Serie:&nbsp;</span><span style="color:#cdd6d2">{{ curSeries }}</span></div>
+        <div style="margin-bottom:14px"><span style="color:#5f6f69">Categor&iacute;a:&nbsp;</span><span style="color:#cdd6d2">{{ curCat }}</span></div>
+        <div><span style="color:#5f6f69">Duraci&oacute;n:&nbsp;</span><span style="color:#cdd6d2">{{ curDur }}</span></div>
+      </div>
+    </div>
+
+    <sc-if value="{{ curHasSeasons }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:0 48px 50px;max-width:1180px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:14px">
+          <h2 style="font-family:Sora,sans-serif;font-size:19px;font-weight:600;color:#eef3f0;margin:0">Episodios</h2>
+          <div style="position:relative">
+            <div onClick="{{ toggleSeasonMenu }}" style="display:inline-flex;align-items:center;gap:10px;padding:10px 16px;border-radius:9px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);cursor:pointer;font-size:13.5px;font-weight:600;color:#e9efeb" style-hover="background:rgba(255,255,255,0.1)">{{ seasonLabel }}<i class="ti ti-chevron-down" style="font-size:16px;color:#9aa9a3"></i></div>
+            <sc-if value="{{ seasonMenuOpen }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ stopProp }}" style="position:absolute;top:calc(100% + 6px);right:0;min-width:170px;background:#0e151a;border:1px solid rgba(255,255,255,0.1);border-radius:11px;box-shadow:0 18px 44px rgba(0,0,0,0.55);overflow:hidden;z-index:20">
+                <sc-for list="{{ seasonOptions }}" as="so" hint-placeholder-count="2">
+                  <div onClick="{{ so.select }}" style="padding:11px 16px;font-size:13.5px;font-weight:{{ so.weight }};color:{{ so.color }};cursor:pointer;background:{{ so.bg }}" style-hover="background:rgba(255,255,255,0.06)">{{ so.label }}</div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <sc-if value="{{ seasonMenuOpen }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ closeSeasonMenu }}" style="position:fixed;inset:0;z-index:15"></div>
+        </sc-if>
+
+        <div style="display:flex;flex-direction:column">
+          <sc-for list="{{ seasonEpisodes }}" as="e" hint-placeholder-count="3">
+            <div onClick="{{ e.open }}" style="display:flex;align-items:center;gap:20px;padding:18px 14px;border-radius:12px;cursor:pointer" style-hover="background:rgba(255,255,255,0.04)">
+              <div style="width:26px;flex-shrink:0;text-align:center;font-family:Sora,sans-serif;font-size:19px;font-weight:700;color:{{ e.numColor }}">{{ e.num }}</div>
+              <div style="position:relative;flex:0 0 168px;height:94px;border-radius:9px;overflow:hidden;background:{{ e.bg }};border:{{ e.ringBorder }}">
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.18)"><div style="width:34px;height:34px;border-radius:50%;background:{{ e.playBg }};display:flex;align-items:center;justify-content:center"><i class="ti ti-player-play-filled" style="font-size:16px;color:{{ e.playColor }}"></i></div></div>
+                <sc-if value="{{ e.showProgress }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,0.25)"><div style="height:100%;width:{{ e.progressPct }};background:{{ accentBright }}"></div></div>
+                </sc-if>
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:14.5px;font-weight:{{ e.titleWeight }};color:{{ e.titleColor }};margin-bottom:5px">{{ e.title }}</div>
+                <div style="font-size:13px;line-height:1.55;color:#85958e;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ e.syn }}</div>
+              </div>
+              <div style="flex-shrink:0;text-align:right">
+                <div style="font-size:12.5px;color:#7d8d86;font-variant-numeric:tabular-nums">{{ e.dur }}</div>
+                <sc-if value="{{ e.isCurrent }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:11px;font-weight:600;color:{{ accentBright }};margin-top:3px">Viendo ahora</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="padding:0 48px 60px">
+      <h2 style="font-family:Sora,sans-serif;font-size:19px;font-weight:600;color:#eef3f0;margin:0 0 16px">M&aacute;s como esto</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,1fr));gap:22px 18px">
+        <sc-for list="{{ related }}" as="v" hint-placeholder-count="4">
+          <div><dc-import name="VideoCard" item="{{ v }}" accent="{{ accentBright }}" new-label="{{ newLabel }}" w="100%" hint-size="100%,232px"></dc-import></div>
+        </sc-for>
+      </div>
+    </div>
+
+    <sc-if value="{{ ratingOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeRating }}" style="position:fixed;inset:0;z-index:200;background:rgba(4,6,8,0.72);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;animation:cpfade .18s ease;padding:20px">
+        <div onClick="{{ stopProp }}" style="position:relative;width:100%;max-width:440px;border-radius:20px;background:#0e151a;border:1px solid rgba(255,255,255,0.1);box-shadow:0 30px 80px rgba(0,0,0,0.6);padding:34px 32px 30px;text-align:center">
+          <div onClick="{{ closeRating }}" style="position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#9aa9a3" style-hover="background:rgba(255,255,255,0.12)"><i class="ti ti-x" style="font-size:17px"></i></div>
+          <div style="font-family:Sora,sans-serif;font-weight:700;font-size:20px;color:#fff;margin-bottom:6px">&iquest;Qu&eacute; te ha parecido?</div>
+          <div style="font-size:13.5px;color:#85958e;margin-bottom:30px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ curTitle }}</div>
+          <div style="display:flex;align-items:stretch;justify-content:center;gap:14px">
+            <div onClick="{{ rateDown }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px 8px;border-radius:14px;cursor:pointer;background:{{ downBg }};border:1.5px solid {{ downBorder }};transition:all .15s" style-hover="background:rgba(255,255,255,0.06)">
+              <div style="width:56px;height:56px;border-radius:50%;background:{{ downCircle }};display:flex;align-items:center;justify-content:center"><i class="ti ti-thumb-down{{ downFilled }}" style="font-size:25px;color:{{ downIconColor }}"></i></div>
+              <div style="font-size:12.5px;font-weight:600;color:{{ downTextColor }};line-height:1.3">No es<br>para m&iacute;</div>
+            </div>
+            <div onClick="{{ rateLike }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px 8px;border-radius:14px;cursor:pointer;background:{{ likeBg }};border:1.5px solid {{ likeBorder }};transition:all .15s" style-hover="background:rgba(255,255,255,0.06)">
+              <div style="width:56px;height:56px;border-radius:50%;background:{{ likeCircle }};display:flex;align-items:center;justify-content:center"><i class="ti ti-thumb-up{{ likeFilled }}" style="font-size:25px;color:{{ likeIconColor }}"></i></div>
+              <div style="font-size:12.5px;font-weight:600;color:{{ likeTextColor }}">Me gusta</div>
+            </div>
+            <div onClick="{{ rateLove }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px 8px;border-radius:14px;cursor:pointer;background:{{ loveBg }};border:1.5px solid {{ loveBorder }};transition:all .15s" style-hover="background:rgba(255,255,255,0.06)">
+              <div style="width:56px;height:56px;border-radius:50%;background:{{ loveCircle }};display:flex;align-items:center;justify-content:center;position:relative">
+                <i class="ti ti-thumb-up{{ loveFilled }}" style="font-size:19px;color:{{ loveIconColor }};position:absolute;left:12px;top:14px;transform:rotate(-8deg)"></i>
+                <i class="ti ti-thumb-up{{ loveFilled }}" style="font-size:19px;color:{{ loveIconColor }};position:absolute;right:12px;top:14px;transform:rotate(8deg)"></i>
+              </div>
+              <div style="font-size:12.5px;font-weight:600;color:{{ loveTextColor }}">Me encanta</div>
+            </div>
+          </div>
+          <sc-if value="{{ ratingChosen }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:24px;font-size:13px;color:{{ accentBright }};display:flex;align-items:center;justify-content:center;gap:7px"><i class="ti ti-check" style="font-size:16px"></i>{{ ratingConfirmText }}</div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <!-- ===================== CREW MEMBER ===================== -->
+  <sc-if value="{{ isCrew }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:100vh">
+    <div style="position:relative;height:420px;overflow:hidden">
+      <image-slot id="{{ crewPhotoId }}" shape="rect" placeholder="Foto horizontal del miembro de la crew" style="position:absolute;inset:0;width:100%;height:100%"></image-slot>
+      <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(6,9,12,0.35) 0%, rgba(6,9,12,0.25) 40%, rgba(6,9,12,0.85) 85%, #06090c 100%)"></div>
+      <div onClick="{{ back }}" style="position:absolute;top:108px;left:48px;display:inline-flex;align-items:center;gap:8px;padding:9px 16px 9px 12px;border-radius:9px;background:rgba(6,9,12,0.5);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.15);color:#e9efeb;font-size:13.5px;font-weight:500;cursor:pointer" style-hover="background:rgba(6,9,12,0.7)"><i class="ti ti-arrow-left" style="font-size:18px"></i>Volver</div>
+    </div>
+
+    <div style="max-width:1160px;margin:0 auto;padding:0 48px 70px">
+      <div style="display:flex;align-items:flex-end;gap:24px;margin-top:-64px;margin-bottom:30px;flex-wrap:wrap">
+        <div style="width:128px;height:128px;flex-shrink:0;border-radius:50%;background:{{ crewAvatarBg }};border:4px solid #06090c;box-shadow:0 10px 30px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center"><i class="ti ti-user" style="font-size:52px;color:rgba(255,255,255,0.5)"></i></div>
+        <div style="padding-bottom:6px">
+          <h1 style="font-family:Sora,sans-serif;font-weight:800;font-size:36px;letter-spacing:-0.02em;color:#fff;margin:0 0 10px;text-shadow:0 4px 20px rgba(0,0,0,0.5)">{{ crewName }}</h1>
+          <div style="display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:6px;background:rgba(104,20,11,0.18);color:{{ accentBright }};font-size:12px;font-weight:600"><i class="ti ti-fish" style="font-size:14px"></i>{{ crewRole }}</div>
+        </div>
+      </div>
+
+      <div style="max-width:760px;margin-bottom:44px">
+        <p style="font-size:14.5px;line-height:1.75;color:#c4d0cb;margin:0;{{ bioClampStyle }}">{{ crewBio }}</p>
+        <sc-if value="{{ bioIsLong }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ toggleBio }}" style="display:inline-flex;align-items:center;gap:5px;margin-top:10px;font-size:13px;font-weight:600;color:{{ accentBright }};cursor:pointer" style-hover="text-decoration:underline">{{ bioToggleLabel }}<i class="ti ti-{{ bioToggleIcon }}" style="font-size:15px"></i></div>
+        </sc-if>
+      </div>
+
+      <h2 style="font-family:Sora,sans-serif;font-size:19px;font-weight:600;color:#eef3f0;margin:0 0 16px">{{ crewVideosHeading }}</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,1fr));gap:22px 18px">
+        <sc-for list="{{ crewVideos }}" as="v" hint-placeholder-count="4">
+          <div><dc-import name="VideoCard" item="{{ v }}" accent="{{ accentBright }}" new-label="{{ newLabel }}" w="100%" hint-size="100%,232px"></dc-import></div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===================== EXPLORE ===================== -->
+  <sc-if value="{{ isExplore }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:100vh;padding:108px 48px 70px">
+    <h1 style="font-family:Sora,sans-serif;font-weight:700;font-size:34px;letter-spacing:-0.02em;color:#fff;margin:0 0 22px">Explorar</h1>
+    <div style="display:flex;align-items:center;gap:12px;max-width:560px;padding:14px 18px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);margin-bottom:24px">
+      <i class="ti ti-search" style="font-size:21px;color:#85958e"></i>
+      <input value="{{ query }}" onChange="{{ setQuery }}" placeholder="Buscar v&iacute;deos, series, t&eacute;cnicas&hellip;" style="flex:1;background:transparent;border:none;outline:none;color:#eef3f0;font-family:Inter,sans-serif;font-size:15px" />
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:30px">
+      <sc-for list="{{ filterChips }}" as="c" hint-placeholder-count="5">
+        <span onClick="{{ c.set }}" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:{{ c.bg }};color:{{ c.color }};border:1px solid {{ c.border }};transition:all .15s">{{ c.label }}</span>
+      </sc-for>
+    </div>
+    <div style="font-size:13px;color:#7d8d86;margin-bottom:18px">{{ resultCount }}</div>
+    <sc-if value="{{ exploreEmpty }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:70px 20px;text-align:center">
+        <div style="width:76px;height:76px;border-radius:50%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;margin-bottom:20px"><i class="ti ti-mood-empty" style="font-size:36px;color:#5f6f69"></i></div>
+        <div style="font-family:Sora,sans-serif;font-size:19px;font-weight:600;color:#cdd6d2;margin-bottom:8px">Sin resultados</div>
+        <div style="font-size:14px;color:#7d8d86;max-width:340px">No encontramos nada para tu b&uacute;squeda. Prueba con otra palabra o cambia los filtros.</div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ exploreHasResults }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,1fr));gap:24px 18px">
+        <sc-for list="{{ exploreResults }}" as="v" hint-placeholder-count="8">
+          <div><dc-import name="VideoCard" item="{{ v }}" accent="{{ accentBright }}" new-label="{{ newLabel }}" w="100%" hint-size="100%,232px"></dc-import></div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <!-- ===================== MI LISTA ===================== -->
+  <sc-if value="{{ isList }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:100vh;padding:108px 48px 70px">
+    <h1 style="font-family:Sora,sans-serif;font-weight:700;font-size:34px;letter-spacing:-0.02em;color:#fff;margin:0 0 8px">Mi Lista</h1>
+    <div style="font-size:14px;color:#7d8d86;margin-bottom:30px">{{ listCount }}</div>
+    <sc-if value="{{ listEmpty }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:70px 20px;text-align:center">
+        <div style="width:80px;height:80px;border-radius:50%;background:rgba(104,20,11,0.14);border:1px solid rgba(104,20,11,0.3);display:flex;align-items:center;justify-content:center;margin-bottom:22px"><i class="ti ti-bookmark" style="font-size:38px;color:{{ accentBright }}"></i></div>
+        <div style="font-family:Sora,sans-serif;font-size:20px;font-weight:600;color:#cdd6d2;margin-bottom:8px">Tu lista est&aacute; vac&iacute;a</div>
+        <div style="font-size:14px;color:#7d8d86;max-width:360px;margin-bottom:22px">Guarda v&iacute;deos para verlos m&aacute;s tarde. Pulsa &laquo;Mi Lista&raquo; en cualquier v&iacute;deo.</div>
+        <button onClick="{{ goExplore }}" style="display:inline-flex;align-items:center;gap:9px;padding:12px 24px;border:none;border-radius:9px;background:{{ accent }};color:#fff;font-family:Inter,sans-serif;font-size:14.5px;font-weight:700;cursor:pointer"><i class="ti ti-compass" style="font-size:18px"></i>Explorar cat&aacute;logo</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ listHasItems }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,1fr));gap:24px 18px">
+        <sc-for list="{{ listItems }}" as="v" hint-placeholder-count="4">
+          <div><dc-import name="VideoCard" item="{{ v }}" accent="{{ accentBright }}" new-label="{{ newLabel }}" w="100%" hint-size="100%,232px"></dc-import></div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <!-- ===================== PERFIL ===================== -->
+  <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:100vh;padding:108px 48px 70px">
+    <h1 style="font-family:Sora,sans-serif;font-weight:700;font-size:34px;letter-spacing:-0.02em;color:#fff;margin:0 0 30px">Perfil</h1>
+    <div style="display:grid;grid-template-columns:340px 1fr;gap:24px;max-width:1080px">
+
+      <div>
+        <div style="padding:28px 26px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);margin-bottom:20px">
+
+          <sc-if value="{{ editingProfile }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+              <div style="position:relative">
+                <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#5a241d,#2a1411);border:1px solid rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center;font-family:Sora,sans-serif;font-weight:600;font-size:19px;color:#d4e4dd">{{ initials }}</div>
+                <div style="position:absolute;bottom:-2px;right:-2px;width:22px;height:22px;border-radius:50%;background:{{ accent }};border:2px solid #0e151a;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:{{ accentBright }}"><i class="ti ti-camera" style="font-size:11px;color:#fff"></i></div>
+              </div>
+              <div style="font-size:11.5px;color:#7d8d86;line-height:1.45">Foto de perfil<br><span style="color:#5f6f69">JPG o PNG, m&aacute;x. 4&nbsp;MB</span></div>
+            </div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#b3c0ba;margin-bottom:7px">Nombre completo</label>
+            <div style="display:flex;align-items:center;gap:9px;padding:0 12px;border-radius:9px;background:rgba(255,255,255,0.04);border:1px solid {{ editNameBorder }};margin-bottom:16px;transition:border-color .2s">
+              <i class="ti ti-user" style="font-size:16px;color:#6a7a73"></i>
+              <input value="{{ editName }}" onChange="{{ setEditName }}" onFocus="{{ focusEditName }}" onBlur="{{ blurEditField }}" style="flex:1;min-width:0;background:transparent;border:none;outline:none;color:#eef3f0;font-family:Inter,sans-serif;font-size:13.5px;padding:11px 0" />
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:9px 0 16px;font-size:11.5px;color:#6a7a73"><i class="ti ti-lock" style="font-size:14px"></i>El correo no se puede editar aqu&iacute;: est&aacute; vinculado a tu suscripci&oacute;n en Stripe.</div>
+            <div style="display:flex;gap:10px">
+              <button onClick="{{ saveProfile }}" style="flex:1;padding:11px;border:none;border-radius:9px;background:{{ accent }};color:#fff;font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 6px 18px rgba(104,20,11,0.4)">Guardar</button>
+              <button onClick="{{ cancelEditProfile }}" style="flex:1;padding:11px;border:1px solid rgba(255,255,255,0.16);border-radius:9px;background:transparent;color:#cdd6d2;font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer" style-hover="background:rgba(255,255,255,0.06)">Cancelar</button>
+            </div>
+            <sc-if value="{{ profileSaved }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:14px;font-size:12.5px;color:{{ accentBright }};display:flex;align-items:center;gap:6px"><i class="ti ti-check" style="font-size:15px"></i>Perfil actualizado</div>
+            </sc-if>
+          </sc-if>
+
+          <sc-if value="{{ notEditingProfile }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+              <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#5a241d,#2a1411);border:1px solid rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center;font-family:Sora,sans-serif;font-weight:600;font-size:19px;color:#d4e4dd">{{ initials }}</div>
+              <div style="min-width:0">
+                <div style="font-family:Sora,sans-serif;font-size:17px;font-weight:600;color:#eef3f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ displayName }}</div>
+                <div style="font-size:12.5px;color:#85958e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ displayEmail }}</div>
+              </div>
+            </div>
+            <button onClick="{{ startEditProfile }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border:1px solid rgba(255,255,255,0.16);border-radius:9px;background:rgba(255,255,255,0.05);color:#e9efeb;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:rgba(255,255,255,0.1)"><i class="ti ti-pencil" style="font-size:15px"></i>Editar perfil</button>
+          </sc-if>
+        </div>
+
+        <div style="padding:8px 4px;display:flex;flex-direction:column">
+          <div onClick="{{ setTabAccount }}" style="display:flex;align-items:center;gap:11px;padding:12px 16px;border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:500;background:{{ tabAccountBg }};color:{{ tabAccountColor }}"><i class="ti ti-user-circle" style="font-size:19px"></i>Cuenta y suscripci&oacute;n</div>
+          <div onClick="{{ setTabHistory }}" style="display:flex;align-items:center;gap:11px;padding:12px 16px;border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:500;background:{{ tabHistoryBg }};color:{{ tabHistoryColor }}"><i class="ti ti-history" style="font-size:19px"></i>Historial</div>
+          <div onClick="{{ setTabNotifs }}" style="display:flex;align-items:center;gap:11px;padding:12px 16px;border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:500;background:{{ tabNotifsBg }};color:{{ tabNotifsColor }}"><i class="ti ti-bell" style="font-size:19px"></i>Notificaciones</div>
+          <div onClick="{{ goHome }}" style="display:flex;align-items:center;gap:11px;padding:12px 16px;border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:500;color:#c0392b;margin-top:10px;border-top:1px solid rgba(255,255,255,0.07);padding-top:18px"><i class="ti ti-logout" style="font-size:19px"></i>Cerrar sesi&oacute;n</div>
+        </div>
+      </div>
+
+      <div>
+        <sc-if value="{{ tabIsAccount }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:30px 32px;border-radius:16px;background:linear-gradient(165deg, rgba(104,20,11,0.14), rgba(104,20,11,0.03));border:1px solid rgba(207,74,53,0.3);margin-bottom:20px">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+              <div>
+                <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;background:rgba(104,20,11,0.22);color:{{ accentBright }};font-size:11px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;margin-bottom:12px"><i class="ti ti-circle-check-filled" style="font-size:13px"></i>Plan Anual activo</div>
+                <div style="font-family:Sora,sans-serif;font-size:22px;font-weight:700;color:#fff">79,99&euro; / a&ntilde;o</div>
+                <div style="font-size:13px;color:#9aa9a3;margin-top:6px">Se renueva el 14 de marzo de 2027</div>
+              </div>
+              <button style="padding:12px 22px;border:none;border-radius:9px;background:{{ accent }};color:#fff;font-family:Inter,sans-serif;font-size:13.5px;font-weight:700;cursor:pointer;box-shadow:0 6px 18px rgba(104,20,11,0.4);white-space:nowrap">Gestionar suscripci&oacute;n</button>
+            </div>
+          </div>
+
+          <div style="padding:26px 28px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08)">
+            <div style="font-family:Sora,sans-serif;font-size:15.5px;font-weight:600;color:#eef3f0;margin-bottom:16px">Datos de la cuenta</div>
+            <div style="display:flex;flex-direction:column;gap:0">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+                <span style="font-size:13.5px;color:#85958e">Correo electr&oacute;nico</span>
+                <span style="font-size:13.5px;color:#e9efeb">{{ displayEmail }}</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+                <span style="font-size:13.5px;color:#85958e">Contrase&ntilde;a</span>
+                <span style="font-size:13.5px;color:{{ accentBright }};cursor:pointer;font-weight:500" style-hover="text-decoration:underline">Cambiar contrase&ntilde;a</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0">
+                <span style="font-size:13.5px;color:#85958e">M&eacute;todo de pago</span>
+                <span style="display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:#e9efeb"><i class="ti ti-credit-card" style="font-size:17px;color:#85958e"></i>Visa &middot;&middot;&middot;&middot; 4471</span>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tabIsHistory }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:26px 28px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08)">
+            <div style="font-family:Sora,sans-serif;font-size:15.5px;font-weight:600;color:#eef3f0;margin-bottom:6px">Visto recientemente</div>
+            <div style="font-size:12.5px;color:#7d8d86;margin-bottom:18px">Tu actividad de los &uacute;ltimos d&iacute;as</div>
+            <div style="display:flex;flex-direction:column">
+              <sc-for list="{{ historyItems }}" as="h" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+                  <div style="flex:0 0 84px;height:48px;border-radius:7px;background:{{ h.bg }};position:relative;overflow:hidden"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><i class="ti ti-player-play-filled" style="font-size:15px;color:#fff"></i></div></div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:13.5px;font-weight:600;color:#e9efeb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ h.title }}</div>
+                    <div style="font-size:12px;color:#7d8d86;margin-top:2px">{{ h.when }}</div>
+                  </div>
+                  <div style="font-size:12px;color:#85958e;font-variant-numeric:tabular-nums">{{ h.dur }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tabIsNotifs }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:26px 28px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08)">
+            <div style="font-family:Sora,sans-serif;font-size:15.5px;font-weight:600;color:#eef3f0;margin-bottom:16px">Preferencias de notificaci&oacute;n</div>
+            <sc-for list="{{ notifRows }}" as="n" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+                <div>
+                  <div style="font-size:13.5px;font-weight:500;color:#e9efeb">{{ n.label }}</div>
+                  <div style="font-size:12px;color:#7d8d86;margin-top:2px">{{ n.desc }}</div>
+                </div>
+                <div onClick="{{ n.toggle }}" style="flex-shrink:0;width:42px;height:24px;border-radius:12px;background:{{ n.trackBg }};position:relative;cursor:pointer;transition:background .2s">
+                  <div style="position:absolute;top:2px;left:{{ n.knobLeft }};width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===================== PLAYER ===================== -->
+  <sc-if value="{{ isPlayer }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;z-index:100;background:#000;display:flex;flex-direction:column">
+    <div style="position:absolute;inset:0;background:{{ curBg }}"></div>
+    <div style="position:absolute;inset:0;background:radial-gradient(80% 80% at 50% 42%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 100%)"></div>
+    <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.85) 100%)"></div>
+
+    <div style="position:relative;display:flex;align-items:center;gap:16px;padding:24px 32px">
+      <div onClick="{{ back }}" style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff" style-hover="background:rgba(255,255,255,0.2)"><i class="ti ti-arrow-left" style="font-size:22px"></i></div>
+      <div>
+        <div style="font-size:12px;color:#9aa9a3;letter-spacing:0.06em;text-transform:uppercase">{{ curKicker }}</div>
+        <div style="font-family:Sora,sans-serif;font-size:18px;font-weight:600;color:#fff;margin-top:2px">{{ curTitle }}</div>
+      </div>
+    </div>
+
+    <div style="position:relative;flex:1;display:flex;align-items:center;justify-content:center">
+      <div onClick="{{ togglePlay }}" style="width:88px;height:88px;border-radius:50%;background:rgba(0,0,0,0.35);border:1.5px solid rgba(255,255,255,0.5);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .15s" style-hover="transform:scale(1.07)"><i class="ti ti-{{ bigPlayIcon }}" style="font-size:42px;color:#fff;margin-left:{{ bigPlayMargin }}"></i></div>
+    </div>
+
+    <sc-if value="{{ showNextCard }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ playNext }}" style="position:absolute;right:32px;bottom:128px;width:300px;padding:14px;border-radius:12px;background:rgba(10,16,20,0.9);border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(10px);cursor:pointer;display:flex;gap:12px;align-items:center;animation:cpfade .4s ease" style-hover="border-color:rgba(207,74,53,0.6)">
+        <div style="flex:0 0 92px;height:52px;border-radius:7px;background:{{ nextBg }};position:relative;overflow:hidden"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><i class="ti ti-player-play-filled" style="font-size:18px;color:#fff"></i></div></div>
+        <div style="min-width:0">
+          <div style="font-size:11px;color:#85958e;margin-bottom:3px">A continuaci&oacute;n</div>
+          <div style="font-size:13.5px;font-weight:600;color:#eef3f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ nextTitle }}</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="position:relative;padding:0 32px 26px">
+      <div onClick="{{ seek }}" style="position:relative;height:6px;border-radius:4px;background:rgba(255,255,255,0.22);cursor:pointer;margin-bottom:16px">
+        <div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;background:{{ accentBright }};width:{{ progressPct }}"></div>
+        <div style="position:absolute;top:50%;transform:translate(-50%,-50%);left:{{ progressPct }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,0.5)"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:20px">
+        <div onClick="{{ togglePlay }}" style="cursor:pointer;color:#fff;display:flex" style-hover="opacity:0.8"><i class="ti ti-{{ ctrlPlayIcon }}" style="font-size:30px"></i></div>
+        <div onClick="{{ rewind }}" style="cursor:pointer;color:#fff;display:flex" style-hover="opacity:0.8"><i class="ti ti-rewind-backward-10" style="font-size:25px"></i></div>
+        <div onClick="{{ forward }}" style="cursor:pointer;color:#fff;display:flex" style-hover="opacity:0.8"><i class="ti ti-rewind-forward-10" style="font-size:25px"></i></div>
+        <div style="display:flex;align-items:center;gap:9px">
+          <div onClick="{{ toggleMute }}" style="cursor:pointer;color:#fff;display:flex"><i class="ti ti-{{ volIcon }}" style="font-size:24px"></i></div>
+          <div onClick="{{ setVol }}" style="position:relative;width:84px;height:5px;border-radius:3px;background:rgba(255,255,255,0.25);cursor:pointer"><div style="position:absolute;left:0;top:0;height:100%;border-radius:3px;background:#fff;width:{{ volPct }}"></div></div>
+        </div>
+        <div style="font-size:13px;color:#dfe7e3;font-variant-numeric:tabular-nums;letter-spacing:0.02em">{{ curTimeFmt }} <span style="color:#7d8d86">/ {{ durFmt }}</span></div>
+        <div style="flex:1"></div>
+        <div onClick="{{ cycleSpeed }}" style="cursor:pointer;color:#fff;font-size:13.5px;font-weight:600;padding:5px 11px;border:1px solid rgba(255,255,255,0.25);border-radius:7px;min-width:52px;text-align:center" style-hover="background:rgba(255,255,255,0.1)">{{ speedLabel }}</div>
+        <div style="cursor:pointer;color:#fff;display:flex" style-hover="opacity:0.8"><i class="ti ti-badge-cc" style="font-size:25px"></i></div>
+        <div style="cursor:pointer;color:#fff;display:flex" style-hover="opacity:0.8"><i class="ti ti-settings" style="font-size:24px"></i></div>
+        <div onClick="{{ toggleFs }}" style="cursor:pointer;color:#fff;display:flex" style-hover="opacity:0.8"><i class="ti ti-{{ fsIcon }}" style="font-size:24px"></i></div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: {&quot;width&quot;: 1280, &quot;height&quot;: 820},
+  &quot;accent&quot;: {&quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#68140b&quot;},
+  &quot;accentBright&quot;: {&quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#cf4a35&quot;},
+  &quot;heroTitleOverride&quot;: {&quot;editor&quot;: &quot;text&quot;, &quot;default&quot;: &quot;&quot;},
+  &quot;newLabel&quot;: {&quot;editor&quot;: &quot;text&quot;, &quot;default&quot;: &quot;Nuevo&quot;}
+}">
+class Component extends DCLogic {
+  moods = [
+    'radial-gradient(120% 100% at 18% 0%, #2a4a52 0%, rgba(42,74,82,0) 55%), radial-gradient(120% 120% at 92% 100%, #163a3a 0%, rgba(22,58,58,0) 60%), linear-gradient(160deg, #0e1f24, #0a1518)',
+    'radial-gradient(100% 85% at 72% 8%, #5a4326 0%, rgba(90,67,38,0) 55%), radial-gradient(90% 90% at 8% 100%, #2a2415 0%, rgba(42,36,21,0) 60%), linear-gradient(160deg, #1a1810, #0b0d0c)',
+    'radial-gradient(110% 100% at 28% 16%, #1e3a5c 0%, rgba(30,58,92,0) 55%), linear-gradient(160deg, #0c1626, #0a1014)',
+    'radial-gradient(110% 95% at 82% 0%, #25402c 0%, rgba(37,64,44,0) 55%), linear-gradient(160deg, #101a12, #0a0f0c)',
+    'radial-gradient(120% 100% at 50% 0%, #2e4d4a 0%, rgba(46,77,74,0) 60%), linear-gradient(160deg, #10201e, #0a1412)',
+    'radial-gradient(100% 95% at 62% 8%, #1c2740 0%, rgba(28,39,64,0) 55%), linear-gradient(160deg, #0c1018, #08090d)',
+    'radial-gradient(100% 85% at 22% 14%, #4a3320 0%, rgba(74,51,32,0) 55%), linear-gradient(160deg, #18130d, #0b0c0a)',
+    'radial-gradient(110% 100% at 76% 6%, #2b3b44 0%, rgba(43,59,68,0) 55%), linear-gradient(160deg, #121a1f, #0a0f12)'
+  ];
+
+  crewTypeLabel = { socio: 'Socio', crew: 'Miembro de la crew' };
+
+  crew = [
+    { id: 'c1', name: 'Marc Oliver', type: 'socio', avatarBg: 'linear-gradient(135deg,#2f5249,#16302b)', bio: 'Marc lleva m\u00e1s de quince a\u00f1os pescando carpas en los grandes r\u00edos y embalses de Espa\u00f1a, y hoy es la cara m\u00e1s reconocible de Carp Partners TV como presentador de Aguas Salvajes. Empez\u00f3 de ni\u00f1o acompa\u00f1ando a su padre a las orillas del Ebro, y esa curiosidad temprana se convirti\u00f3 en una carrera dedicada casi por completo a entender el comportamiento de la carpa en aguas dif\u00edciles. Antes de dedicarse a la televisi\u00f3n especializada, Marc compiti\u00f3 durante varias temporadas en circuitos nacionales de carpfishing, donde afin\u00f3 su lectura del agua, su paciencia y su capacidad para adaptar la estrategia a cada escenario: embalses profundos, r\u00edos con corriente, aguas vadeables y sesiones nocturnas de larga duraci\u00f3n. Esa experiencia de competici\u00f3n es la base de casi todo lo que ense\u00f1a delante de la c\u00e1mara. En Aguas Salvajes, Marc no busca solo la captura: le interesa mostrar el proceso completo, desde el reconocimiento del terreno y la elecci\u00f3n del cebado hasta los errores y ajustes que rara vez se ven en otros programas de pesca. Es conocido entre la comunidad por su estilo directo, sin artificios, y por explicar con detalle t\u00e9cnico cada decisi\u00f3n que toma durante una sesi\u00f3n. Fuera de la pantalla, colabora con varias marcas de material de pesca en el desarrollo de nuevos productos y participa habitualmente en encuentros y quedadas de la comunidad de Carp Partners, donde comparte sesi\u00f3n con suscriptores de la plataforma. Vive cerca del Delta del Ebro, su zona de pesca favorita, y aprovecha cualquier fin de semana libre para explorar nuevos tramos de r\u00edo con la misma curiosidad de cuando empez\u00f3.' },
+    { id: 'c2', name: 'Laia Ferrer', type: 'crew', avatarBg: 'linear-gradient(135deg,#5a4326,#2a2415)', bio: 'Al frente de Escuela de Carp. Ex competidora, hoy ense\u00f1a montajes y estrategia a toda la comunidad.' },
+    { id: 'c3', name: 'Bruno S\u00e1ez', type: 'crew', avatarBg: 'linear-gradient(135deg,#1e3a5c,#0c1626)', bio: 'Presenta los documentales y El Podcast del Carp. Cuenta las historias detr\u00e1s de cada sesi\u00f3n y cada captura.' },
+    { id: 'c4', name: 'Nora Castells', type: 'crew', avatarBg: 'linear-gradient(135deg,#5a241d,#2a1411)', bio: 'Construye las series y documentales de Carp Partners TV, del guion al montaje final.' }
+  ];
+
+  crewByVideo = {
+    1: ['c1'], 2: ['c1'], 3: ['c2'], 4: ['c4'], 5: ['c1'], 6: ['c2'], 7: ['c4'],
+    8: ['c3'], 9: ['c3'], 10: ['c2'], 11: ['c1'], 12: ['c4'], 13: ['c3'], 14: ['c2'],
+    15: ['c3'], 16: ['c3'], 17: ['c1'], 18: ['c2'], 19: ['c3'], 20: ['c3'], 21: ['c2'], 22: ['c1']
+  };
+
+  catalog = [
+    {id:1,  title:'Amanecer en el Ebro',            series:'Aguas Salvajes',     ep:'Ep 4',  season:1, cat:'Series',       dur:'34 min', durSec:2040, mood:0, isNew:false, progress:62, syn:'Tres d\u00edas en las aguas bravas del Ebro siguiendo a las grandes carpas de r\u00edo al amanecer. Paciencia, t\u00e9cnica y la recompensa de un trofeo.'},
+    {id:2,  title:'La sesi\u00f3n de 72 horas',       series:null,                 ep:null,    cat:'Documentales', dur:'41 min', durSec:2460, mood:2, isNew:false, progress:25, syn:'Un maratoniano fin de semana a orillas del agua. Montaje del bivvy, estrategia de cebado y la espera que define al pescador de carpas.'},
+    {id:3,  title:'Montajes para fondos duros',      series:'Escuela de Carp',    ep:'Ep 2',  cat:'T\u00e9cnicas',    dur:'22 min', durSec:1320, mood:4, isNew:false, progress:80, syn:'Gravas, arcilla y zonas con conchas: aprende a presentar el cebo de forma impecable sobre los fondos m\u00e1s exigentes.'},
+    {id:4,  title:'Boilies caseros: la receta',      series:null,                 ep:null,    cat:'T\u00e9cnicas',    dur:'28 min', durSec:1680, mood:6, isNew:true,  progress:null, syn:'Del mezclado al rolado: una receta paso a paso de boilies de pescado con la que conseguir capturas constantes toda la temporada.'},
+    {id:5,  title:'Carpas trofeo en Mequinenza',     series:'Aguas Salvajes',     ep:'Ep 5',  season:1, cat:'Series',       dur:'38 min', durSec:2280, mood:3, isNew:true,  progress:null, syn:'El embalse de Mequinenza esconde algunas de las carpas m\u00e1s grandes de Espa\u00f1a. Salimos a buscarlas con equipo pesado.'},
+    {id:6,  title:'El arte del spod',                series:'Escuela de Carp',    ep:'Ep 3',  cat:'T\u00e9cnicas',    dur:'19 min', durSec:1140, mood:7, isNew:false, progress:null, syn:'Precisi\u00f3n a larga distancia. C\u00f3mo crear una alfombra de cebo perfecta con el spod sin espantar a los peces.'},
+    {id:7,  title:'Pesca nocturna: equipo esencial', series:null,                 ep:null,    cat:'T\u00e9cnicas',    dur:'31 min', durSec:1860, mood:5, isNew:true,  progress:null, syn:'Avisadores, iluminaci\u00f3n y seguridad. Todo lo que necesitas para afrontar una noche entera a la orilla del agua.'},
+    {id:8,  title:'Lagos de Francia: diario',        series:'Traves\u00edas',     ep:'Ep 1',  cat:'Documentales', dur:'45 min', durSec:2700, mood:1, isNew:false, progress:null, syn:'Un viaje a los m\u00edticos lagos franceses. Carpas hist\u00f3ricas, paisajes infinitos y una cultura de pesca \u00fanica.'},
+    {id:9,  title:'Invierno y carpas',               series:'El Podcast del Carp',ep:'Ep 12', cat:'Podcast',      dur:'52 min', durSec:3120, mood:5, isNew:false, progress:null, syn:'Charla a fondo sobre c\u00f3mo localizar y tentar a las carpas cuando el agua baja de los 6 grados.'},
+    {id:10, title:'El hilo invisible',               series:'Escuela de Carp',    ep:'Ep 4',  cat:'T\u00e9cnicas',    dur:'24 min', durSec:1440, mood:0, isNew:false, progress:null, syn:'Fluorocarbono, leadcore y tubos antienredo. Elige la l\u00ednea final adecuada para cada situaci\u00f3n.'},
+    {id:11, title:'Big fish del Delta',              series:'Aguas Salvajes',     ep:'Ep 6',  season:1, cat:'Series',       dur:'36 min', durSec:2160, mood:2, isNew:true,  progress:null, syn:'El Delta del Ebro y sus gigantes. Una jornada en busca de la captura de nuestra vida entre ca\u00f1averales.'},
+    {id:12, title:'Refugios y bivvies',              series:null,                 ep:null,    cat:'T\u00e9cnicas',    dur:'17 min', durSec:1020, mood:4, isNew:false, progress:null, syn:'C\u00f3mo montar un campamento c\u00f3modo y eficiente para sesiones largas, llueva o haga sol.'},
+    {id:13, title:'Localizando la carpa en oto\u00f1o',series:null,                ep:null,    cat:'Documentales', dur:'33 min', durSec:1980, mood:3, isNew:false, progress:45, syn:'El oto\u00f1o lo cambia todo. Leemos el agua, la temperatura y el viento para encontrar a los peces en movimiento.'},
+    {id:14, title:'Cebado a larga distancia',        series:'Escuela de Carp',    ep:'Ep 5',  cat:'T\u00e9cnicas',    dur:'26 min', durSec:1560, mood:7, isNew:false, progress:null, syn:'Cobra, catapulta y barco cebador. Estrategias para mantener el cebo donde est\u00e1n las carpas grandes.'},
+    {id:15, title:'El Delta al amanecer',            series:'Traves\u00edas',     ep:'Ep 2',  cat:'Documentales', dur:'40 min', durSec:2400, mood:0, isNew:true,  progress:null, syn:'La luz dorada del amanecer en el Delta y una sesi\u00f3n que comienza con la primera picada del d\u00eda.'},
+    {id:16, title:'Mentalidad y paciencia',          series:'El Podcast del Carp',ep:'Ep 13', cat:'Podcast',      dur:'48 min', durSec:2880, mood:6, isNew:false, progress:null, syn:'La parte mental del carpfishing. Hablamos de constancia, frustraci\u00f3n y la disciplina del pescador de carpas.'},
+    {id:17, title:'Vadeando el Segre',               series:'Aguas Salvajes',     ep:'Ep 7',  season:2, cat:'Series',       dur:'35 min', durSec:2100, mood:5, isNew:false, progress:null, syn:'Aguas cristalinas y corriente. Una aproximaci\u00f3n m\u00f3vil y ligera para sorprender a las carpas del Segre.'},
+    {id:18, title:'Montaje helic\u00f3ptero',         series:'Escuela de Carp',    ep:'Ep 6',  cat:'T\u00e9cnicas',    dur:'21 min', durSec:1260, mood:3, isNew:false, progress:null, syn:'El montaje m\u00e1s vers\u00e1til para fondos blandos y largas distancias, explicado nudo a nudo.'},
+    {id:19, title:'R\u00e9cord en aguas profundas',   series:null,                 ep:null,    cat:'Documentales', dur:'44 min', durSec:2640, mood:2, isNew:false, progress:12, syn:'Sondeamos un lago profundo en busca de las carpas m\u00e1s esquivas, las que viven donde nadie pesca.'},
+    {id:20, title:'Equipo de invierno',              series:'El Podcast del Carp',ep:'Ep 14', cat:'Podcast',      dur:'50 min', durSec:3000, mood:7, isNew:false, progress:null, syn:'Ropa t\u00e9rmica, calentadores y trucos para aguantar el fr\u00edo sin perder concentraci\u00f3n.'},
+    {id:21, title:'Carpa com\u00fan vs royal',        series:'Escuela de Carp',    ep:'Ep 7',  cat:'T\u00e9cnicas',    dur:'23 min', durSec:1380, mood:4, isNew:true,  progress:null, syn:'Diferencias de comportamiento entre especies y c\u00f3mo adaptar tu enfoque a cada una de ellas.'},
+    {id:22, title:'Sesi\u00f3n en el embalse',        series:'Aguas Salvajes',     ep:'Ep 8',  season:2, cat:'Series',       dur:'37 min', durSec:2220, mood:1, isNew:false, progress:null, syn:'Una jornada completa en un gran embalse de monta\u00f1a, del montaje al atardecer.'}
+  ];
+
+  state = {
+    screen: 'home', current: null, prevScreen: 'home', playerReturn: 'home',
+    playing: false, currentTime: 0, duration: 2040, volume: 0.8, muted: false,
+    speed: 1, fullscreen: false, heroMuted: true,
+    myList: [], query: '', filterCat: 'Todo', menuOpen: false,
+    profileTab: 'account',
+    notifs: { estrenos: true, recomendaciones: true, promos: false, push: true },
+    ratingOpen: false, ratings: {},
+    name: 'Diego Ram\u00edrez', email: 'diego@carppartners.tv',
+    editingProfile: false, editName: '', editFocus: '', profileSaved: false,
+    bioExpanded: false,
+    seasonMenuOpen: false, selectedSeason: null
+  };
+
+  componentDidMount() {
+    this._iv = setInterval(() => {
+      const s = this.state;
+      if (s.screen === 'player' && s.playing) {
+        this.setState(st => {
+          let t = st.currentTime + st.speed * 0.5;
+          if (t >= st.duration) { return { currentTime: st.duration, playing: false }; }
+          return { currentTime: t };
+        });
+      }
+    }, 500);
+  }
+  componentWillUnmount() { clearInterval(this._iv); }
+
+  view = (i) => {
+    const v = Object.assign({}, i, {
+      bg: this.moods[i.mood],
+      metaline: i.series ? (i.series + (i.ep ? ' \u00b7 ' + i.ep : '')) : i.cat,
+      progressPct: (i.progress != null ? i.progress : 0) + '%',
+      showProgress: false, showNew: false, showRank: false, rank: null,
+      crewIds: this.crewByVideo[i.id] || []
+    });
+    v.open = () => this.openDetail(v);
+    return v;
+  };
+
+  openCrew = (person) => this.setState(s => ({ currentCrew: person, crewReturn: s.screen, screen: 'crew', menuOpen: false, bioExpanded: false }));
+  toggleBio = () => this.setState(s => ({ bioExpanded: !s.bioExpanded }));
+
+  goHome = () => this.setState({ screen: 'home', menuOpen: false });
+  goExplore = () => this.setState({ screen: 'explore', menuOpen: false });
+  goList = () => this.setState({ screen: 'list', menuOpen: false });
+  goProfile = () => this.setState({ screen: 'profile', menuOpen: false });
+  toggleMenu = () => this.setState(s => ({ menuOpen: !s.menuOpen }));
+
+  setTabAccount = () => this.setState({ profileTab: 'account' });
+  setTabHistory = () => this.setState({ profileTab: 'history' });
+  setTabNotifs = () => this.setState({ profileTab: 'notifs' });
+  toggleNotif = (key) => this.setState(s => ({ notifs: Object.assign({}, s.notifs, { [key]: !s.notifs[key] }) }));
+
+  startEditProfile = () => this.setState(s => ({ editingProfile: true, editName: s.name, profileSaved: false }));
+  cancelEditProfile = () => this.setState({ editingProfile: false, editFocus: '' });
+  setEditName = (e) => this.setState({ editName: e.target.value });
+  focusEditName = () => this.setState({ editFocus: 'name' });
+  blurEditField = () => this.setState({ editFocus: '' });
+  saveProfile = () => this.setState(s => ({
+    name: s.editName.trim() ? s.editName.trim() : s.name,
+    editingProfile: false, editFocus: '', profileSaved: true
+  }));
+
+  openRating = () => this.setState({ ratingOpen: true });
+  closeRating = () => this.setState({ ratingOpen: false });
+  stopProp = (e) => e.stopPropagation();
+  rateVideo = (val) => this.setState(s => {
+    const cur = s.current;
+    if (!cur) return null;
+    const next = Object.assign({}, s.ratings, { [cur.id]: s.ratings[cur.id] === val ? null : val });
+    return { ratings: next };
+  });
+  rateDown = () => this.rateVideo('down');
+  rateLike = () => this.rateVideo('like');
+  rateLove = () => this.rateVideo('love');
+
+  openDetail = (v) => this.setState(s => ({ current: v, prevScreen: (s.screen === 'detail' || s.screen === 'player') ? s.prevScreen : s.screen, screen: 'detail', menuOpen: false, seasonMenuOpen: false, selectedSeason: null }));
+  toggleSeasonMenu = () => this.setState(s => ({ seasonMenuOpen: !s.seasonMenuOpen }));
+  closeSeasonMenu = () => this.setState({ seasonMenuOpen: false });
+  selectSeason = (n) => this.setState({ selectedSeason: n, seasonMenuOpen: false });
+  play = (v) => this.setState(s => ({ current: v, playerReturn: s.screen === 'player' ? s.playerReturn : s.screen, screen: 'player', playing: true, currentTime: 0, duration: v.durSec, menuOpen: false }));
+  back = () => this.setState(s => {
+    if (s.screen === 'player') return { screen: s.playerReturn || 'home' };
+    if (s.screen === 'crew') return { screen: s.crewReturn || 'home' };
+    return { screen: s.prevScreen || 'home' };
+  });
+
+  toggleList = (v) => this.setState(s => ({ myList: s.myList.includes(v.id) ? s.myList.filter(x => x !== v.id) : s.myList.concat([v.id]) }));
+
+  togglePlay = () => this.setState(s => ({ playing: !s.playing }));
+  seek = (e) => { const r = e.currentTarget.getBoundingClientRect(); const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); this.setState(s => ({ currentTime: f * s.duration })); };
+  rewind = () => this.setState(s => ({ currentTime: Math.max(0, s.currentTime - 10) }));
+  forward = () => this.setState(s => ({ currentTime: Math.min(s.duration, s.currentTime + 10) }));
+  setVol = (e) => { const r = e.currentTarget.getBoundingClientRect(); const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); this.setState({ volume: f, muted: false }); };
+  toggleMute = () => this.setState(s => ({ muted: !s.muted }));
+  cycleSpeed = () => { const sp = [1, 1.25, 1.5, 2, 0.5]; this.setState(s => ({ speed: sp[(sp.indexOf(s.speed) + 1) % sp.length] })); };
+  toggleFs = () => this.setState(s => ({ fullscreen: !s.fullscreen }));
+  toggleHeroMute = () => this.setState(s => ({ heroMuted: !s.heroMuted }));
+
+  fmt = (sec) => { sec = Math.floor(sec); const m = Math.floor(sec / 60); const s = sec % 60; return m + ':' + (s < 10 ? '0' : '') + s; };
+
+  renderVals() {
+    const st = this.state;
+    const accent = this.props.accent || '#68140b';
+    const accentBright = this.props.accentBright || '#cf4a35';
+    const newLabel = this.props.newLabel || 'Nuevo';
+    const cur = st.current;
+
+    // home rows
+    const cont = this.catalog.filter(i => i.progress != null).map(i => { const v = this.view(i); v.showProgress = true; return v; });
+    const nuevos = this.catalog.filter(i => i.isNew).map(i => { const v = this.view(i); v.showNew = true; return v; });
+    const trend = [5, 11, 2, 8, 1, 15, 7, 19].map((id, idx) => { const it = this.catalog.find(i => i.id === id); const v = this.view(it); v.showRank = true; v.rank = idx + 1; return v; });
+    const peliculas = this.catalog.filter(i => !i.series).map(i => this.view(i));
+    const seriesNames = [...new Set(this.catalog.filter(i => i.series).map(i => i.series))];
+    const seriesCards = seriesNames.map(name => {
+      const eps = this.catalog.filter(i => i.series === name);
+      const rep = eps.slice().sort((a, b) => (a.season || 1) - (b.season || 1))[0];
+      const v = this.view(rep);
+      v.metaline = eps.length + (eps.length === 1 ? ' episodio' : ' episodios');
+      return v;
+    });
+
+    const homeRows = [
+      { title: 'Continuar viendo', items: cont, kind: 'continue', cardW: '280px' },
+      { title: 'A\u00f1adido recientemente', items: nuevos.map((v, idx) => Object.assign({}, v, {
+          spotW: idx === 0 ? '620px' : '300px',
+          spotBorder: idx === 0 ? '2px solid rgba(255,255,255,0.55)' : '1px solid rgba(255,255,255,0.08)',
+          spotShadow: idx === 0 ? '0 12px 34px rgba(0,0,0,0.5)' : '0 8px 22px rgba(0,0,0,0.4)',
+          spotBadge: idx === 0 ? 'Estreno' : (idx === 1 ? 'Nueva serie' : 'Tendencia'),
+          spotTitleSize: idx === 0 ? '26px' : '18px',
+          spotIsFeatured: idx === 0
+        })), kind: 'spotlight' },
+      { title: 'Tendencias en Carp Partners', items: trend, kind: 'ranked' },
+      { title: 'Pel\u00edculas', items: peliculas, kind: 'standard', cardW: '300px' },
+      { title: 'Series', items: seriesCards, kind: 'series' }
+    ].map(r => Object.assign({}, r, {
+      marginBottom: r.kind === 'ranked' ? '20px' : '36px',
+      titleSize: r.kind === 'spotlight' ? '22px' : '19px',
+      titleWeight: r.kind === 'spotlight' ? 700 : 600,
+      isSpotlight: r.kind === 'spotlight', isRanked: r.kind === 'ranked', isSeries: r.kind === 'series', isStandard: r.kind === 'standard' || r.kind === 'continue'
+    }));
+
+    const featured = this.view(this.catalog[0]);
+    const heroTitle = this.props.heroTitleOverride || featured.title;
+
+    // explore
+    const q = (st.query || '').trim().toLowerCase();
+    const fc = st.filterCat;
+    const cats = ['Todo', 'T\u00e9cnicas', 'Series', 'Documentales', 'Podcast'];
+    const filterChips = cats.map(c => {
+      const active = c === fc;
+      return {
+        label: c, set: () => this.setState({ filterCat: c }),
+        bg: active ? accent : 'rgba(255,255,255,0.05)',
+        color: active ? '#fff' : '#c4d0cb',
+        border: active ? accent : 'rgba(255,255,255,0.1)'
+      };
+    });
+    const exploreResults = this.catalog
+      .filter(i => (fc === 'Todo' || i.cat === fc) && (q === '' || (i.title + ' ' + (i.series || '') + ' ' + i.cat).toLowerCase().indexOf(q) !== -1))
+      .map(i => this.view(i));
+
+    // my list
+    const listItems = this.catalog.filter(i => st.myList.includes(i.id)).map(i => this.view(i));
+
+    // related
+    const related = cur ? this.catalog.filter(i => i.cat === cur.cat && i.id !== cur.id).slice(0, 8).map(i => this.view(i)) : [];
+
+    // crew shown on the current video's detail page
+    const curCrewList = cur ? (cur.crewIds || []).map(cid => this.crew.find(p => p.id === cid)).filter(Boolean) : [];
+    const curCrew = curCrewList.map(p => Object.assign({}, p, { role: this.crewTypeLabel[p.type] || '', open: () => this.openCrew(p) }));
+
+    // crew profile screen
+    const activeCrew = st.currentCrew;
+    const crewVideos = activeCrew ? this.catalog.filter(i => (this.crewByVideo[i.id] || []).includes(activeCrew.id)).map(i => this.view(i)) : [];
+
+    // current meta
+    const inList = cur ? st.myList.includes(cur.id) : false;
+    const curRating = cur ? st.ratings[cur.id] : null;
+
+    // seasons / episodes
+    const seriesName = cur ? cur.series : null;
+    const seriesEpisodesAll = seriesName ? this.catalog.filter(i => i.series === seriesName) : [];
+    const seasonNums = [...new Set(seriesEpisodesAll.map(i => i.season || 1))].sort((a, b) => a - b);
+    const curHasSeasons = seriesEpisodesAll.length > 1;
+    const defaultSeason = cur ? (cur.season || 1) : 1;
+    const activeSeason = st.selectedSeason || defaultSeason;
+    const seasonEpNums = (i) => parseInt((i.ep || '0').replace(/\D/g, ''), 10) || 0;
+    const seasonEpisodes = seriesEpisodesAll
+      .filter(i => (i.season || 1) === activeSeason)
+      .sort((a, b) => seasonEpNums(a) - seasonEpNums(b))
+      .map((i, idx) => {
+        const isCurrent = cur && i.id === cur.id;
+        return {
+          num: idx + 1, title: i.title, dur: i.dur, syn: i.syn, bg: this.moods[i.mood],
+          isCurrent, showProgress: i.progress != null, progressPct: (i.progress || 0) + '%',
+          numColor: isCurrent ? accentBright : '#5f6f69',
+          titleColor: isCurrent ? accentBright : '#e9efeb',
+          titleWeight: isCurrent ? 700 : 600,
+          ringBorder: isCurrent ? ('1.5px solid ' + accentBright) : '1px solid rgba(255,255,255,0.06)',
+          playBg: isCurrent ? accentBright : 'rgba(255,255,255,0.16)',
+          playColor: isCurrent ? '#fff' : '#fff',
+          open: () => (isCurrent ? this.play(this.view(i)) : this.openDetail(this.view(i)))
+        };
+      });
+    const seasonOptions = seasonNums.map(n => ({
+      label: 'Temporada ' + n, select: () => this.selectSeason(n),
+      weight: n === activeSeason ? 700 : 500,
+      color: n === activeSeason ? '#fff' : '#c4d0cb',
+      bg: n === activeSeason ? 'rgba(104,20,11,0.14)' : 'transparent'
+    }));
+
+    // player
+    const pct = (st.currentTime / (st.duration || 1)) * 100;
+    const volEff = st.muted ? 0 : st.volume;
+    const nextItem = cur ? (this.catalog.find(i => i.id === cur.id + 1) || this.catalog[0]) : null;
+    const nextV = nextItem ? this.view(nextItem) : null;
+
+    return {
+      accent, accentBright, newLabel,
+      isHome: st.screen === 'home', isDetail: st.screen === 'detail', isExplore: st.screen === 'explore', isList: st.screen === 'list', isPlayer: st.screen === 'player', isProfile: st.screen === 'profile', isCrew: st.screen === 'crew',
+      showChrome: st.screen !== 'player',
+      navHome: st.screen === 'home' ? '#ffffff' : '#9aa9a3',
+      navExplore: st.screen === 'explore' ? '#ffffff' : '#9aa9a3',
+      navList: st.screen === 'list' ? '#ffffff' : '#9aa9a3',
+      menuOpen: st.menuOpen,
+      goHome: this.goHome, goExplore: this.goExplore, goList: this.goList, goProfile: this.goProfile, toggleMenu: this.toggleMenu, back: this.back,
+
+      // home
+      homeRows,
+      heroBg: featured.bg, heroTitle, heroSyn: featured.syn,
+      heroMuteIcon: st.heroMuted ? 'volume-off' : 'volume',
+      toggleHeroMute: this.toggleHeroMute,
+      playFeatured: () => this.play(featured),
+      infoFeatured: () => this.openDetail(featured),
+
+      // detail
+      curBg: cur ? cur.bg : featured.bg,
+      curTitle: cur ? cur.title : '', curSyn: cur ? cur.syn : '',
+      curKicker: cur ? (cur.series ? cur.series + (cur.ep ? ' \u00b7 ' + cur.ep : '') : cur.cat) : '',
+      curCat: cur ? cur.cat : '', curDur: cur ? cur.dur : '', curSeries: cur ? (cur.series || '\u2014') : '\u2014',
+      curCrew, curHasCrew: curCrew.length > 0,
+      playCurrent: () => cur && this.play(cur),
+      toggleCurrentList: () => cur && this.toggleList(cur),
+      listLabel: inList ? 'En tu lista' : 'Mi Lista',
+      listIcon: inList ? 'check' : 'plus',
+      listIconColor: inList ? accentBright : '#ffffff',
+      related,
+
+      // seasons / episodes
+      curHasSeasons, seasonLabel: 'Temporada ' + activeSeason, seasonOptions,
+      seasonMenuOpen: st.seasonMenuOpen, toggleSeasonMenu: this.toggleSeasonMenu, closeSeasonMenu: this.closeSeasonMenu,
+      seasonEpisodes,
+
+      // crew profile
+      crewName: activeCrew ? activeCrew.name : '',
+      crewRole: activeCrew ? (this.crewTypeLabel[activeCrew.type] || '') : '',
+      crewBio: activeCrew ? activeCrew.bio : '',
+      crewAvatarBg: activeCrew ? activeCrew.avatarBg : 'linear-gradient(135deg,#2f5249,#16302b)',
+      crewPhotoId: activeCrew ? ('crew-photo-' + activeCrew.id) : 'crew-photo-default',
+      crewVideos,
+      bioIsLong: !!(activeCrew && activeCrew.bio && activeCrew.bio.split(' ').length > 55),
+      bioClampStyle: (activeCrew && activeCrew.bio && activeCrew.bio.split(' ').length > 55 && !st.bioExpanded)
+        ? 'display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden'
+        : '',
+      toggleBio: this.toggleBio,
+      bioToggleLabel: st.bioExpanded ? 'Leer menos' : 'Leer m\u00e1s',
+      bioToggleIcon: st.bioExpanded ? 'chevron-up' : 'chevron-down',
+      crewVideosHeading: activeCrew ? ('V\u00eddeos con ' + activeCrew.name.split(' ')[0]) : '',
+      openCrew: this.openCrew,
+
+      // rating dialog
+      openRating: this.openRating, closeRating: this.closeRating, stopProp: this.stopProp,
+      rateDown: this.rateDown, rateLike: this.rateLike, rateLove: this.rateLove,
+      ratingOpen: st.ratingOpen,
+      rateBorder: curRating ? accentBright : 'rgba(255,255,255,0.2)',
+      rateBg: curRating ? 'rgba(104,20,11,0.18)' : 'transparent',
+      rateColor: curRating ? accentBright : '#cdd6d2',
+      rateIcon: curRating ? 'thumb-up-filled' : 'thumb-up',
+      downFilled: curRating === 'down' ? '-filled' : '',
+      likeFilled: curRating === 'like' ? '-filled' : '',
+      loveFilled: curRating === 'love' ? '-filled' : '',
+      downCircle: curRating === 'down' ? '#c0392b' : 'rgba(255,255,255,0.06)',
+      likeCircle: curRating === 'like' ? accentBright : 'rgba(255,255,255,0.06)',
+      loveCircle: curRating === 'love' ? accentBright : 'rgba(255,255,255,0.06)',
+      downIconColor: curRating === 'down' ? '#fff' : '#9aa9a3',
+      likeIconColor: curRating === 'like' ? '#fff' : '#9aa9a3',
+      loveIconColor: curRating === 'love' ? '#fff' : '#9aa9a3',
+      downBorder: curRating === 'down' ? 'rgba(192,57,43,0.55)' : 'rgba(255,255,255,0.08)',
+      likeBorder: curRating === 'like' ? 'rgba(207,74,53,0.55)' : 'rgba(255,255,255,0.08)',
+      loveBorder: curRating === 'love' ? 'rgba(207,74,53,0.55)' : 'rgba(255,255,255,0.08)',
+      downBg: curRating === 'down' ? 'rgba(192,57,43,0.12)' : 'rgba(255,255,255,0.03)',
+      likeBg: curRating === 'like' ? 'rgba(104,20,11,0.12)' : 'rgba(255,255,255,0.03)',
+      loveBg: curRating === 'love' ? 'rgba(104,20,11,0.12)' : 'rgba(255,255,255,0.03)',
+      downTextColor: curRating === 'down' ? '#e9efeb' : '#9aa9a3',
+      likeTextColor: curRating === 'like' ? '#e9efeb' : '#9aa9a3',
+      loveTextColor: curRating === 'love' ? '#e9efeb' : '#9aa9a3',
+      ratingChosen: !!curRating,
+      ratingConfirmText: curRating === 'down' ? 'Gracias, ajustaremos tus recomendaciones' : (curRating === 'love' ? '\u00a1Te encanta! Buscaremos m\u00e1s como este' : 'Gracias por tu valoraci\u00f3n'),
+
+      // explore
+      query: st.query, setQuery: (e) => this.setState({ query: e.target.value }),
+      filterChips, exploreResults,
+      exploreEmpty: exploreResults.length === 0, exploreHasResults: exploreResults.length > 0,
+      resultCount: exploreResults.length + (exploreResults.length === 1 ? ' resultado' : ' resultados'),
+
+      // list
+      listItems, listEmpty: listItems.length === 0, listHasItems: listItems.length > 0,
+      listCount: listItems.length === 0 ? 'A\u00fan no has guardado nada' : (listItems.length + (listItems.length === 1 ? ' v\u00eddeo guardado' : ' v\u00eddeos guardados')),
+
+      // profile (identity + edit name/photo only \u2014 email is locked to Stripe billing)
+      displayName: st.name, displayEmail: st.email,
+      initials: st.name.split(' ').filter(Boolean).slice(0,2).map(w => w[0].toUpperCase()).join(''),
+      editingProfile: st.editingProfile, notEditingProfile: !st.editingProfile,
+      startEditProfile: this.startEditProfile, cancelEditProfile: this.cancelEditProfile, saveProfile: this.saveProfile,
+      editName: st.editName,
+      setEditName: this.setEditName,
+      focusEditName: this.focusEditName, blurEditField: this.blurEditField,
+      editNameBorder: st.editFocus === 'name' ? 'rgba(207,74,53,0.6)' : 'rgba(255,255,255,0.1)',
+      profileSaved: st.profileSaved,
+
+      // profile tabs (account/subscription, history, notifications)
+      setTabAccount: this.setTabAccount, setTabHistory: this.setTabHistory, setTabNotifs: this.setTabNotifs,
+      tabIsAccount: st.profileTab === 'account', tabIsHistory: st.profileTab === 'history', tabIsNotifs: st.profileTab === 'notifs',
+      tabAccountBg: st.profileTab === 'account' ? 'rgba(104,20,11,0.16)' : 'transparent',
+      tabAccountColor: st.profileTab === 'account' ? '#fff' : '#9aa9a3',
+      tabHistoryBg: st.profileTab === 'history' ? 'rgba(104,20,11,0.16)' : 'transparent',
+      tabHistoryColor: st.profileTab === 'history' ? '#fff' : '#9aa9a3',
+      tabNotifsBg: st.profileTab === 'notifs' ? 'rgba(104,20,11,0.16)' : 'transparent',
+      tabNotifsColor: st.profileTab === 'notifs' ? '#fff' : '#9aa9a3',
+      historyItems: [
+        { title: 'Amanecer en el Ebro', when: 'Ayer', dur: '34 min', bg: this.moods[0] },
+        { title: 'Carpas trofeo en Mequinenza', when: 'Hace 3 d\u00edas', dur: '38 min', bg: this.moods[3] },
+        { title: 'La sesi\u00f3n de 72 horas', when: 'Hace 5 d\u00edas', dur: '41 min', bg: this.moods[2] },
+        { title: 'Montajes para fondos duros', when: 'Hace 1 semana', dur: '22 min', bg: this.moods[4] },
+        { title: 'El arte del spod', when: 'Hace 2 semanas', dur: '19 min', bg: this.moods[7] }
+      ],
+      notifRows: [
+        { key: 'estrenos', label: 'Nuevos estrenos', desc: 'Avisos cuando se publique contenido nuevo' },
+        { key: 'recomendaciones', label: 'Recomendaciones', desc: 'Sugerencias basadas en lo que ves' },
+        { key: 'promos', label: 'Ofertas y promociones', desc: 'Descuentos y novedades de planes' },
+        { key: 'push', label: 'Notificaciones push (app)', desc: 'Avisos en tu m\u00f3vil o tablet' }
+      ].map(n => ({
+        label: n.label, desc: n.desc,
+        toggle: () => this.toggleNotif(n.key),
+        trackBg: st.notifs[n.key] ? accentBright : 'rgba(255,255,255,0.14)',
+        knobLeft: st.notifs[n.key] ? '20px' : '2px'
+      })),
+
+      // player
+      progressPct: pct + '%', volPct: (volEff * 100) + '%',
+      curTimeFmt: this.fmt(st.currentTime), durFmt: this.fmt(st.duration),
+      bigPlayIcon: st.playing ? 'player-pause-filled' : 'player-play-filled',
+      bigPlayMargin: st.playing ? '0' : '4px',
+      ctrlPlayIcon: st.playing ? 'player-pause-filled' : 'player-play-filled',
+      volIcon: volEff === 0 ? 'volume-off' : (volEff < 0.5 ? 'volume-2' : 'volume'),
+      speedLabel: st.speed + 'x',
+      fsIcon: st.fullscreen ? 'minimize' : 'maximize',
+      togglePlay: this.togglePlay, seek: this.seek, rewind: this.rewind, forward: this.forward,
+      setVol: this.setVol, toggleMute: this.toggleMute, cycleSpeed: this.cycleSpeed, toggleFs: this.toggleFs,
+      showNextCard: st.currentTime > st.duration * 0.6,
+      nextBg: nextV ? nextV.bg : featured.bg, nextTitle: nextV ? nextV.title : '',
+      playNext: () => nextV && this.play(nextV)
+    };
+  }
+}
+</script>
+</body>
+</html>

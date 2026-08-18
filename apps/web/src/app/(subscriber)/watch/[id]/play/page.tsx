@@ -18,6 +18,12 @@ function fmt(sec: number): string {
   return `${m}:${r < 10 ? '0' : ''}${r}`;
 }
 
+function levelLabel(height: number): string {
+  if (height >= 2160) return '4K';
+  if (height >= 1440) return '2K';
+  return `${height}p`;
+}
+
 export default function PlayPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -59,6 +65,17 @@ export default function PlayPage() {
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playingRef = useRef(playing);
 
+  // ── Calidad de vídeo (niveles HLS reales de este vídeo) ──────────────────────
+  // Solo existen cuando hls.js está realmente decodificando vía Media Source
+  // (Managed o no) — en reproducción HLS nativa (ver comentario en Efecto 2)
+  // no hay ninguna API para leer ni forzar niveles, así que esto se queda
+  // vacío y el selector no se muestra.
+  const [qualityLevels, setQualityLevels] = useState<{ index: number; height: number; bitrate: number }[]>([]);
+  const [rawLevelHeights, setRawLevelHeights] = useState<number[]>([]);
+  const [selectedLevel, setSelectedLevel] = useState(-1); // -1 = Automática
+  const [activeLevel, setActiveLevel] = useState(-1); // nivel que se está reproduciendo AHORA (informativo en Auto)
+  const [qualityMenuOpen, setQualityMenuOpen] = useState(false);
+
   // ── Guarda progreso ──────────────────────────────────────────────────────────
   const saveProgress = useCallback((videoId: string, completed = false) => {
     const el = videoRef.current;
@@ -78,6 +95,11 @@ export default function PlayPage() {
     setPlayerReady(false);
     setError('');
     setAutoplayDismissed(false); // vídeo nuevo: la tarjeta puede volver a aparecer
+    setQualityLevels([]);
+    setRawLevelHeights([]);
+    setSelectedLevel(-1);
+    setActiveLevel(-1);
+    setQualityMenuOpen(false);
 
     async function load() {
       try {
@@ -134,6 +156,12 @@ export default function PlayPage() {
     async function initHls() {
       const Hls = (await import('hls.js')).default;
 
+      // Hls.isSupported() exige Media Source Extensions (o, desde hls.js
+      // 1.5+, Managed Media Source — la versión reducida que Apple añadió en
+      // iOS/iPadOS 17.1 y que SOLO funciona en contexto seguro, es decir
+      // https:// — nunca sobre http://192.168.x.x en local). Solo por esta
+      // vía hls.js controla de verdad los niveles de calidad: es la única
+      // rama donde tiene sentido ofrecer el selector.
       if (Hls.isSupported()) {
         const hls = new Hls({ enableWorker: true });
         hlsRef.current = hls;
@@ -144,14 +172,42 @@ export default function PlayPage() {
 
         hls.loadSource(url);
         hls.attachMedia(videoEl);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        hls.on(Hls.Events.MANIFEST_PARSED, (_e, data) => {
           if (destroyed) return;
           videoEl.currentTime = startAt;
           videoEl.play().catch(() => null);
           setPlayerReady(true);
+
+          // Calidades reales de ESTE vídeo — nunca una lista fija. Varios
+          // niveles pueden compartir altura con distinto bitrate (poco
+          // habitual en Vimeo, pero posible); nos quedamos con el de mayor
+          // bitrate de cada altura para no repetir "1080p" dos veces. Se
+          // guarda también la lista SIN deduplicar (rawLevelHeights) para
+          // poder traducir el índice que reporta LEVEL_SWITCHED aunque no
+          // sea uno de los "elegibles" (p. ej. si el ABR pasa brevemente por
+          // un nivel que quedó fuera del deduplicado).
+          const byHeight = new Map<number, { index: number; height: number; bitrate: number }>();
+          data.levels.forEach((lvl, i) => {
+            if (!lvl.height) return;
+            const existing = byHeight.get(lvl.height);
+            if (!existing || lvl.bitrate > existing.bitrate) {
+              byHeight.set(lvl.height, { index: i, height: lvl.height, bitrate: lvl.bitrate });
+            }
+          });
+          setQualityLevels(Array.from(byHeight.values()).sort((a, b) => b.height - a.height));
+          setRawLevelHeights(data.levels.map((lvl) => lvl.height));
+        });
+        hls.on(Hls.Events.LEVEL_SWITCHED, (_e, data) => {
+          if (destroyed) return;
+          setActiveLevel(data.level);
         });
       } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-        // Safari: HLS nativo
+        // HLS nativo del propio <video> (Safari de escritorio siempre lo
+        // evita porque sí soporta MSE; en iOS/iPadOS es la única vía por
+        // debajo de 17.1, o en 17.1+ sobre http:// sin TLS). El navegador
+        // decodifica y adapta la calidad él solo, dentro de su motor nativo
+        // — no existe ninguna API pública para leer ni forzar el nivel, así
+        // que qualityLevels se queda vacío y el selector no se pinta.
         videoEl.src = url;
         videoEl.currentTime = startAt;
         videoEl.play().catch(() => null);
@@ -451,6 +507,19 @@ export default function PlayPage() {
     } else {
       playerSectionRef.current?.requestFullscreen?.().catch(() => null);
     }
+  };
+
+  // levelIndex: -1 = Automática (vuelve al ABR de hls.js), o el índice real
+  // del nivel dentro de hls.levels. Asignar currentLevel fuerza el cambio de
+  // inmediato (puede causar un pequeño corte mientras carga el nuevo
+  // fragmento) y se queda fijo ahí hasta que el usuario lo cambie o cargue
+  // otro vídeo — hls.js no lo revierte solo.
+  const selectQuality = (levelIndex: number) => {
+    const hls = hlsRef.current;
+    if (!hls) return;
+    hls.currentLevel = levelIndex;
+    setSelectedLevel(levelIndex);
+    setQualityMenuOpen(false);
   };
 
   // El reproductor se alcanza de dos formas distintas: reemplazando el detalle
@@ -775,9 +844,68 @@ export default function PlayPage() {
               >
                 {speed}x
               </button>
-              <button aria-label="Ajustes" className="hidden sm:inline-flex hover:opacity-80">
-                <i className="ti ti-settings text-[24px]" />
-              </button>
+              {/* Selector de calidad — solo si hay niveles HLS reales que
+                  leer (ver Efecto 2): en reproducción HLS nativa (Safari/
+                  Chrome de iOS por debajo de 17.1, o 17.1+ sin https://) no
+                  hay ninguna API para forzar la calidad, así que no tiene
+                  sentido ofrecer un botón que no podría hacer nada. */}
+              {qualityLevels.length > 0 && (
+                <div className="relative">
+                  <button
+                    onClick={() => setQualityMenuOpen((v) => !v)}
+                    aria-label="Calidad de vídeo"
+                    className="hover:opacity-80"
+                  >
+                    <i className="ti ti-settings text-[21px] sm:text-[24px]" />
+                  </button>
+                  {qualityMenuOpen && (
+                    <>
+                      <div onClick={() => setQualityMenuOpen(false)} className="fixed inset-0 z-[70]" />
+                      <div
+                        className="absolute z-[71] overflow-hidden"
+                        style={{
+                          bottom: 'calc(100% + 10px)', right: 0, minWidth: 168,
+                          background: '#0e151a', border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: 11, boxShadow: '0 18px 44px rgba(0,0,0,0.55)',
+                        }}
+                      >
+                        <button
+                          onClick={() => selectQuality(-1)}
+                          className="w-full flex items-center justify-between gap-3 px-4 py-[11px] text-[13px] text-left whitespace-nowrap"
+                          style={{
+                            fontWeight: selectedLevel === -1 ? 700 : 500,
+                            color: selectedLevel === -1 ? '#fff' : '#c4d0cb',
+                            background: selectedLevel === -1 ? 'rgba(104,20,11,0.14)' : 'transparent',
+                          }}
+                        >
+                          <span>
+                            Automática
+                            {selectedLevel === -1 && activeLevel >= 0 && rawLevelHeights[activeLevel]
+                              ? ` · ${levelLabel(rawLevelHeights[activeLevel])}`
+                              : ''}
+                          </span>
+                          {selectedLevel === -1 && <i className="ti ti-check text-[15px]" />}
+                        </button>
+                        {qualityLevels.map((lvl) => (
+                          <button
+                            key={lvl.index}
+                            onClick={() => selectQuality(lvl.index)}
+                            className="w-full flex items-center justify-between gap-3 px-4 py-[11px] text-[13px] text-left whitespace-nowrap"
+                            style={{
+                              fontWeight: selectedLevel === lvl.index ? 700 : 500,
+                              color: selectedLevel === lvl.index ? '#fff' : '#c4d0cb',
+                              background: selectedLevel === lvl.index ? 'rgba(104,20,11,0.14)' : 'transparent',
+                            }}
+                          >
+                            <span>{levelLabel(lvl.height)}</span>
+                            {selectedLevel === lvl.index && <i className="ti ti-check text-[15px]" />}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
               {/* Oculto mientras forceRotate está activo: pedir fullscreen
                   real sobre un elemento que ya tiene nuestro
                   transform:rotate(90deg) hace que el navegador (confirmado

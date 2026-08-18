@@ -221,11 +221,39 @@ export default function AdminSeriesPage() {
   const catName = (id: string | null) =>
     categories.find(c => c.id === id)?.name ?? '—';
 
+  // ── Toggle "Mejores seleccionados para ti" (Home) ──────────────────────────
+  // A diferencia del destacado de portada de vídeos, aquí puede haber varias
+  // series marcadas a la vez — no hay lógica de "desmarcar las demás". Solo
+  // tiene efecto en series de primer nivel: GET /series (curated=true) nunca
+  // devuelve temporadas, así que marcar una no haría nada visible.
+  const toggleCurated = async (s: AdminSeries) => {
+    try {
+      await apiClient.updateAdminSeries(s.id, { isCurated: !s.is_curated });
+      await load();
+      toast('success', s.is_curated ? `"${s.title}" ya no aparece en seleccionados` : `"${s.title}" aparece ahora en "Mejores seleccionados para ti"`);
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'No se pudo cambiar la selección');
+    }
+  };
+
   const renderRow = (s: AdminSeries, isChild: boolean) => (
     <tr key={s.id} className={`hover:bg-admin-hover transition-colors ${isChild ? 'bg-admin-thead' : ''}`}>
       <td className="px-4 py-3">
         <div className={`flex items-center gap-3 ${isChild ? 'pl-7' : ''}`}>
           {isChild && <span className="text-admin-text-tertiary text-sm shrink-0">↳</span>}
+          {!isChild && (
+            <button onClick={() => toggleCurated(s)}
+              title={s.is_curated ? 'En "Mejores seleccionados para ti" — pulsa para quitarla' : 'Añadir a "Mejores seleccionados para ti"'}
+              className={`shrink-0 p-1 rounded transition-colors ${
+                s.is_curated ? 'text-[#cf4a35]' : 'text-admin-text-tertiary hover:text-admin-text-secondary'
+              }`}
+            >
+              <svg className="w-[18px] h-[18px]" fill={s.is_curated ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+              </svg>
+            </button>
+          )}
           {s.cover_url ? (
             <img src={s.cover_url} alt="" className="w-9 h-9 rounded object-cover bg-admin-border-soft shrink-0" />
           ) : (

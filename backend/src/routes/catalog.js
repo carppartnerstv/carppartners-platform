@@ -70,16 +70,33 @@ catalogRouter.get(
                  WHERE vc2.video_id = v.id AND cm2.slug = $${params.length})`,
       );
     }
+    // standalone=true: películas/vídeos sueltos sin serie — fila de Home "Películas"
+    if (req.query.standalone === 'true') filters.push('v.series_id IS NULL');
+    // trending=true: marcados a mano desde /admin/videos — fila de Home
+    // "Tendencias en Carp Partners" (no hay conteo de reproducciones en la
+    // app; el ranking 1,2,3… de esa fila lo asigna el frontend por la
+    // posición en la respuesta, no un campo de BD).
+    if (req.query.trending === 'true') filters.push('v.is_trending = true');
+
+    // sort=recent (o trending=true, mismo criterio): recién añadidos de TODO
+    // el catálogo primero (fila de Home "Añadido recientemente") — el orden
+    // por defecto agrupa por serie antes que por fecha, así que un episodio
+    // nuevo de una serie antigua no aparecería arriba aunque sea justo lo
+    // que se acaba de publicar.
+    const orderBy = (req.query.sort === 'recent' || req.query.trending === 'true')
+      ? 'v.created_at DESC'
+      : 'v.series_id NULLS LAST, v.episode_num NULLS LAST, v.created_at DESC';
 
     params.push(limit, offset);
     const { rows } = await query(
       `SELECT v.id, v.title, v.slug, v.description, v.duration_sec, v.thumbnail_url,
               s.category_id, v.series_id, v.episode_num, v.created_at,
+              s.title AS series_title, s.season_num,
               ${CREW_SUBQUERY}
          FROM videos v
          LEFT JOIN series s ON s.id = v.series_id
         WHERE ${filters.join(' AND ')}
-        ORDER BY v.series_id NULLS LAST, v.episode_num NULLS LAST, v.created_at DESC
+        ORDER BY ${orderBy}
         LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params,
     );
@@ -344,22 +361,32 @@ catalogRouter.get(
 // Una serie con temporadas (parent_series_id IS NULL en la fila madre) se
 // devuelve una sola vez aquí; episode_count suma los episodios propios MÁS
 // los de todas sus temporadas, para que la portada muestre el total real.
+// `curated=true` alimenta la fila de Home "Mejores seleccionados para ti"
+// (series marcadas a mano desde /admin/series, sin límite — el admin ya se
+// autolimita eligiendo cuántas marca). No afecta al uso habitual (Explorar,
+// filas por categoría), que sigue devolviendo todo sin límite y en el orden
+// manual de siempre.
 catalogRouter.get(
   '/series',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const categoryFilter = req.query.category ? 'AND s.category_id = $1' : '';
-    const params = req.query.category ? [req.query.category] : [];
+    const filters = ['s.parent_series_id IS NULL'];
+    const params = [];
+    if (req.query.category) {
+      params.push(req.query.category);
+      filters.push(`s.category_id = $${params.length}`);
+    }
+    if (req.query.curated === 'true') filters.push('s.is_curated = true');
 
     const { rows } = await query(
       `SELECT s.id, s.title, s.slug, s.description, s.category_id, s.season_num,
-              s.cover_url, s.order_index,
+              s.cover_url, s.order_index, s.created_at, s.is_curated,
               COUNT(DISTINCT ch.id)::int AS season_count,
               COUNT(DISTINCT v.id) FILTER (WHERE ${VISIBLE})::int AS episode_count
          FROM series s
          LEFT JOIN series ch ON ch.parent_series_id = s.id
          LEFT JOIN videos v  ON v.series_id = s.id OR v.series_id = ch.id
-        WHERE s.parent_series_id IS NULL ${categoryFilter}
+        WHERE ${filters.join(' AND ')}
         GROUP BY s.id
         ORDER BY s.order_index, s.title`,
       params,

@@ -116,7 +116,15 @@ export function VideoCard({ video, progress, rank, isNew, onClick }: VideoCardPr
           {video.title}
         </p>
         {video.episode_num != null && (
-          <p className="text-cp-gray text-[11.5px] mt-[3px]">Ep. {video.episode_num}</p>
+          <p className="text-cp-gray text-[11.5px] mt-[3px] truncate">
+            {/* series_title solo viene informado en /videos (no en los
+                vídeos "sintéticos" de historial/watchlist) — con él se
+                muestra temporada + episodio + serie, si no, el episodio
+                suelto como antes. */}
+            {video.series_title
+              ? `${video.season_num != null ? `T${video.season_num} · ` : ''}E${video.episode_num} · ${video.series_title}`
+              : `Ep. ${video.episode_num}`}
+          </p>
         )}
       </div>
     </button>

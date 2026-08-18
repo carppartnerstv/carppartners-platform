@@ -4,6 +4,11 @@ import React, { useRef } from 'react';
 import type { Video } from '@carp-partners/api-client';
 import { VideoCard } from './VideoCard';
 
+// 45 días en vez de los 7 "de manual" — el catálogo se sube por lotes con
+// semanas de diferencia, así que una ventana de 7 días dejaba el badge
+// "Nuevo" prácticamente siempre vacío salvo el mismo día de la subida.
+const NEW_BADGE_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
+
 export interface VideoRowProps {
   title: string;
   videos: Video[];
@@ -11,9 +16,13 @@ export interface VideoRowProps {
   onVideoClick?: (video: Video) => void;
   showSeeAll?: boolean;
   onSeeAll?: () => void;
+  /** Marca con el badge "Nuevo" los vídeos publicados en los últimos 45 días — pensado para "Añadido recientemente" en Home. */
+  showNewBadge?: boolean;
+  /** Numera las tarjetas 1, 2, 3… (prop `rank` ya soportada por VideoCard) — pensado para "Tendencias en Carp Partners". Usa más separación entre tarjetas para que el numeral grande tenga sitio. */
+  showRank?: boolean;
 }
 
-export function VideoRow({ title, videos, progressMap, onVideoClick, showSeeAll, onSeeAll }: VideoRowProps) {
+export function VideoRow({ title, videos, progressMap, onVideoClick, showSeeAll, onSeeAll, showNewBadge, showRank }: VideoRowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scroll = (dir: 'left' | 'right') => {
@@ -49,9 +58,9 @@ export function VideoRow({ title, videos, progressMap, onVideoClick, showSeeAll,
 
         <div
           ref={scrollRef}
-          className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-1"
+          className={`flex overflow-x-auto scrollbar-hide scroll-smooth pb-1 ${showRank ? 'gap-6 sm:gap-8 pt-3' : 'gap-3 sm:gap-4'}`}
         >
-          {videos.map((v) => (
+          {videos.map((v, i) => (
             // Ancho reducido en móvil para que se vean 2-3 tarjetas de un
             // vistazo (sigue siendo un carrusel deslizable, no una parrilla).
             <div key={v.id} className="flex-shrink-0 w-[132px] sm:w-[190px] md:w-[230px] lg:w-[300px]">
@@ -59,6 +68,8 @@ export function VideoRow({ title, videos, progressMap, onVideoClick, showSeeAll,
                 video={v}
                 progress={progressMap?.[v.id]}
                 onClick={onVideoClick}
+                isNew={showNewBadge && Date.now() - new Date(v.created_at).getTime() <= NEW_BADGE_MAX_AGE_MS}
+                rank={showRank ? i + 1 : undefined}
               />
             </div>
           ))}

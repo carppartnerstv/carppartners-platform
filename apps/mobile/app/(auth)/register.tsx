@@ -60,7 +60,7 @@ export default function RegisterScreen() {
           <View style={styles.form}>
             <Input
               label="Nombre"
-              placeholder="Tu nombre"
+              placeholder="Juan Antonio"
               value={name}
               onChangeText={setName}
               autoCapitalize="words"

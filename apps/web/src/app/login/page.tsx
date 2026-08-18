@@ -143,8 +143,27 @@ function LoginContent() {
       {/* Fondo degradado atmosférico */}
       <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(120% 80% at 75% 4%, #28424a 0%, rgba(40,66,74,0) 50%), radial-gradient(110% 90% at 8% 96%, #2a1411 0%, rgba(42,20,17,0) 52%), linear-gradient(165deg, #0a1216, #06090c 65%)' }} />
 
-      {/* Header: logo izquierda · volver derecha */}
-      <div className="absolute top-0 left-0 right-0 flex items-center px-8 py-6">
+      {/* Móvil: cabecera compacta (flecha atrás + logo), igual que el resto
+          de pantallas del diseño móvil de referencia. */}
+      <div className="md:hidden absolute top-0 left-0 right-0 flex items-center gap-2.5 px-[18px] py-4">
+        <button
+          onClick={() => router.push('/')}
+          aria-label="Volver al inicio"
+          className="w-[34px] h-[34px] rounded-[8px] flex items-center justify-center shrink-0"
+          style={{ background: 'rgba(255,255,255,0.06)', color: '#fff' }}
+        >
+          <i className="ti ti-arrow-left text-[18px]" />
+        </button>
+        <Image
+          src="/carp-partners-logo blanc.png"
+          alt="Carp Partners TV"
+          width={110} height={19}
+          className="h-[18px] w-auto"
+        />
+      </div>
+
+      {/* Desktop: logo izquierda · volver derecha (sin cambios) */}
+      <div className="hidden md:flex absolute top-0 left-0 right-0 items-center px-8 py-6">
         <Image
           src="/carp-partners-logo blanc.png"
           alt="Carp Partners TV"
@@ -179,16 +198,11 @@ function LoginContent() {
           )}
         </div>
 
-        {/* ── Tarjeta del formulario ── */}
-        <div
-          className="px-[30px] py-8 rounded-[18px]"
-          style={{
-            background: 'rgba(14,21,26,0.7)',
-            border: '1px solid rgba(255,255,255,0.09)',
-            backdropFilter: 'blur(12px)',
-            boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
-          }}
-        >
+        {/* ── Formulario ── sin recuadro en móvil (a petición explícita,
+            aunque el diseño de referencia sí lleva uno) — los campos van
+            directos sobre el fondo de la página. Desde md recupera la
+            tarjeta con blur de siempre. */}
+        <div className="md:px-[30px] md:py-8 md:rounded-[18px] md:bg-[rgba(14,21,26,0.7)] md:border md:border-[rgba(255,255,255,0.09)] md:backdrop-blur-[12px] md:shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
 
           {/* ══ LOGIN / REGISTER ══ */}
           {(screen === 'login' || screen === 'register') && (

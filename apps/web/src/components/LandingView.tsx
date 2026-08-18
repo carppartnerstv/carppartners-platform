@@ -470,7 +470,7 @@ export function LandingView() {
               Tu próxima gran captura<br />empieza aquí.
             </h2>
             <p className="mx-auto mb-8 max-w-[480px] text-[15px]" style={{ color: '#d8c0bb' }}>
-              Únete a la comunidad de carpfishing más grande de España. Primer contenido gratis al registrarte.
+              Únete a la comunidad de carpfishing más grande de España.
             </p>
             <Link href="/login?mode=register" className="inline-flex items-center gap-[9px] px-9 py-4 rounded-[11px] font-bold text-[16px] transition-transform hover:scale-[1.03]" style={{ background: '#fff', color: '#68140b', boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}>
               Crear mi cuenta <i className="ti ti-arrow-right text-[19px]" />

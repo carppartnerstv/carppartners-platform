@@ -31,6 +31,9 @@ export interface Video {
   series_id: string | null;
   episode_num: number | null;
   created_at: string;
+  /** Presente en /videos; ausente en vídeos "sintéticos" derivados de historial/watchlist y en /videos/:id */
+  series_title?: string | null;
+  season_num?: number | null;
   /** Presente en /videos y /videos/:id; ausente en vídeos "sintéticos" derivados de historial/watchlist */
   crew?: Pick<CrewMember, 'id' | 'name' | 'slug' | 'role' | 'avatar_url'>[];
 }
@@ -80,6 +83,9 @@ export interface Series {
   season_num: number | null;
   cover_url: string | null;
   order_index: number;
+  created_at: string;
+  /** Marcada a mano desde /admin/series — alimenta "Mejores seleccionados para ti" en Home. */
+  is_curated: boolean;
   season_count: number;
   episode_count: number;
 }
@@ -129,6 +135,7 @@ export interface AdminSeries {
   order_index: number;
   parent_series_id: string | null;
   created_at: string;
+  is_curated: boolean;
   category_name: string | null;
   parent_title: string | null;
   season_count: number;
@@ -295,6 +302,8 @@ export interface AdminVideoInput {
   crewMemberIds?: string[];
   /** Destacado en la portada (hero) de Home. Solo un vídeo puede estarlo a la vez. */
   isFeatured?: boolean;
+  /** Fila de Home "Tendencias en Carp Partners" — pueden estar varios a la vez. */
+  isTrending?: boolean;
 }
 
 export interface RatingsSummary {
@@ -321,6 +330,7 @@ export interface AdminVideo extends Video {
   // crew hereda de Video (incluye avatar_url)
   ratings: RatingsSummary;
   is_featured: boolean;
+  is_trending: boolean;
 }
 
 export interface CrewMember {
@@ -362,6 +372,7 @@ export interface SeriesInput {
   // uuid de la serie madre para convertir esta serie en una temporada suya,
   // o null para quitarle la serie madre (solo se permite un nivel).
   parentSeriesId?: string | null;
+  isCurated?: boolean;
 }
 
 // ─── Carrousels de imágenes (hero de la landing, shortcode [carrousel:slug]
