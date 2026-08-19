@@ -195,6 +195,12 @@ export default function AdminContactMessagesPage() {
               <p className="text-xs font-medium text-admin-text-secondary uppercase tracking-wide mb-1">Mensaje</p>
               <p className="text-admin-text text-sm whitespace-pre-wrap leading-relaxed">{viewing.message}</p>
             </div>
+            <div>
+              <p className="text-xs font-medium text-admin-text-secondary uppercase tracking-wide mb-1">Comunicaciones</p>
+              <p className="text-admin-text text-sm">
+                {viewing.marketing_opt_in ? 'Acepta recibir información de actividades, servicios y productos' : 'No ha aceptado recibir comunicaciones'}
+              </p>
+            </div>
             <div className="flex gap-3 pt-3 border-t border-admin-border-soft">
               <Button theme="light" variant="ghost" size="md" onClick={() => toggleRead(viewing)}>
                 Marcar como {viewing.read_at ? 'no leído' : 'leído'}

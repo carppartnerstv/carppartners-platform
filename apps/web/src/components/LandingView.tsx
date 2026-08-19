@@ -6,6 +6,8 @@ import { apiClient, type SeriesCoverSummary } from '@carp-partners/api-client';
 import { PublicHeader } from '@/components/PublicHeader';
 import { PublicFooter } from '@/components/PublicFooter';
 import { usePublicCarousel } from '@/components/Carousel';
+import { Reveal } from '@/components/Reveal';
+import { ProgressDot } from '@/components/ProgressDot';
 
 // Slug fijo del carrousel que alimenta el fondo del hero — se gestiona desde
 // /admin/carrousels (créalo con este slug exacto para que aparezca aquí).
@@ -89,32 +91,79 @@ export function LandingView() {
   // el degradado estático.
   const { images: heroImages } = usePublicCarousel(HERO_CAROUSEL_SLUG);
   const [heroSlide, setHeroSlide] = useState(0);
+  // heroTick fuerza reiniciar el temporizador de auto-avance cada vez que el
+  // usuario navega a mano (clic en un punto) — si no, el punto de
+  // ProgressDot mostraría una barra de progreso recién reiniciada mientras
+  // el temporizador real seguía su cuenta atrás anterior (desincronizados).
+  const [heroTick, setHeroTick] = useState(0);
+  const goToHeroSlide = (i: number) => { setHeroSlide(i); setHeroTick(t => t + 1); };
   useEffect(() => {
     if (heroImages.length < 2) return;
     const id = setInterval(() => setHeroSlide(s => (s + 1) % heroImages.length), 6000);
     return () => clearInterval(id);
-  }, [heroImages.length]);
+  }, [heroImages.length, heroTick]);
+
+  // Parallax suave del fondo del hero: se mueve más lento que el scroll
+  // (factor 0.25). rAF-throttled para no disparar un re-render de React en
+  // cada evento de scroll — toca el transform directamente en el DOM.
+  const heroBgRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        if (heroBgRef.current) heroBgRef.current.style.transform = `translateY(${window.scrollY * 0.25}px)`;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  // Barra de progreso de scroll, finísima, arriba de todo (por encima del header).
+  const [scrollPct, setScrollPct] = useState(0);
+  useEffect(() => {
+    const onScroll = () => {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      setScrollPct(scrollable > 0 ? Math.min(100, (window.scrollY / scrollable) * 100) : 0);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   // Carrusel de la sección "Sobre nosotros": TODAS las fotos de
-  // "sobre-galeria" (la misma página Sobre nosotros), pero mostrando
-  // siempre 2 lado a lado — cada paso desliza una sola foto (ventana de 2
-  // que recorre todo el set), con puntos como el hero. aboutMaxSlide es la
-  // última posición válida de la ventana (n-2, para que nunca se quede solo
-  // 1 foto visible en el hueco derecho).
+  // "sobre-galeria" (la misma página Sobre nosotros), mostrando siempre 2 y
+  // media lado a lado (ABOUT_WINDOW) — cada paso desliza una sola foto
+  // (ventana que recorre todo el set), con puntos como el hero.
+  // aboutMaxSlide es la última posición válida de la ventana (floor(n -
+  // ABOUT_WINDOW), para que nunca se pase del final del set).
+  const ABOUT_WINDOW = 2.5;
   const { images: aboutImages } = usePublicCarousel('sobre-galeria');
-  const aboutMaxSlide = Math.max(0, aboutImages.length - 2);
+  const aboutMaxSlide = Math.max(0, Math.floor(aboutImages.length - ABOUT_WINDOW));
   const [aboutSlide, setAboutSlide] = useState(0);
+  // Mismo motivo que heroTick: reinicia el temporizador al navegar a mano.
+  const [aboutTick, setAboutTick] = useState(0);
+  const goToAboutSlide = (i: number) => { setAboutSlide(i); setAboutTick(t => t + 1); };
   useEffect(() => {
     if (aboutImages.length < 3) return;
     const id = setInterval(() => setAboutSlide(s => (s + 1) % (aboutMaxSlide + 1)), 6000);
     return () => clearInterval(id);
-  }, [aboutImages.length, aboutMaxSlide]);
+  }, [aboutImages.length, aboutMaxSlide, aboutTick]);
 
   return (
     <div
       className="min-h-screen overflow-x-hidden"
       style={{ background: '#06090c', fontFamily: 'Inter, sans-serif', color: '#e9efeb' }}
     >
+      {/* Barra de progreso de scroll — por encima del header (z-[60] > z-50) */}
+      <div className="fixed top-0 left-0 right-0 z-[60] h-[2px] bg-transparent">
+        <div className="h-full" style={{ width: `${scrollPct}%`, background: '#cf4a35', transition: 'width 100ms linear' }} />
+      </div>
+
       {/* ═══════════════ NAVBAR ═══════════════ */}
       <PublicHeader
         transparentOnTop
@@ -123,8 +172,10 @@ export function LandingView() {
 
       {/* ═══════════════ HERO ═══════════════ */}
       <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 pt-[150px] pb-[60px] overflow-hidden">
-        {/* Carrusel de fondo: crossfade entre portadas reales, o degradado estático si aún no hay ninguna */}
-        <div className="absolute inset-0">
+        {/* Carrusel de fondo: crossfade entre portadas reales, o degradado estático si aún no hay ninguna.
+            -inset-y-[10%] deja margen vertical de sobra para el parallax (si no, al desplazarlo más
+            lento que el scroll se verían huecos en los bordes superior/inferior). */}
+        <div ref={heroBgRef} className="absolute -inset-y-[10%] inset-x-0 will-change-transform">
           {heroImages.length > 0 ? (
             heroImages.map((img, i) => (
               <img
@@ -145,18 +196,13 @@ export function LandingView() {
         {heroImages.length > 1 && (
           <div className="absolute bottom-9 left-1/2 -translate-x-1/2 flex gap-2 z-10">
             {heroImages.map((img, i) => (
-              <button
+              <ProgressDot
                 key={img.id}
-                onClick={() => setHeroSlide(i)}
-                aria-label={`Mostrar imagen ${i + 1}`}
-                className="p-0 border-none cursor-pointer"
-                style={{
-                  width: heroSlide === i ? 28 : 14,
-                  height: 5,
-                  borderRadius: 3,
-                  background: heroSlide === i ? '#cf4a35' : 'rgba(255,255,255,0.35)',
-                  transition: 'all .3s',
-                }}
+                active={heroSlide === i}
+                autoplay={heroImages.length > 1}
+                durationMs={6000}
+                onClick={() => goToHeroSlide(i)}
+                label={`Mostrar imagen ${i + 1}`}
               />
             ))}
           </div>
@@ -175,10 +221,10 @@ export function LandingView() {
           {/* En móvil, los 2 CTA se apilan a ancho completo (igual que el
               diseño móvil); en desktop vuelven a ir en fila, a su ancho. */}
           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-center gap-[10px] md:gap-[14px]">
-            <Link href="/login?mode=register" className="w-full md:w-auto inline-flex items-center justify-center gap-[9px] px-[34px] py-4 rounded-[10px] text-white font-bold transition-transform hover:scale-[1.03]" style={{ fontSize: 16, background: '#68140b', boxShadow: '0 8px 28px rgba(104,20,11,0.55)' }}>
+            <Link href="/login?mode=register" className="w-full md:w-auto inline-flex items-center justify-center gap-[9px] px-[34px] py-4 rounded-[10px] text-white font-bold transition-all duration-300 hover:scale-[1.03] bg-[#68140b] hover:bg-[#7c1a0f] shadow-[0_8px_28px_rgba(104,20,11,0.55)] hover:shadow-[0_14px_38px_rgba(104,20,11,0.75)]" style={{ fontSize: 16 }}>
               Empezar ahora <i className="ti ti-arrow-right text-[19px]" />
             </Link>
-            <button onClick={scrollTo(catRef)} className="w-full md:w-auto inline-flex items-center justify-center gap-[9px] px-7 py-4 rounded-[10px] border text-white font-semibold hover:bg-white/14 transition-colors" style={{ fontSize: 16, borderColor: 'rgba(255,255,255,0.22)', background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(6px)' }}>
+            <button onClick={scrollTo(catRef)} className="w-full md:w-auto inline-flex items-center justify-center gap-[9px] px-7 py-4 rounded-[10px] border border-white/[22%] text-white font-semibold bg-white/[6%] hover:bg-white/[14%] transition-all duration-300 hover:scale-[1.03]" style={{ fontSize: 16, backdropFilter: 'blur(6px)' }}>
               <i className="ti ti-player-play-filled text-[17px]" />Ver catálogo
             </button>
           </div>
@@ -198,14 +244,16 @@ export function LandingView() {
           <div className="text-[12.5px] font-semibold tracking-[0.12em] uppercase mb-[14px]" style={{ color: '#cf4a35' }}>Por qué Carp Partners TV</div>
           <h2 className="font-display font-bold text-white mb-[54px]" style={{ fontSize: 'clamp(28px,4vw,42px)', letterSpacing: '-0.02em' }}>Hecho por y para carpfishers</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-            {FEATURES.map(f => (
-              <div key={f.title} className="p-8 rounded-[16px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                <div className="w-[52px] h-[52px] rounded-[13px] flex items-center justify-center mb-5" style={{ background: 'rgba(104,20,11,0.18)', border: '1px solid rgba(207,74,53,0.3)' }}>
-                  <i className={`ti ti-${f.icon} text-[26px]`} style={{ color: '#cf4a35' }} />
+            {FEATURES.map((f, i) => (
+              <Reveal key={f.title} delayMs={i * 120}>
+                <div className="p-8 rounded-[16px] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_42px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <div className="w-[52px] h-[52px] rounded-[13px] flex items-center justify-center mb-5" style={{ background: 'rgba(104,20,11,0.18)', border: '1px solid rgba(207,74,53,0.3)' }}>
+                    <i className={`ti ti-${f.icon} text-[26px]`} style={{ color: '#cf4a35' }} />
+                  </div>
+                  <h3 className="font-display font-semibold text-[20px] mb-2.5" style={{ color: '#eef3f0' }}>{f.title}</h3>
+                  <p className="text-[15px] leading-relaxed" style={{ color: '#9aa9a3' }}>{f.body}</p>
                 </div>
-                <h3 className="font-display font-semibold text-[20px] mb-2.5" style={{ color: '#eef3f0' }}>{f.title}</h3>
-                <p className="text-[15px] leading-relaxed" style={{ color: '#9aa9a3' }}>{f.body}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -213,6 +261,7 @@ export function LandingView() {
 
       {/* ═══════════════ CATALOG PREVIEW ═══════════════ */}
       <section ref={catRef} id="catalogo" className="pb-[90px] pt-10">
+       <Reveal>
         <div className="text-center px-6 md:px-14 mb-10">
           <div className="text-[12.5px] font-semibold tracking-[0.12em] uppercase mb-[14px]" style={{ color: '#cf4a35' }}>Un vistazo al catálogo</div>
           <h2 className="font-display font-bold text-white" style={{ fontSize: 'clamp(28px,4vw,42px)', letterSpacing: '-0.02em' }}>Cientos de horas esperándote</h2>
@@ -235,13 +284,14 @@ export function LandingView() {
                   {items.map((item) => (
                     <div
                       key={item.id}
-                      className="flex-none rounded-[12px] overflow-hidden relative"
+                      className="group flex-none rounded-[12px] overflow-hidden relative"
                       style={{ width: '78%', aspectRatio: '4/3', scrollSnapAlign: 'start', background: item.bg, border: '1px solid rgba(255,255,255,0.06)' }}
                     >
                       {item.cover_url && (
-                        <img src={item.cover_url} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+                        <img src={item.cover_url} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                       )}
                       <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg,rgba(0,0,0,0) 35%,rgba(4,8,10,0.9) 100%)' }} />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
                       {item.title && (
                         <div className="absolute left-3.5 right-3.5 bottom-3">
                           <div className="text-[14px] font-bold text-white leading-[1.25] line-clamp-2">{item.title}</div>
@@ -260,7 +310,7 @@ export function LandingView() {
           })()}
           <div className="text-center px-6">
             <div className="font-display font-bold text-white text-[17px] mb-3.5">Suscríbete para ver todo el catálogo</div>
-            <button onClick={scrollTo(plansRef)} className="inline-flex items-center gap-2 px-[22px] py-3 rounded-[10px] text-white text-[13.5px] font-bold" style={{ background: '#68140b', boxShadow: '0 8px 24px rgba(104,20,11,0.55)' }}>
+            <button onClick={scrollTo(plansRef)} className="inline-flex items-center gap-2 px-[22px] py-3 rounded-[10px] text-white text-[13.5px] font-bold transition-all duration-300 hover:scale-[1.03] bg-[#68140b] hover:bg-[#7c1a0f] shadow-[0_8px_24px_rgba(104,20,11,0.55)] hover:shadow-[0_14px_32px_rgba(104,20,11,0.75)]">
               Ver planes <i className="ti ti-arrow-right text-[16px]" />
             </button>
           </div>
@@ -268,7 +318,7 @@ export function LandingView() {
 
         {/* Desktop: filas borrosas decorativas + CTA superpuesto (sin cambios) */}
         <div className="hidden md:block relative">
-          <div className="flex flex-col gap-6" style={{ filter: 'blur(1.5px)', opacity: 0.85, maskImage: 'linear-gradient(180deg,#000 0%,#000 55%,transparent 100%)', WebkitMaskImage: 'linear-gradient(180deg,#000 0%,#000 55%,transparent 100%)' }}>
+          <div className="flex flex-col gap-6" style={{ filter: 'blur(0.8px)', opacity: 0.85, maskImage: 'linear-gradient(180deg,#000 0%,#000 55%,transparent 100%)', WebkitMaskImage: 'linear-gradient(180deg,#000 0%,#000 55%,transparent 100%)' }}>
             {PREVIEW_ROWS.map((row, ri) => (
               <div key={ri} className="flex gap-[18px] px-14 overflow-hidden">
                 {row.map((mi, ci) => {
@@ -283,7 +333,7 @@ export function LandingView() {
                           aria-hidden
                           loading="lazy"
                           className="absolute inset-0 w-full h-full object-cover"
-                          style={{ filter: 'blur(9px) saturate(1.05)', transform: 'scale(1.15)' }}
+                          style={{ filter: 'blur(5px) saturate(1.05)', transform: 'scale(1.15)' }}
                         />
                       )}
                       <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(4,8,10,0.7) 100%)' }} />
@@ -298,11 +348,12 @@ export function LandingView() {
               <i className="ti ti-lock text-[27px] text-white" />
             </div>
             <div className="font-display font-bold text-white text-2xl mb-[18px]">Suscríbete para ver todo el catálogo</div>
-            <button onClick={scrollTo(plansRef)} className="inline-flex items-center gap-[9px] px-7 py-[14px] rounded-[10px] text-white text-[15px] font-bold" style={{ background: '#68140b', boxShadow: '0 8px 28px rgba(104,20,11,0.55)' }}>
+            <button onClick={scrollTo(plansRef)} className="inline-flex items-center gap-[9px] px-7 py-[14px] rounded-[10px] text-white text-[15px] font-bold transition-all duration-300 hover:scale-[1.03] bg-[#68140b] hover:bg-[#7c1a0f] shadow-[0_8px_28px_rgba(104,20,11,0.55)] hover:shadow-[0_14px_38px_rgba(104,20,11,0.75)]">
               Ver planes <i className="ti ti-arrow-right text-[18px]" />
             </button>
           </div>
         </div>
+       </Reveal>
       </section>
 
       {/* ═══════════════ PLANS ═══════════════ */}
@@ -316,18 +367,25 @@ export function LandingView() {
               desktop se mantienen las dos tarjetas completas de siempre. */}
           <div className="md:hidden text-left">
             <div className="flex justify-center mb-5">
-              <div className="inline-flex items-center gap-1 p-1 rounded-[11px]" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}>
+              <div className="relative inline-flex items-center p-1 rounded-[11px]" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}>
+                {/* Thumb deslizante detrás de los dos botones (mismo ancho,
+                    pegados sin gap) — se desplaza el 100% de su propio
+                    ancho para pasar de uno a otro, sin medir nada en JS. */}
+                <div
+                  className="absolute top-1 bottom-1 left-1 rounded-[8px] transition-transform duration-300 ease-out"
+                  style={{ width: 'calc(50% - 4px)', background: '#68140b', transform: `translateX(${mobileBilling === 'annual' ? '100%' : '0'})` }}
+                />
                 <button
                   onClick={() => setMobileBilling('monthly')}
-                  className="px-4 py-2 rounded-[8px] text-[12.5px] font-semibold transition-colors"
-                  style={{ background: mobileBilling === 'monthly' ? '#68140b' : 'transparent', color: mobileBilling === 'monthly' ? '#fff' : '#9aa9a3' }}
+                  className="relative z-10 flex-1 px-4 py-2 rounded-[8px] text-[12.5px] font-semibold transition-colors"
+                  style={{ color: mobileBilling === 'monthly' ? '#fff' : '#9aa9a3' }}
                 >
                   Mensual
                 </button>
                 <button
                   onClick={() => setMobileBilling('annual')}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[8px] text-[12.5px] font-semibold transition-colors"
-                  style={{ background: mobileBilling === 'annual' ? '#68140b' : 'transparent', color: mobileBilling === 'annual' ? '#fff' : '#9aa9a3' }}
+                  className="relative z-10 flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-[8px] text-[12.5px] font-semibold transition-colors"
+                  style={{ color: mobileBilling === 'annual' ? '#fff' : '#9aa9a3' }}
                 >
                   Anual
                   <span className="px-1.5 py-[3px] rounded-[5px] text-[10px] font-bold" style={{ background: 'rgba(216,166,74,0.22)', color: '#e3bd72' }}>−25%</span>
@@ -359,7 +417,7 @@ export function LandingView() {
               <div className="text-[11.5px] mb-5" style={{ color: mobileBilling === 'annual' ? '#e3bd72' : '#85958e' }}>
                 {mobileBilling === 'annual' ? 'Equivale a 7,50€/mes · Ahorras ~30€/año' : 'Facturación mensual · Cancela cuando quieras'}
               </div>
-              <Link href="/login?mode=register" className="block w-full text-center py-3 rounded-[10px] text-white font-bold text-[13.5px] mb-4 transition-transform hover:scale-[1.02]" style={{ background: '#68140b', boxShadow: '0 8px 24px rgba(104,20,11,0.5)' }}>
+              <Link href="/login?mode=register" className="block w-full text-center py-3 rounded-[10px] text-white font-bold text-[13.5px] mb-4 transition-all duration-300 hover:scale-[1.02] bg-[#68140b] hover:bg-[#7c1a0f] shadow-[0_8px_24px_rgba(104,20,11,0.5)] hover:shadow-[0_14px_32px_rgba(104,20,11,0.7)]">
                 Suscribirme
               </Link>
               {PLAN_PERKS.map(p => (
@@ -376,14 +434,14 @@ export function LandingView() {
           <div className="hidden md:grid grid-cols-2 gap-[22px] text-left">
 
             {/* Plan Mensual */}
-            <div className="p-[36px_32px] rounded-[18px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <Reveal delayMs={0} className="p-[36px_32px] rounded-[18px] transition-all duration-300 hover:shadow-[0_18px_42px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <div className="font-display font-semibold text-[20px] mb-2" style={{ color: '#eef3f0' }}>Mensual</div>
               <div className="text-[13.5px] mb-[22px]" style={{ color: '#85958e' }}>Facturación mensual · Cancela cuando quieras</div>
               <div className="flex items-baseline gap-1.5 mb-[26px]">
                 <span className="font-display font-extrabold text-white" style={{ fontSize: 46, letterSpacing: '-0.02em' }}>9,99€</span>
                 <span className="text-[14px]" style={{ color: '#85958e' }}>/ mes</span>
               </div>
-              <Link href="/login?mode=register" className="block w-full text-center py-[13px] rounded-[10px] text-white font-semibold text-[14.5px] mb-[26px] transition-colors hover:bg-white/12" style={{ border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)' }}>
+              <Link href="/login?mode=register" className="block w-full text-center py-[13px] rounded-[10px] text-white font-semibold text-[14.5px] mb-[26px] transition-all duration-300 hover:scale-[1.02] border border-white/20 bg-white/[6%] hover:bg-white/[12%] hover:shadow-[0_10px_28px_rgba(0,0,0,0.35)]">
                 Empezar
               </Link>
               {PLAN_PERKS.map(p => (
@@ -391,10 +449,10 @@ export function LandingView() {
                   <i className="ti ti-check text-[18px]" style={{ color: '#6a7a73' }} />{p}
                 </div>
               ))}
-            </div>
+            </Reveal>
 
             {/* Plan Anual — recomendado */}
-            <div className="relative p-[36px_32px] rounded-[18px]" style={{ background: 'linear-gradient(165deg, rgba(104,20,11,0.16), rgba(104,20,11,0.04))', border: '1.5px solid rgba(207,74,53,0.45)', boxShadow: '0 20px 60px rgba(104,20,11,0.2)' }}>
+            <Reveal delayMs={150} className="relative p-[36px_32px] rounded-[18px] transition-all duration-300 shadow-[0_20px_60px_rgba(104,20,11,0.2)] hover:shadow-[0_26px_70px_rgba(104,20,11,0.35)]" style={{ background: 'linear-gradient(165deg, rgba(104,20,11,0.16), rgba(104,20,11,0.04))', border: '1.5px solid rgba(207,74,53,0.45)' }}>
               <div className="absolute -top-[13px] right-7 px-[14px] py-[5px] rounded-[20px] text-white text-[11.5px] font-bold tracking-[0.04em]" style={{ background: '#68140b' }}>
                 RECOMENDADO
               </div>
@@ -405,7 +463,7 @@ export function LandingView() {
                 <span className="text-[14px]" style={{ color: '#c4d0cb' }}>/ año</span>
               </div>
               <div className="text-[13px] mb-6" style={{ color: '#e3bd72' }}>Equivale a 7,50€/mes · Ahorras ~30€/año</div>
-              <Link href="/login?mode=register" className="block w-full text-center py-[13px] rounded-[10px] text-white font-bold text-[14.5px] mb-[26px] transition-transform hover:scale-[1.02]" style={{ background: '#68140b', boxShadow: '0 8px 24px rgba(104,20,11,0.5)' }}>
+              <Link href="/login?mode=register" className="block w-full text-center py-[13px] rounded-[10px] text-white font-bold text-[14.5px] mb-[26px] transition-all duration-300 hover:scale-[1.02] bg-[#68140b] hover:bg-[#7c1a0f] shadow-[0_8px_24px_rgba(104,20,11,0.5)] hover:shadow-[0_14px_32px_rgba(104,20,11,0.7)]">
                 Empezar
               </Link>
               {PLAN_PERKS.map(p => (
@@ -413,7 +471,7 @@ export function LandingView() {
                   <i className="ti ti-check text-[18px]" style={{ color: '#cf4a35' }} />{p}
                 </div>
               ))}
-            </div>
+            </Reveal>
           </div>
           <div className="hidden md:block mt-6 text-[12.5px]" style={{ color: '#6a7a73' }}>
             Pago seguro con tarjeta vía Stripe · Sin permanencia · Cancela en un clic
@@ -422,64 +480,64 @@ export function LandingView() {
       </section>
 
       {/* ═══════════════ SOBRE NOSOTROS — 2 columnas ═══════════════ */}
-      <section className="px-6 md:px-14 py-[70px]">
-        <div className="max-w-[1100px] mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16 items-stretch">
-          {/* Izquierda: carrusel de "sobre-galeria" — siempre 2 fotos visibles
-              lado a lado, cada paso desliza una sola (ventana deslizante
-              sobre TODO el set), con puntos como el hero. h-full (desde md)
-              para que ocupe la misma altura que el bloque de texto de la
-              derecha, sea cual sea — por eso los puntos van superpuestos
-              sobre la imagen (como en el hero) en vez de debajo: así no
-              suman altura propia que rompería el encaje. */}
-          <div className="relative rounded-[20px] overflow-hidden max-w-[420px] w-full mx-auto md:mx-0 h-[320px] md:h-full">
+      {/* Desde md: a sangre completa (sin max-w ni padding lateral), grid
+          60/40 — la columna del carrusel llega hasta el borde izquierdo de
+          la pantalla. En móvil sigue centrada dentro del padding normal. */}
+      <section className="px-6 md:px-0 py-[70px]">
+       <Reveal>
+        <div className="md:max-w-none grid grid-cols-1 md:grid-cols-[6fr_4fr] gap-12 md:gap-16 items-stretch">
+          {/* Izquierda: carrusel de "sobre-galeria" — siempre 2 fotos y media
+              visibles lado a lado, cada paso desliza una sola (ventana
+              deslizante sobre TODO el set), con puntos como el hero. h-full
+              (desde md) + items-stretch en el grid para que ocupe la misma
+              altura que el bloque de texto de la derecha, sea cual sea. Los
+              puntos van superpuestos sobre la imagen (como en el hero) en
+              vez de debajo, para no sumar altura propia. */}
+          <div className="order-2 md:order-1 relative overflow-hidden max-w-[420px] md:max-w-none w-full mx-auto md:mx-0 rounded-[20px] md:rounded-l-none h-[320px] md:h-full">
             <div className="flex h-full" style={{ transform: `translateX(-${aboutSlide * (100 / Math.max(aboutImages.length, 1))}%)`, transition: 'transform 600ms ease' }}>
               {aboutImages.map((img) => (
-                <div key={img.id} className="relative w-1/2 h-full flex-shrink-0 p-[3px]">
+                <div key={img.id} className="relative w-[40%] h-full flex-shrink-0 p-[3px]">
                   <img src={img.image_url} alt={img.alt_text ?? ''} className="w-full h-full object-cover rounded-[16px]" />
                 </div>
               ))}
             </div>
             {aboutMaxSlide > 0 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 rounded-full z-10" style={{ background: 'rgba(6,9,12,0.45)', backdropFilter: 'blur(6px)' }}>
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 rounded-full z-10">
                 {Array.from({ length: aboutMaxSlide + 1 }).map((_, i) => (
-                  <button
+                  <ProgressDot
                     key={i}
-                    onClick={() => setAboutSlide(i)}
-                    aria-label={`Mostrar fotos ${i + 1} y ${i + 2}`}
-                    className="p-0 border-none cursor-pointer"
-                    style={{
-                      width: aboutSlide === i ? 28 : 14,
-                      height: 5,
-                      borderRadius: 3,
-                      background: aboutSlide === i ? '#cf4a35' : 'rgba(255,255,255,0.45)',
-                      transition: 'all .3s',
-                    }}
+                    active={aboutSlide === i}
+                    autoplay
+                    durationMs={6000}
+                    onClick={() => goToAboutSlide(i)}
+                    label={`Mostrar fotos ${i + 1} y ${i + 2}`}
                   />
                 ))}
               </div>
             )}
           </div>
 
-          {/* Derecha: texto */}
-          <div>
+          {/* Derecha: texto — order-1 en móvil para que aparezca antes que el carrusel. */}
+          <div className="order-1 md:order-2 md:flex md:flex-col md:items-start md:justify-center max-w-[460px]">
             <div className="text-[12.5px] font-semibold tracking-[0.12em] uppercase mb-[14px]" style={{ color: '#cf4a35' }}>Sobre nosotros</div>
             <h2 className="font-display font-bold text-white mb-5" style={{ fontSize: 'clamp(28px,4vw,42px)', letterSpacing: '-0.02em' }}>
-              Pasión por el carpfishing, contada desde dentro
+              Pasión por el carpfishing contada desde dentro
             </h2>
             <p className="mb-8" style={{ fontSize: 15, lineHeight: 1.7, color: '#9aa9a3' }}>
-              Nacimos para vivir el carpfishing desde dentro y contarlo con verdad. Detrás de cada vídeo hay un
+              Nacimos para vivir el <strong>carpfishing</strong> desde dentro y contarlo con verdad. Detrás de cada vídeo hay un
               equipo que recorre embalses, lagos y países documentando sesiones reales, con una narrativa cuidada
               pensada para quienes sienten la pesca como algo más que un hobby.
             </p>
             <Link
               href="/sobre-carp-partners"
-              className="inline-flex items-center gap-[9px] px-7 py-3.5 rounded-[10px] border text-white font-semibold hover:bg-white/14 transition-colors"
-              style={{ fontSize: 15, borderColor: 'rgba(255,255,255,0.22)', background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(6px)' }}
+              className="inline-flex items-center gap-[9px] px-7 py-3.5 rounded-[10px] border border-white/[22%] text-white font-semibold bg-white/[6%] hover:bg-white/[14%] transition-all duration-300 hover:scale-[1.03]"
+              style={{ fontSize: 15, backdropFilter: 'blur(6px)' }}
             >
               Conócenos <i className="ti ti-arrow-right text-[17px]" />
             </Link>
           </div>
         </div>
+       </Reveal>
       </section>
 
       {/* ═══════════════ TESTIMONIALS ═══════════════ */}
@@ -515,7 +573,7 @@ export function LandingView() {
       
       {/* ═══════════════ FAQ ═══════════════ */}
       <section ref={faqRef} id="preguntas" className="px-6 md:px-14 py-[70px] md:py-[90px]">
-        <div className="max-w-[760px] mx-auto">
+        <Reveal className="max-w-[760px] mx-auto">
           <div className="text-center mb-12">
             <div className="text-[12.5px] font-semibold tracking-[0.12em] uppercase mb-[14px]" style={{ color: '#cf4a35' }}>Preguntas frecuentes</div>
             <h2 className="font-display font-bold text-white" style={{ fontSize: 'clamp(28px,4vw,42px)', letterSpacing: '-0.02em' }}>Todo lo que necesitas saber</h2>
@@ -527,18 +585,23 @@ export function LandingView() {
                   <span className="font-display font-medium text-[16.5px]" style={{ color: '#eef3f0' }}>{faq.q}</span>
                   <i className={`ti ti-${openFaq === i ? 'minus' : 'plus'} text-[21px] shrink-0`} style={{ color: openFaq === i ? '#cf4a35' : '#85958e' }} />
                 </div>
-                {openFaq === i && (
-                  <div className="px-6 pb-[22px] text-[15px] leading-[1.65]" style={{ color: '#9aa9a3' }}>{faq.a}</div>
-                )}
+                {/* Grid con grid-template-rows 0fr→1fr: técnica CSS para animar hasta
+                    "altura automática" (la respuesta puede ser de cualquier longitud) sin
+                    medir nada en JS. El overflow-hidden interior recorta durante la transición. */}
+                <div className="grid transition-[grid-template-rows] duration-300 ease-in-out" style={{ gridTemplateRows: openFaq === i ? '1fr' : '0fr' }}>
+                  <div className="overflow-hidden">
+                    <div className="px-6 pb-[22px] text-[15px] leading-[1.65]" style={{ color: '#9aa9a3' }}>{faq.a}</div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
-        </div>
+        </Reveal>
       </section>
 
       {/* ═══════════════ CTA BAND ═══════════════ */}
       <section className="px-6 md:px-14 pb-[90px]">
-        <div className="relative max-w-[1100px] mx-auto rounded-[24px] overflow-hidden px-10 py-16 text-center">
+        <Reveal from="left" className="relative max-w-[1100px] mx-auto rounded-[24px] overflow-hidden px-10 py-16 text-center">
           <div className="absolute inset-0" style={{ background: 'radial-gradient(100% 120% at 50% 0%, #3a1a14 0%, #160a08 60%, #0a0606 100%)' }} />
           <div className="absolute inset-0" style={{ background: 'radial-gradient(70% 80% at 80% 100%, rgba(104,20,11,0.35) 0%, rgba(104,20,11,0) 60%)' }} />
           <div className="relative">
@@ -548,11 +611,11 @@ export function LandingView() {
             <p className="mx-auto mb-8 max-w-[480px] text-[15px]" style={{ color: '#d8c0bb' }}>
               Únete a la comunidad de carpfishing más grande de España.
             </p>
-            <Link href="/login?mode=register" className="inline-flex items-center gap-[9px] px-9 py-4 rounded-[11px] font-bold text-[16px] transition-transform hover:scale-[1.03]" style={{ background: '#fff', color: '#68140b', boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}>
+            <Link href="/login?mode=register" className="inline-flex items-center gap-[9px] px-9 py-4 rounded-[11px] font-bold text-[16px] text-[#68140b] transition-all duration-300 hover:scale-[1.03] bg-white hover:bg-[#fff4f2] shadow-[0_10px_30px_rgba(0,0,0,0.4)] hover:shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
               Crear mi cuenta <i className="ti ti-arrow-right text-[19px]" />
             </Link>
           </div>
-        </div>
+        </Reveal>
       </section>
 
       {/* ═══════════════ FOOTER ═══════════════ */}

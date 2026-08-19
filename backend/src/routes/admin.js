@@ -1562,7 +1562,7 @@ adminRouter.get(
 
     params.push(limit, offset);
     const { rows } = await query(
-      `SELECT id, name, email, subject, message, read_at, created_at
+      `SELECT id, name, email, subject, message, marketing_opt_in, read_at, created_at
          FROM contact_messages
         ${where}
         ORDER BY created_at DESC

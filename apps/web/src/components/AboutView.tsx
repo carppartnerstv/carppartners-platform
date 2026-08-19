@@ -6,6 +6,7 @@ import { PublicHeader } from '@/components/PublicHeader';
 import { PublicFooter } from '@/components/PublicFooter';
 import { usePublicCarousel } from '@/components/Carousel';
 import { CarouselStrip } from '@/components/CarouselStrip';
+import { Reveal } from '@/components/Reveal';
 
 // Ambos se gestionan desde /admin/carrousels, creando un carrousel con este
 // slug exacto y subiendo sus imágenes ahí — nada hardcodeado en el código.
@@ -50,7 +51,7 @@ export function AboutView() {
 
       {/* ═══════════════ HISTORIA ═══════════════ */}
       <section className="px-6 md:px-14 py-[70px]">
-        <div className="max-w-[1100px] mx-auto">
+        <Reveal className="max-w-[1100px] mx-auto">
           <h2
             className="font-display font-bold text-white mb-10 text-center"
             style={{ fontSize: 'clamp(26px,4vw,40px)', letterSpacing: '-0.02em' }}
@@ -78,20 +79,22 @@ export function AboutView() {
               equipo compacto y totalmente implicado en el proyecto.
             </p>
           </div>
-        </div>
+        </Reveal>
       </section>
 
       {/* ═══════════════ GALERÍA — a sangre completa, fotos verticales 2:3 ═══════════════ */}
-      <CarouselStrip slug={GALLERY_SLUG} />
+      <Reveal>
+        <CarouselStrip slug={GALLERY_SLUG} />
+      </Reveal>
 
       {/* ═══════════════ CTA FINAL — mismo estilo que la landing ═══════════════ */}
       <section className="px-6 md:px-14 py-[90px]">
-        <div className="relative max-w-[1100px] mx-auto rounded-[24px] overflow-hidden px-10 py-16 text-center">
+        <Reveal from="left" className="relative max-w-[1100px] mx-auto rounded-[24px] overflow-hidden px-10 py-16 text-center">
           <div className="absolute inset-0" style={{ background: 'radial-gradient(100% 120% at 50% 0%, #3a1a14 0%, #160a08 60%, #0a0606 100%)' }} />
           <div className="absolute inset-0" style={{ background: 'radial-gradient(70% 80% at 80% 100%, rgba(104,20,11,0.35) 0%, rgba(104,20,11,0) 60%)' }} />
           <div className="relative">
             <h2 className="font-display font-extrabold text-white mb-8" style={{ fontSize: 'clamp(28px,4vw,46px)', letterSpacing: '-0.025em' }}>
-              Pesca desde dentro. Míralo desde el corazón.
+              Pesca desde dentro. <br></br>Míralo desde el corazón.
             </h2>
             <Link
               href="/login?mode=register"
@@ -101,7 +104,7 @@ export function AboutView() {
               Empezar ahora <i className="ti ti-arrow-right text-[19px]" />
             </Link>
           </div>
-        </div>
+        </Reveal>
       </section>
 
       <PublicFooter />

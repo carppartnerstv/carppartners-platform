@@ -210,7 +210,7 @@ function LoginContent() {
 
               {/* Nombre (solo register) */}
               {screen === 'register' && (
-                <FieldWrap label="Nombre completo" icon="user" borderColor={border('name')}>
+                <FieldWrap label="Nombre completo" icon="user" borderColor={border('name')} focused={focus === 'name'}>
                   <input
                     value={name}
                     onChange={e => setName(e.target.value)}
@@ -224,7 +224,7 @@ function LoginContent() {
               )}
 
               {/* Email */}
-              <FieldWrap label="Correo electrónico" icon="mail" borderColor={border('email')}>
+              <FieldWrap label="Correo electrónico" icon="mail" borderColor={border('email')} focused={focus === 'email'}>
                 <input
                   type="email"
                   value={email}
@@ -242,6 +242,7 @@ function LoginContent() {
                 label="Contraseña"
                 icon="lock"
                 borderColor={border('pass')}
+                focused={focus === 'pass'}
                 noMargin
                 suffix={
                   <button
@@ -337,7 +338,7 @@ function LoginContent() {
           {/* ══ FORGOT PASSWORD ══ */}
           {screen === 'forgot' && (
             <form onSubmit={handleSendReset} noValidate>
-              <FieldWrap label="Correo electrónico" icon="mail" borderColor={border('email')}>
+              <FieldWrap label="Correo electrónico" icon="mail" borderColor={border('email')} focused={focus === 'email'}>
                 <input
                   type="email"
                   value={email}
@@ -446,11 +447,13 @@ const inputStyle: React.CSSProperties = {
 };
 
 function FieldWrap({
-  label, icon, borderColor, noMargin, suffix, children,
+  label, icon, borderColor, focused, noMargin, suffix, children,
 }: {
   label: string;
   icon: string;
   borderColor: string;
+  /** Glow suave alrededor del campo mientras está enfocado. */
+  focused?: boolean;
   noMargin?: boolean;
   suffix?: React.ReactNode;
   children: React.ReactNode;
@@ -463,8 +466,12 @@ function FieldWrap({
         {label}
       </label>
       <div
-        className="flex items-center gap-2.5 px-[14px] rounded-[10px] transition-colors duration-200"
-        style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${borderColor}` }}
+        className="flex items-center gap-2.5 px-[14px] rounded-[10px] transition-[border-color,box-shadow] duration-200"
+        style={{
+          background: 'rgba(255,255,255,0.04)',
+          border: `1px solid ${borderColor}`,
+          boxShadow: focused ? '0 0 0 3px rgba(207,74,53,0.18)' : 'none',
+        }}
       >
         <i className={`ti ti-${icon} text-[18px] shrink-0`} style={{ color: '#6a7a73' }} />
         {children}

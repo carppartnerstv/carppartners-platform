@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
   background: 'rgba(255,255,255,0.04)',
-  border: '1px solid rgba(255,255,255,0.1)',
   borderRadius: 9,
   padding: '12px 14px',
   color: '#eef3f0',
@@ -14,6 +14,11 @@ const inputStyle: React.CSSProperties = {
   fontSize: 14,
   outline: 'none',
 };
+
+// Borde + glow suave al enfocar — separado de inputStyle (arriba) porque un
+// estilo inline de border no puede tener variante :focus; con clases sí.
+const inputClass =
+  'border border-white/10 focus:border-[#cf4a35] focus:shadow-[0_0_0_3px_rgba(207,74,53,0.18)] transition-[border-color,box-shadow] duration-200';
 
 const labelClass = 'block text-[12px] font-semibold mb-[7px]';
 const labelStyle: React.CSSProperties = { color: '#b3c0ba' };
@@ -30,12 +35,18 @@ export function ContactForm() {
   const [error, setError]       = useState('');
   const [sending, setSending]   = useState(false);
   const [sent, setSent]         = useState(false);
+  const [privacyAccepted, setPrivacyAccepted]     = useState(false);
+  const [marketingAccepted, setMarketingAccepted] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (!name.trim() || !email.trim() || !message.trim()) {
       setError('Rellena tu nombre, correo y mensaje.');
+      return;
+    }
+    if (!privacyAccepted) {
+      setError('Debes aceptar la política de privacidad para continuar.');
       return;
     }
 
@@ -46,6 +57,7 @@ export function ContactForm() {
         email: email.trim(),
         subject: subject.trim() || undefined,
         message: message.trim(),
+        marketingOptIn: marketingAccepted,
       });
       setSent(true);
     } catch (err) {
@@ -77,28 +89,56 @@ export function ContactForm() {
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
           <label className={labelClass} style={labelStyle}>Nombre</label>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="Nombre" style={inputStyle} />
+          <input className={inputClass} value={name} onChange={e => setName(e.target.value)} placeholder="Nombre" style={inputStyle} />
         </div>
         <div>
           <label className={labelClass} style={labelStyle}>Apellidos</label>
-          <input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Apellidos" style={inputStyle} />
+          <input className={inputClass} value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Apellidos" style={inputStyle} />
         </div>
       </div>
       <div className="mb-4">
         <label className={labelClass} style={labelStyle}>Tu email</label>
-        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" style={inputStyle} />
+        <input className={inputClass} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" style={inputStyle} />
       </div>
       <div className="mb-4">
         <label className={labelClass} style={labelStyle}>Asunto</label>
-        <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="¿En qué podemos ayudarte?" style={inputStyle} />
+        <input className={inputClass} value={subject} onChange={e => setSubject(e.target.value)} placeholder="¿En qué podemos ayudarte?" style={inputStyle} />
       </div>
       <div className="mb-6">
         <label className={labelClass} style={labelStyle}>Mensaje</label>
         <textarea
+          className={inputClass}
           value={message} onChange={e => setMessage(e.target.value)} placeholder="Escribe tu mensaje aquí..." rows={4}
           style={{ ...inputStyle, resize: 'none' }}
         />
       </div>
+
+      <label className="flex items-start gap-2.5 mb-3 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={privacyAccepted}
+          onChange={e => setPrivacyAccepted(e.target.checked)}
+          className="mt-[3px] w-[15px] h-[15px] rounded shrink-0 cursor-pointer accent-[#cf4a35]"
+        />
+        <span className="text-[12.5px] leading-[1.55]" style={{ color: '#9aa9a3' }}>
+          He leído y acepto la{' '}
+          <Link href="/politica-de-privacidad" target="_blank" className="underline hover:text-white transition-colors" style={{ color: '#cf4a35' }}>
+            política de privacidad
+          </Link>
+          <span style={{ color: '#ff8a80' }}> *</span>
+        </span>
+      </label>
+      <label className="flex items-start gap-2.5 mb-6 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={marketingAccepted}
+          onChange={e => setMarketingAccepted(e.target.checked)}
+          className="mt-[3px] w-[15px] h-[15px] rounded shrink-0 cursor-pointer accent-[#cf4a35]"
+        />
+        <span className="text-[12.5px] leading-[1.55]" style={{ color: '#9aa9a3' }}>
+          Acepto recibir información sobre las actividades, servicios y productos de Carp Partners.
+        </span>
+      </label>
 
       {error && (
         <p className="px-3 py-2.5 rounded-lg text-[13px] mb-4" style={{ background: 'rgba(192,57,43,0.12)', border: '1px solid rgba(192,57,43,0.3)', color: '#ff8a80' }}>

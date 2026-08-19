@@ -275,6 +275,7 @@ export interface ContactInput {
   email: string;
   subject?: string;
   message: string;
+  marketingOptIn?: boolean;
 }
 
 export interface ContactMessage {
@@ -283,6 +284,7 @@ export interface ContactMessage {
   email: string;
   subject: string | null;
   message: string;
+  marketing_opt_in: boolean;
   read_at: string | null;
   created_at: string;
 }

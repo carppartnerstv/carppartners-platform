@@ -18,6 +18,7 @@ const contactSchema = z.object({
   email: z.string().email(),
   subject: z.string().optional(),
   message: z.string().min(1, 'El mensaje es obligatorio'),
+  marketingOptIn: z.boolean().optional(),
 });
 
 contactRouter.post(
@@ -29,9 +30,9 @@ contactRouter.post(
     const d = parsed.data;
 
     await queryOne(
-      `INSERT INTO contact_messages (name, email, subject, message)
-       VALUES ($1, $2, $3, $4) RETURNING id`,
-      [d.name, d.email, d.subject || null, d.message],
+      `INSERT INTO contact_messages (name, email, subject, message, marketing_opt_in)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [d.name, d.email, d.subject || null, d.message, d.marketingOptIn ?? false],
     );
 
     // Ninguno de los dos se espera: guardar el mensaje ya es la parte que

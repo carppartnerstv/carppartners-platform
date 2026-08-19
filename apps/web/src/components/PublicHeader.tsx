@@ -12,6 +12,12 @@ const NAV_ITEMS = [
 
 type NavKey = (typeof NAV_ITEMS)[number]['key'];
 
+// Subrayado que crece desde el centro al pasar el ratón (nav de escritorio).
+const NAV_LINK_CLASS =
+  "relative text-[13.5px] font-medium text-white/60 hover:text-white transition-colors " +
+  "after:content-[''] after:absolute after:left-1/2 after:-bottom-1 after:h-[1.5px] after:w-0 " +
+  "after:bg-white after:-translate-x-1/2 after:transition-[width] after:duration-300 hover:after:w-full";
+
 export interface PublicHeaderProps {
   /** True solo en la landing: empieza transparente sobre el hero y se solidifica al hacer scroll. En el resto de páginas siempre sólido (por defecto). */
   transparentOnTop?: boolean;
@@ -64,14 +70,14 @@ export function PublicHeader({ transparentOnTop = false, onNavClick }: PublicHea
             return handler ? (
               <button
                 key={item.key} onClick={handler}
-                className="text-[13.5px] font-medium text-white/60 hover:text-white transition-colors cursor-pointer"
+                className={`${NAV_LINK_CLASS} cursor-pointer`}
               >
                 {item.label}
               </button>
             ) : (
               <Link
                 key={item.key} href={`/${item.hash}`}
-                className="text-[13.5px] font-medium text-white/60 hover:text-white transition-colors"
+                className={NAV_LINK_CLASS}
               >
                 {item.label}
               </Link>
@@ -79,7 +85,7 @@ export function PublicHeader({ transparentOnTop = false, onNavClick }: PublicHea
           })}
           <Link
             href="/contacto"
-            className="text-[13.5px] font-medium text-white/60 hover:text-white transition-colors"
+            className={NAV_LINK_CLASS}
           >
             Contacto
           </Link>

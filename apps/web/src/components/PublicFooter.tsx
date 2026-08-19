@@ -27,7 +27,7 @@ const FOOTER_COLS: { title: string; links: FooterLink[] }[] = [
 const SOCIAL_LINKS = [
   { icon: 'brand-youtube', href: 'https://www.youtube.com/@CarpPartners' },
   { icon: 'brand-tiktok', href: 'https://www.tiktok.com/@carppartners' },
-  { icon: 'brand-instagram', href: 'https://www.instagram.com/carp_partners/' },
+  { icon: 'brand-instagram', href: 'https://www.instagram.com/carp_partners.tv' },
 ];
 
 const LEGAL_LINKS: FooterLink[] = [
@@ -60,10 +60,16 @@ export function PublicFooter() {
           </div>
         </div>
         {FOOTER_COLS.map(col => (
-          <div key={col.title}>
+          <div key={col.title} className="flex flex-col items-start">
             <div className="text-[13px] font-semibold mb-4" style={{ color: '#cdd6d2' }}>{col.title}</div>
             {col.links.map(l => l.href ? (
-              <Link key={l.label} href={l.href} className="block text-[13.5px] py-1.5 transition-colors hover:text-white/70" style={{ color: '#7d8d86' }}>{l.label}</Link>
+              <Link
+                key={l.label} href={l.href}
+                className="relative inline-block text-[13.5px] py-1.5 transition-colors hover:text-white/70 after:content-[''] after:absolute after:left-1/2 after:bottom-1 after:h-px after:w-0 after:bg-white/50 after:-translate-x-1/2 after:transition-[width] after:duration-300 hover:after:w-full"
+                style={{ color: '#7d8d86' }}
+              >
+                {l.label}
+              </Link>
             ) : (
               <div key={l.label} className="text-[13.5px] py-1.5 cursor-pointer transition-colors hover:text-white/70" style={{ color: '#7d8d86' }}>{l.label}</div>
             ))}
@@ -74,7 +80,12 @@ export function PublicFooter() {
         <div className="text-[12.5px]" style={{ color: '#6a7a73' }}>© 2026 Carp Partners TV. Todos los derechos reservados.</div>
         <div className="flex gap-[22px] text-[12.5px]" style={{ color: '#6a7a73' }}>
           {LEGAL_LINKS.map(l => (
-            <Link key={l.label} href={l.href!} className="hover:text-white/50 transition-colors">{l.label}</Link>
+            <Link
+              key={l.label} href={l.href!}
+              className="relative hover:text-white/50 transition-colors after:content-[''] after:absolute after:left-1/2 after:-bottom-1 after:h-px after:w-0 after:bg-white/40 after:-translate-x-1/2 after:transition-[width] after:duration-300 hover:after:w-full"
+            >
+              {l.label}
+            </Link>
           ))}
         </div>
       </div>
