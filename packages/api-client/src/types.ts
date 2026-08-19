@@ -391,6 +391,8 @@ export interface SeriesInput {
 export interface CarouselImage {
   id: string;
   image_url: string;
+  /** Texto alternativo (accesibilidad/SEO), editable por imagen desde /admin/carrousels. */
+  alt_text: string | null;
   order_index: number;
 }
 

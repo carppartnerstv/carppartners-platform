@@ -1202,7 +1202,7 @@ adminRouter.get(
     );
     if (!carousel) throw notFound('Carrousel no encontrado', 'CAROUSEL_NOT_FOUND');
     const { rows: images } = await query(
-      `SELECT id, image_url, order_index FROM carousel_images
+      `SELECT id, image_url, alt_text, order_index FROM carousel_images
         WHERE carousel_id = $1 ORDER BY order_index`,
       [req.params.id],
     );
@@ -1288,12 +1288,31 @@ adminRouter.post(
       [req.params.id],
     );
     const imageUrl = `${req.protocol}://${req.get('host')}/uploads/carousels/${req.file.filename}`;
+    // multer deja los campos de texto del multipart (junto al archivo) en
+    // req.body — altText es opcional, se puede rellenar luego con el PUT.
+    const altText = typeof req.body.altText === 'string' && req.body.altText.trim() ? req.body.altText.trim() : null;
     const image = await queryOne(
-      `INSERT INTO carousel_images (carousel_id, image_url, order_index)
-       VALUES ($1, $2, $3) RETURNING *`,
-      [req.params.id, imageUrl, maxRows[0].next],
+      `INSERT INTO carousel_images (carousel_id, image_url, alt_text, order_index)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [req.params.id, imageUrl, altText, maxRows[0].next],
     );
     res.status(201).json({ image });
+  }),
+);
+
+// PUT /admin/carousels/:id/images/:imageId — edita el texto alternativo de una imagen
+adminRouter.put(
+  '/carousels/:id/images/:imageId',
+  asyncHandler(async (req, res) => {
+    const parsed = z.object({ altText: z.string().nullable() }).safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+
+    const image = await queryOne(
+      `UPDATE carousel_images SET alt_text = $1 WHERE id = $2 AND carousel_id = $3 RETURNING *`,
+      [parsed.data.altText, req.params.imageId, req.params.id],
+    );
+    if (!image) throw notFound('Imagen no encontrada', 'CAROUSEL_IMAGE_NOT_FOUND');
+    res.json({ image });
   }),
 );
 
@@ -1321,7 +1340,7 @@ adminRouter.put(
     });
 
     const { rows: updated } = await query(
-      `SELECT id, image_url, order_index FROM carousel_images
+      `SELECT id, image_url, alt_text, order_index FROM carousel_images
         WHERE carousel_id = $1 ORDER BY order_index`,
       [req.params.id],
     );

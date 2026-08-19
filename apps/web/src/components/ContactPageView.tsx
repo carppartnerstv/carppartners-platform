@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { PublicHeader } from '@/components/PublicHeader';
+import { PublicFooter } from '@/components/PublicFooter';
 import { ContactForm } from '@/components/ContactForm';
 
 // Página de contacto — mismo PublicHeader (con su menú de navegación) que el
@@ -28,7 +29,7 @@ export function ContactPageView() {
 
       <div className="hidden md:flex flex-1 items-center justify-center px-6 pt-[110px] pb-[60px]">
         <div
-          className="relative w-full max-w-[1020px] rounded-[24px] overflow-hidden"
+          className="relative w-full max-w-[1100px] rounded-[24px] overflow-hidden"
           style={{ background: '#0a0d10', border: '1px solid rgba(255,255,255,0.08)' }}
         >
           {/* Fondo: rejilla + viñeta de color */}
@@ -88,6 +89,8 @@ export function ContactPageView() {
           </div>
         </div>
       </div>
+
+      <PublicFooter />
     </div>
   );
 }

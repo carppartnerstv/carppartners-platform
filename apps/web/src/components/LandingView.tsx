@@ -95,6 +95,21 @@ export function LandingView() {
     return () => clearInterval(id);
   }, [heroImages.length]);
 
+  // Carrusel de la sección "Sobre nosotros": TODAS las fotos de
+  // "sobre-galeria" (la misma página Sobre nosotros), pero mostrando
+  // siempre 2 lado a lado — cada paso desliza una sola foto (ventana de 2
+  // que recorre todo el set), con puntos como el hero. aboutMaxSlide es la
+  // última posición válida de la ventana (n-2, para que nunca se quede solo
+  // 1 foto visible en el hueco derecho).
+  const { images: aboutImages } = usePublicCarousel('sobre-galeria');
+  const aboutMaxSlide = Math.max(0, aboutImages.length - 2);
+  const [aboutSlide, setAboutSlide] = useState(0);
+  useEffect(() => {
+    if (aboutImages.length < 3) return;
+    const id = setInterval(() => setAboutSlide(s => (s + 1) % (aboutMaxSlide + 1)), 6000);
+    return () => clearInterval(id);
+  }, [aboutImages.length, aboutMaxSlide]);
+
   return (
     <div
       className="min-h-screen overflow-x-hidden"
@@ -115,7 +130,7 @@ export function LandingView() {
               <img
                 key={img.id}
                 src={img.image_url}
-                alt=""
+                alt={img.alt_text ?? ''}
                 aria-hidden
                 className="absolute inset-0 w-full h-full object-cover"
                 style={{ opacity: heroSlide === i ? 1 : 0, transition: 'opacity 1.4s ease' }}
@@ -402,6 +417,67 @@ export function LandingView() {
           </div>
           <div className="hidden md:block mt-6 text-[12.5px]" style={{ color: '#6a7a73' }}>
             Pago seguro con tarjeta vía Stripe · Sin permanencia · Cancela en un clic
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ SOBRE NOSOTROS — 2 columnas ═══════════════ */}
+      <section className="px-6 md:px-14 py-[70px]">
+        <div className="max-w-[1100px] mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16 items-stretch">
+          {/* Izquierda: carrusel de "sobre-galeria" — siempre 2 fotos visibles
+              lado a lado, cada paso desliza una sola (ventana deslizante
+              sobre TODO el set), con puntos como el hero. h-full (desde md)
+              para que ocupe la misma altura que el bloque de texto de la
+              derecha, sea cual sea — por eso los puntos van superpuestos
+              sobre la imagen (como en el hero) en vez de debajo: así no
+              suman altura propia que rompería el encaje. */}
+          <div className="relative rounded-[20px] overflow-hidden max-w-[420px] w-full mx-auto md:mx-0 h-[320px] md:h-full">
+            <div className="flex h-full" style={{ transform: `translateX(-${aboutSlide * (100 / Math.max(aboutImages.length, 1))}%)`, transition: 'transform 600ms ease' }}>
+              {aboutImages.map((img) => (
+                <div key={img.id} className="relative w-1/2 h-full flex-shrink-0 p-[3px]">
+                  <img src={img.image_url} alt={img.alt_text ?? ''} className="w-full h-full object-cover rounded-[16px]" />
+                </div>
+              ))}
+            </div>
+            {aboutMaxSlide > 0 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 rounded-full z-10" style={{ background: 'rgba(6,9,12,0.45)', backdropFilter: 'blur(6px)' }}>
+                {Array.from({ length: aboutMaxSlide + 1 }).map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setAboutSlide(i)}
+                    aria-label={`Mostrar fotos ${i + 1} y ${i + 2}`}
+                    className="p-0 border-none cursor-pointer"
+                    style={{
+                      width: aboutSlide === i ? 28 : 14,
+                      height: 5,
+                      borderRadius: 3,
+                      background: aboutSlide === i ? '#cf4a35' : 'rgba(255,255,255,0.45)',
+                      transition: 'all .3s',
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Derecha: texto */}
+          <div>
+            <div className="text-[12.5px] font-semibold tracking-[0.12em] uppercase mb-[14px]" style={{ color: '#cf4a35' }}>Sobre nosotros</div>
+            <h2 className="font-display font-bold text-white mb-5" style={{ fontSize: 'clamp(28px,4vw,42px)', letterSpacing: '-0.02em' }}>
+              Pasión por el carpfishing, contada desde dentro
+            </h2>
+            <p className="mb-8" style={{ fontSize: 15, lineHeight: 1.7, color: '#9aa9a3' }}>
+              Nacimos para vivir el carpfishing desde dentro y contarlo con verdad. Detrás de cada vídeo hay un
+              equipo que recorre embalses, lagos y países documentando sesiones reales, con una narrativa cuidada
+              pensada para quienes sienten la pesca como algo más que un hobby.
+            </p>
+            <Link
+              href="/sobre-carp-partners"
+              className="inline-flex items-center gap-[9px] px-7 py-3.5 rounded-[10px] border text-white font-semibold hover:bg-white/14 transition-colors"
+              style={{ fontSize: 15, borderColor: 'rgba(255,255,255,0.22)', background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(6px)' }}
+            >
+              Conócenos <i className="ti ti-arrow-right text-[17px]" />
+            </Link>
           </div>
         </div>
       </section>

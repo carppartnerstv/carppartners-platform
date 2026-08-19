@@ -11,8 +11,10 @@ export function StaticPageLayout({ title, children }: { title: string; children:
     <div className="min-h-screen flex flex-col" style={{ background: '#06090c' }}>
       <PublicHeader />
 
-      {/* pt-[110px] deja hueco al header, que va fixed */}
-      <main className="flex-1 max-w-[760px] mx-auto w-full px-6 md:px-0 pt-[110px] pb-[56px]">
+      {/* pt-[110px] deja hueco al header, que va fixed. max-w-[1100px]: mismo
+          ancho de contenido que la landing/footer (antes 760px, pensado
+          como columna de lectura estrecha). */}
+      <main className="flex-1 max-w-[1100px] mx-auto w-full px-6 md:px-0 pt-[110px] pb-[56px]">
         <h1
           className="font-display font-bold text-white mb-8"
           style={{ fontSize: 36, letterSpacing: '-0.02em' }}

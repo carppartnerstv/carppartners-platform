@@ -331,7 +331,7 @@ catalogRouter.get(
     );
     if (!carousel) throw notFound('Carrousel no encontrado', 'CAROUSEL_NOT_FOUND');
     const { rows: images } = await query(
-      `SELECT id, image_url, order_index FROM carousel_images
+      `SELECT id, image_url, alt_text, order_index FROM carousel_images
         WHERE carousel_id = $1 ORDER BY order_index`,
       [carousel.id],
     );

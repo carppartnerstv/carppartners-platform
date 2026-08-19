@@ -24,6 +24,18 @@ function levelLabel(height: number): string {
   return `${height}p`;
 }
 
+// iOS (Safari y cualquier navegador ahí, todos corren sobre WebKit) no
+// implementa la Fullscreen API estándar sobre elementos genéricos — la
+// única vía de pantalla completa es este método propietario del propio
+// <video>, que abre el reproductor NATIVO de iOS (con los controles de
+// iOS, no los nuestros) en vez de fullscreenar nuestro contenedor. No está
+// en los tipos del DOM estándar de TypeScript, de ahí la interfaz aparte.
+interface IOSVideoElement extends HTMLVideoElement {
+  webkitEnterFullscreen?: () => void;
+  webkitExitFullscreen?: () => void;
+  webkitDisplayingFullscreen?: boolean;
+}
+
 export default function PlayPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -259,13 +271,34 @@ export default function PlayPage() {
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
 
+  // iOS no dispara 'fullscreenchange' (no usa la Fullscreen API estándar) —
+  // el <video> nativo dispara estos dos eventos propietarios en su lugar,
+  // para poder seguir sincronizando el icono maximize/minimize del botón.
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    const onBegin = () => setFullscreen(true);
+    const onEnd = () => setFullscreen(false);
+    el.addEventListener('webkitbeginfullscreen', onBegin);
+    el.addEventListener('webkitendfullscreen', onEnd);
+    return () => {
+      el.removeEventListener('webkitbeginfullscreen', onBegin);
+      el.removeEventListener('webkitendfullscreen', onEnd);
+    };
+  }, []);
+
   // Safari en iOS no implementa requestFullscreen() en elementos normales
   // (solo <video> tiene su propio método nativo aparte) — llamarlo ahí
   // lanzaba un TypeError sin hacer nada. Se detecta el soporte real una vez
-  // al montar y, si no existe, se oculta el botón en vez de dejarlo roto.
+  // al montar: si hay Fullscreen API estándar, se usa esa (Android/
+  // escritorio); si no pero el <video> soporta el fullscreen nativo de
+  // iOS, se usa ese en su lugar — así el botón nunca queda oculto/roto.
   const [fullscreenSupported, setFullscreenSupported] = useState(false);
+  const [iosFullscreenSupported, setIosFullscreenSupported] = useState(false);
   useEffect(() => {
     setFullscreenSupported(typeof document.documentElement.requestFullscreen === 'function');
+    const el = videoRef.current as IOSVideoElement | null;
+    setIosFullscreenSupported(typeof el?.webkitEnterFullscreen === 'function');
   }, []);
 
   // ── Móvil en vertical: "gira" el reproductor a horizontal por CSS ───────────
@@ -502,10 +535,28 @@ export default function PlayPage() {
   };
 
   const toggleFullscreen = () => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => null);
+    // Prioridad: Fullscreen API estándar (Android/escritorio) sobre el
+    // contenedor, con nuestros propios controles seguros funcionando
+    // encima. Solo si esa API no existe (iOS, siempre) se cae al
+    // fullscreen nativo del <video> — ahí iOS toma el control por
+    // completo y muestra SUS controles, no los nuestros; es la única vía
+    // que Apple permite y es la limitación aceptada para que el usuario
+    // consiga pantalla completa igualmente.
+    if (fullscreenSupported) {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => null);
+      } else {
+        playerSectionRef.current?.requestFullscreen?.().catch(() => null);
+      }
+      return;
+    }
+
+    const el = videoRef.current as IOSVideoElement | null;
+    if (!el) return;
+    if (el.webkitDisplayingFullscreen) {
+      el.webkitExitFullscreen?.();
     } else {
-      playerSectionRef.current?.requestFullscreen?.().catch(() => null);
+      el.webkitEnterFullscreen?.();
     }
   };
 
@@ -906,15 +957,19 @@ export default function PlayPage() {
                   )}
                 </div>
               )}
-              {/* Oculto mientras forceRotate está activo: pedir fullscreen
-                  real sobre un elemento que ya tiene nuestro
+              {/* Con la Fullscreen API estándar (Android/escritorio), oculto
+                  mientras forceRotate está activo: pedir fullscreen real
+                  sobre un elemento que ya tiene nuestro
                   transform:rotate(90deg) hace que el navegador (confirmado
                   en Chrome/Android) reajuste esa caja para el fullscreen y
                   se pierda la rotación — son dos mecanismos compitiendo por
                   el mismo elemento. Sin forceRotate (desktop, o el móvil ya
                   girado físicamente a horizontal) no hay transform con el
-                  que competir y funciona con normalidad. */}
-              {fullscreenSupported && !forceRotate && (
+                  que competir y funciona con normalidad.
+                  En iOS (fullscreen nativo del <video>) no hay ese
+                  conflicto — es un overlay del sistema, ajeno a nuestro
+                  CSS — así que ahí el botón se muestra siempre. */}
+              {(iosFullscreenSupported || (fullscreenSupported && !forceRotate)) && (
                 <button onClick={toggleFullscreen} aria-label="Pantalla completa" className="hover:opacity-80">
                   <i className={`ti ti-${fullscreen ? 'minimize' : 'maximize'} text-[21px] sm:text-[24px]`} />
                 </button>

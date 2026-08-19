@@ -611,10 +611,15 @@ export class ApiClient {
     return this.request('DELETE', `/admin/carousels/${id}`);
   }
 
-  async uploadCarouselImage(id: string, file: File): Promise<{ image: CarouselImage }> {
+  async uploadCarouselImage(id: string, file: File, altText?: string): Promise<{ image: CarouselImage }> {
     const fd = new FormData();
     fd.append('image', file);
+    if (altText) fd.append('altText', altText);
     return this.requestMultipart('POST', `/admin/carousels/${id}/images`, fd);
+  }
+
+  async updateCarouselImageAlt(id: string, imageId: string, altText: string | null): Promise<{ image: CarouselImage }> {
+    return this.request('PUT', `/admin/carousels/${id}/images/${imageId}`, { body: { altText } });
   }
 
   async deleteCarouselImage(id: string, imageId: string): Promise<void> {

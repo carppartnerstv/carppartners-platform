@@ -43,7 +43,7 @@ export function Carousel({ slug }: { slug: string }) {
         <img
           key={img.id}
           src={img.image_url}
-          alt=""
+          alt={img.alt_text ?? ''}
           className="absolute inset-0 w-full h-full object-cover"
           style={{ opacity: active === i ? 1 : 0, transition: 'opacity 1.4s ease' }}
         />

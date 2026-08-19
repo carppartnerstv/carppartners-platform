@@ -1,9 +1,6 @@
-'use client';
-
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCookieConsent } from '@/context/CookieConsentContext';
 
 interface FooterLink {
   label: string;
@@ -42,8 +39,6 @@ const LEGAL_LINKS: FooterLink[] = [
 
 // Pie de página público compartido por la landing y las páginas fijas.
 export function PublicFooter() {
-  const { openSettings } = useCookieConsent();
-
   return (
     <footer className="px-6 md:px-14 pt-[50px] pb-10" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
       <div className="max-w-[1100px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-10">
@@ -81,9 +76,6 @@ export function PublicFooter() {
           {LEGAL_LINKS.map(l => (
             <Link key={l.label} href={l.href!} className="hover:text-white/50 transition-colors">{l.label}</Link>
           ))}
-          <button onClick={openSettings} className="hover:text-white/50 transition-colors">
-            Configuración de cookies
-          </button>
         </div>
       </div>
     </footer>

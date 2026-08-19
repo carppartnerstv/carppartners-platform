@@ -51,7 +51,9 @@ export function SeriesCard({ series, onClick }: SeriesCardProps) {
 
       {/* Info debajo de la portada */}
       <div className="pt-2.5 px-0.5">
-        <p className="text-[13.5px] font-semibold leading-snug line-clamp-1" style={{ color: '#e9efeb' }}>
+        {/* Fuente más pequeña en móvil (tarjeta muy estrecha, 23vw): sigue
+            en 1 línea, pero a 11px entran más caracteres antes del recorte. */}
+        <p className="text-[11px] sm:text-[13.5px] font-semibold leading-snug line-clamp-1" style={{ color: '#e9efeb' }}>
           {series.title}
         </p>
         <p className="text-cp-gray text-[11.5px] mt-[3px]">{metaline}</p>

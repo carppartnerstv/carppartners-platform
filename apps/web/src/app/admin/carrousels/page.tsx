@@ -51,6 +51,7 @@ export default function AdminCarouselsPage() {
 
   const [uploading, setUploading]         = useState(false);
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
+  const [savingAltId, setSavingAltId]     = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [pendingDelete, setPendingDelete] = useState<Carousel | null>(null);
@@ -123,6 +124,26 @@ export default function AdminCarouselsPage() {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  // Edición local mientras se escribe (controlado); se persiste al salir del
+  // campo (handleAltBlur) para no disparar una petición por cada pulsación.
+  const handleAltChange = (imageId: string, altText: string) => {
+    if (!editing) return;
+    setEditing({
+      ...editing,
+      images: editing.images.map(i => (i.id === imageId ? { ...i, alt_text: altText } : i)),
+    });
+  };
+
+  const handleAltBlur = async (image: CarouselImage) => {
+    if (!editing) return;
+    setSavingAltId(image.id);
+    try {
+      await apiClient.updateCarouselImageAlt(editing.id, image.id, image.alt_text || null);
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'No se pudo guardar el texto alternativo');
+    } finally { setSavingAltId(null); }
   };
 
   const handleDeleteImage = async (image: CarouselImage) => {
@@ -313,8 +334,18 @@ export default function AdminCarouselsPage() {
                   <div className="space-y-2">
                     {editing.images.map((img, i) => (
                       <div key={img.id} className="flex items-center gap-3 p-2 rounded-md border border-admin-border-soft bg-admin-bg">
-                        <img src={img.image_url} alt="" className="w-16 h-9 object-cover rounded shrink-0 bg-admin-border-soft" />
-                        <span className="flex-1 text-admin-text-tertiary text-xs truncate">{i + 1}</span>
+                        <img src={img.image_url} alt={img.alt_text ?? ''} className="w-16 h-9 object-cover rounded shrink-0 bg-admin-border-soft" />
+                        <span className="text-admin-text-tertiary text-xs shrink-0 w-4 text-center">{i + 1}</span>
+                        <input
+                          type="text"
+                          value={img.alt_text ?? ''}
+                          onChange={e => handleAltChange(img.id, e.target.value)}
+                          onBlur={() => handleAltBlur(img)}
+                          placeholder="Texto alternativo (accesibilidad/SEO)"
+                          disabled={savingAltId === img.id}
+                          className="flex-1 min-w-0 bg-white border border-admin-input-border rounded px-2 py-1 text-admin-text text-xs
+                                     placeholder-admin-text-tertiary focus:outline-none focus:border-brand-bright transition-colors disabled:opacity-50"
+                        />
                         <div className="flex items-center gap-0.5">
                           <button type="button" disabled={i === 0} onClick={() => moveImage(i, -1)}
                             className="p-1.5 rounded text-admin-text-secondary hover:text-admin-text hover:bg-admin-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors">

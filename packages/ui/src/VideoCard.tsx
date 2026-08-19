@@ -123,7 +123,12 @@ export function VideoCard({ video, progress, rank, isNew, showPlayButton, onClic
 
       {/* Info debajo de la card */}
       <div className="pt-2.5 px-0.5">
-        <p className="text-[13.5px] font-semibold leading-snug line-clamp-1" style={{ color: '#e9efeb' }}>
+        {/* Fuente más pequeña en móvil: con la tarjeta tan estrecha (23vw,
+            para caber ~3,5 por fila), a 13.5px una sola línea dejaba
+            títulos largos reducidos a un par de caracteres. Sigue en 1
+            línea (line-clamp-1), pero a 11px entran bastantes más
+            caracteres antes del recorte. Desde sm, como antes (13.5px). */}
+        <p className="text-[11px] sm:text-[13.5px] font-semibold leading-snug line-clamp-1" style={{ color: '#e9efeb' }}>
           {video.title}
         </p>
         {video.episode_num != null && (
