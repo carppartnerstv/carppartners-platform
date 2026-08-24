@@ -29,15 +29,39 @@ const PLAN_LABELS: Record<string, string> = {
   courtesy: 'Cortesía',
 };
 
-function StatusBadge({ status }: { status: string | null }) {
+// Para las cortesías, "status" se fija a 'active' al otorgarlas y no se
+// vuelve a tocar nunca (no hay webhook que las revise, a diferencia de las
+// de Stripe) — así que puede seguir diciendo "Activo" mucho después de que
+// period_end haya pasado y el usuario ya no tenga acceso real. Este badge
+// deriva la etiqueta "Cortesía vencida"/"Cortesía activa" a partir de la
+// fecha, puramente en la vista — no escribe ni cambia el campo status.
+function StatusBadge({
+  status,
+  source,
+  periodEnd,
+}: {
+  status: string | null;
+  source?: 'stripe' | 'courtesy' | null;
+  periodEnd?: string | null;
+}) {
   if (!status) return <span className="text-admin-text-tertiary text-xs">—</span>;
-  const label = STATUS_LABELS[status] ?? status;
-  const cls = {
-    active:    'bg-[#e7f6ed] text-[#1a8a4a]',
-    trialing:  'bg-[#fef3e2] text-[#b45309]',
-    past_due:  'bg-[#fdeee0] text-[#c2650a]',
-    cancelled: 'bg-admin-border-soft text-admin-text-muted',
-  }[status] ?? 'bg-admin-border-soft text-admin-text-muted';
+
+  const isCourtesy = source === 'courtesy';
+  const expired = isCourtesy && !!periodEnd && new Date(periodEnd) < new Date();
+
+  const label = isCourtesy
+    ? (expired ? 'Cortesía vencida' : 'Cortesía activa')
+    : (STATUS_LABELS[status] ?? status);
+
+  const cls = expired
+    ? 'bg-[#fdecea] text-[#c0392b]'
+    : {
+        active:    'bg-[#e7f6ed] text-[#1a8a4a]',
+        trialing:  'bg-[#fef3e2] text-[#b45309]',
+        past_due:  'bg-[#fdeee0] text-[#c2650a]',
+        cancelled: 'bg-admin-border-soft text-admin-text-muted',
+      }[status] ?? 'bg-admin-border-soft text-admin-text-muted';
+
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${cls}`}>
       {label}
@@ -533,7 +557,7 @@ export default function AdminSuscriptoresPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <StatusBadge status={u.status} />
+                  <StatusBadge status={u.status} source={u.source} periodEnd={u.period_end} />
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
                   <span className={[
