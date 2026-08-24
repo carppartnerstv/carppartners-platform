@@ -536,7 +536,10 @@ export default function AdminSuscriptoresPage() {
                   <StatusBadge status={u.status} />
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
-                  <span className="text-admin-text-secondary text-xs tabular-nums">
+                  <span className={[
+                    'text-xs tabular-nums',
+                    u.period_end && new Date(u.period_end) < new Date() ? 'text-[#c0392b] font-semibold' : 'text-admin-text-secondary',
+                  ].join(' ')}>
                     {u.source === 'courtesy' && !u.period_end ? 'Sin caducidad' : fmtDate(u.period_end)}
                   </span>
                 </td>
