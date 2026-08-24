@@ -12,6 +12,9 @@ export interface TopTenCarouselProps {
 
 const AUTOPLAY_MS = 6000;
 const DRAG_THRESHOLD_PX = 60;
+// Movimiento mínimo para considerar que un pointerdown es un arrastre real
+// (y no un simple clic) — ver handlePointerDown/handlePointerMove.
+const DRAG_ENGAGE_PX = 6;
 const CARD_GAP = 14;
 const DESCRIPTION_MAX_CHARS = 150;
 // Deben coincidir con las clases w-[...]/h-[...] de más abajo. De sm en
@@ -94,18 +97,30 @@ export function TopTenCarousel({ title, items, categories, onItemClick }: TopTen
   const goPrev = () => { setActiveIndex((i) => i - 1); setTick((t) => t + 1); };
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    dragState.current = { startX: e.clientX, dragging: true };
+    // OJO: aquí NO se captura el puntero todavía. Capturarlo de entrada
+    // (incluso para un simple clic sin mover el ratón) suprime el evento
+    // "click" nativo de las tarjetas anidadas en Chrome/Edge de escritorio
+    // — el arrastre táctil no se ve afectado porque el touch sintetiza el
+    // click de otra forma, por eso en móvil sí funcionaba. Solo se captura
+    // una vez confirmado un arrastre real, en handlePointerMove.
+    dragState.current = { startX: e.clientX, dragging: false };
     setPaused(true);
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!dragState.current?.dragging) return;
-    setDragPx(e.clientX - dragState.current.startX);
+    if (!dragState.current) return;
+    const dx = e.clientX - dragState.current.startX;
+    if (!dragState.current.dragging) {
+      if (Math.abs(dx) < DRAG_ENGAGE_PX) return;
+      dragState.current.dragging = true;
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    }
+    setDragPx(dx);
   };
   const endDrag = () => {
-    if (!dragState.current?.dragging) return;
-    if (dragPx > DRAG_THRESHOLD_PX) goPrev();
-    else if (dragPx < -DRAG_THRESHOLD_PX) goNext();
+    if (dragState.current?.dragging) {
+      if (dragPx > DRAG_THRESHOLD_PX) goPrev();
+      else if (dragPx < -DRAG_THRESHOLD_PX) goNext();
+    }
     dragState.current = null;
     setDragPx(0);
     setPaused(false);
