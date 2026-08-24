@@ -531,7 +531,7 @@ export default function AdminSuscriptoresPage() {
               <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden md:table-cell">Plan</th>
               <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide">Estado</th>
               <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Fin de período</th>
-              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden xl:table-cell">Registrado</th>
+              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden xl:table-cell">Creación</th>
               <th className="px-4 py-3 w-16" />
             </tr>
           </thead>

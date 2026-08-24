@@ -17,6 +17,7 @@ export type {
   AuthResponse,
   DashboardStats,
   LaunchMetrics,
+  RecentActivity,
   AdminUser,
   AdminCreateUserInput,
   AdminCreatedUser,

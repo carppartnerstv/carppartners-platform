@@ -217,6 +217,8 @@ adminRouter.get(
       `SELECT v.id, v.title, COUNT(wh.id)::int AS viewers
          FROM watch_history wh
          JOIN videos v ON v.id = wh.video_id
+         JOIN users u ON u.id = wh.user_id
+        WHERE u.role <> 'admin'
         GROUP BY v.id, v.title
         ORDER BY viewers DESC, v.title
         LIMIT 10`,
@@ -226,6 +228,8 @@ adminRouter.get(
       `SELECT v.id, v.title, ROUND(AVG(vr.rating)::numeric, 2) AS avg_rating, COUNT(*)::int AS votes
          FROM video_ratings vr
          JOIN videos v ON v.id = vr.video_id
+         JOIN users u ON u.id = vr.user_id
+        WHERE u.role <> 'admin'
         GROUP BY v.id, v.title
         ORDER BY avg_rating DESC, votes DESC, v.title
         LIMIT 10`,
@@ -254,6 +258,31 @@ adminRouter.get(
         votes: r.votes,
       })),
     });
+  }),
+);
+
+// GET /admin/launch-metrics/recent-activity?minutes=30 — quién ha iniciado
+// sesión en los últimos N minutos (ventana configurable desde el panel).
+// Señal exacta (users.last_login_at), no un proxy — excluye admins.
+adminRouter.get(
+  '/launch-metrics/recent-activity',
+  asyncHandler(async (req, res) => {
+    const minutes = Math.min(Math.max(parseInt(req.query.minutes ?? '30', 10) || 30, 1), 1440);
+
+    const countRow = await queryOne(
+      `SELECT COUNT(*)::int AS n FROM users
+        WHERE role <> 'admin' AND last_login_at >= now() - (interval '1 minute' * $1::int)`,
+      [minutes],
+    );
+    const { rows } = await query(
+      `SELECT email, name, last_login_at FROM users
+        WHERE role <> 'admin' AND last_login_at >= now() - (interval '1 minute' * $1::int)
+        ORDER BY last_login_at DESC
+        LIMIT 200`,
+      [minutes],
+    );
+
+    res.json({ minutes, total: countRow.n, users: rows });
   }),
 );
 
@@ -353,12 +382,18 @@ adminRouter.get(
     );
 
     params.push(limit, offset);
+    // created_at: fecha real de alta como cliente en Stripe si se conoce
+    // (stripe_created_at, backfill/migración), si no la de registro en
+    // nuestra BD (altas nuevas no migradas) — para los migrados evita
+    // mostrar la fecha en que se ejecutó la migración como si fuera su
+    // antigüedad real. Mismo criterio en el ORDER BY, para que el orden
+    // coincida con lo mostrado.
     const { rows } = await query(
-      `SELECT u.id, u.email, u.name, u.created_at,
+      `SELECT u.id, u.email, u.name, COALESCE(u.stripe_created_at, u.created_at) AS created_at,
               s.plan, s.status, s.period_end, s.source
          FROM users u ${SUB_LATERAL}
         ${where}
-        ORDER BY u.created_at DESC
+        ORDER BY COALESCE(u.stripe_created_at, u.created_at) DESC
         LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params,
     );

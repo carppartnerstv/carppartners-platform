@@ -14,6 +14,7 @@ import type {
   AuthResponse,
   DashboardStats,
   LaunchMetrics,
+  RecentActivity,
   AdminUser,
   AdminCreateUserInput,
   AdminCreatedUser,
@@ -446,6 +447,10 @@ export class ApiClient {
 
   async getAdminLaunchMetrics(): Promise<LaunchMetrics> {
     return this.request('GET', '/admin/launch-metrics');
+  }
+
+  async getAdminRecentActivity(minutes?: number): Promise<RecentActivity> {
+    return this.request('GET', '/admin/launch-metrics/recent-activity', { query: { minutes } });
   }
 
   async getAdminUserStats(): Promise<{ counts: UserStatusCounts }> {

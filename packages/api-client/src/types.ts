@@ -204,6 +204,13 @@ export interface LaunchMetrics {
   topRated: { id: string; title: string; avgRating: number | null; votes: number }[];
 }
 
+export interface RecentActivity {
+  minutes: number;
+  /** Total real — puede ser mayor que users.length si se supera el límite de 200 filas */
+  total: number;
+  users: { email: string; name: string | null; last_login_at: string }[];
+}
+
 export interface UserStatusCounts {
   active: number;
   trialing: number;

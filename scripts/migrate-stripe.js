@@ -35,21 +35,26 @@ async function migrateCustomer(customer) {
 
   const token = crypto.randomBytes(32).toString('hex');
   const expires = new Date(Date.now() + SET_PASSWORD_TTL_DAYS * 86_400_000);
+  // Fecha real de alta como cliente en Stripe — distinta de created_at (que
+  // sería la fecha de esta migración, no su antigüedad real). customer.created
+  // siempre viene en la respuesta, no hace falta expand.
+  const stripeCreatedAt = customer.created ? new Date(customer.created * 1000) : null;
 
   if (DRY_RUN) {
-    console.log(`· [dry] Usuario: ${customer.email} (${customer.id})`);
+    console.log(`· [dry] Usuario: ${customer.email} (${customer.id}) — cliente desde ${stripeCreatedAt?.toISOString().slice(0, 10) ?? '?'}`);
   } else {
     await pool.query(
-      `INSERT INTO users (email, name, stripe_customer_id, password_set_token, password_set_expires)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO users (email, name, stripe_customer_id, stripe_created_at, password_set_token, password_set_expires)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (email) DO UPDATE SET
           stripe_customer_id   = EXCLUDED.stripe_customer_id,
+          stripe_created_at    = COALESCE(users.stripe_created_at, EXCLUDED.stripe_created_at),
           name                 = COALESCE(users.name, EXCLUDED.name),
           password_set_token   = CASE WHEN users.password_hash IS NULL
                                       THEN EXCLUDED.password_set_token ELSE users.password_set_token END,
           password_set_expires = CASE WHEN users.password_hash IS NULL
                                       THEN EXCLUDED.password_set_expires ELSE users.password_set_expires END`,
-      [customer.email.toLowerCase(), customer.name ?? null, customer.id, token, expires],
+      [customer.email.toLowerCase(), customer.name ?? null, customer.id, stripeCreatedAt, token, expires],
     );
   }
 

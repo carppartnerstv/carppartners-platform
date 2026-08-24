@@ -2,12 +2,22 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { LaunchMetrics } from '@carp-partners/api-client';
+import type { LaunchMetrics, RecentActivity } from '@carp-partners/api-client';
 
 // ─── Utilidades ─────────────────────────────────────────────────────────────
 
 const nf = (n: number) => n.toLocaleString('es-ES');
 const pct = (n: number, total: number) => (total > 0 ? `${((n / total) * 100).toFixed(1)}%` : '—');
+
+// "hace 3 min" / "hace 1 h 12 min" — para no obligar a leer una fecha/hora completa fila a fila.
+function timeAgo(iso: string) {
+  const diffMin = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (diffMin < 1) return 'justo ahora';
+  if (diffMin < 60) return `hace ${diffMin} min`;
+  const h = Math.floor(diffMin / 60);
+  const m = diffMin % 60;
+  return `hace ${h} h${m ? ` ${m} min` : ''}`;
+}
 
 // ─── Piezas reutilizables de esta página ────────────────────────────────────
 
@@ -110,6 +120,99 @@ function RankedTable({ title, emptyLabel, items }: { title: string; emptyLabel: 
   );
 }
 
+const RECENT_PRESETS = [15, 30, 60, 180];
+
+// Lista de quién ha iniciado sesión en los últimos N minutos (ventana
+// configurable) — señal exacta (users.last_login_at), útil para ver en vivo
+// el efecto de una campaña de email mientras se está enviando.
+function RecentActivityCard({
+  recent,
+  loading,
+  error,
+  minutes,
+  onMinutesChange,
+  onRefresh,
+}: {
+  recent: RecentActivity | null;
+  loading: boolean;
+  error: string;
+  minutes: number;
+  onMinutesChange: (m: number) => void;
+  onRefresh: () => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h2 className="font-display text-[15px] font-bold text-admin-text">Actividad reciente</h2>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-md border border-admin-border overflow-hidden">
+            {RECENT_PRESETS.map((m) => (
+              <button
+                key={m}
+                onClick={() => onMinutesChange(m)}
+                className={[
+                  'px-2.5 py-1 text-[12px] font-medium transition-colors',
+                  m === minutes ? 'bg-brand-bright text-white' : 'bg-admin-surface text-admin-text-secondary hover:bg-admin-hover',
+                ].join(' ')}
+              >
+                {m < 60 ? `${m} min` : `${m / 60} h`}
+              </button>
+            ))}
+          </div>
+          <input
+            type="number"
+            min={1}
+            max={1440}
+            value={minutes}
+            onChange={(e) => onMinutesChange(Math.min(1440, Math.max(1, parseInt(e.target.value, 10) || 1)))}
+            className="w-16 px-2 py-1 text-[12px] rounded-md border border-admin-border bg-admin-surface text-admin-text"
+            title="Minutos personalizados"
+          />
+          <button
+            onClick={onRefresh}
+            disabled={loading}
+            className="text-[12px] font-semibold text-brand-bright border border-brand/25 rounded-md px-2.5 py-1 hover:bg-[#fbebe8] transition-colors disabled:opacity-50"
+          >
+            {loading ? '…' : 'Actualizar'}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-[#fdecea] border border-[#f7cfc9] rounded-md px-4 py-3 text-[#c0392b] text-sm mb-3">
+          {error}
+        </div>
+      )}
+
+      {loading && !recent ? (
+        <SectionSkeleton heightClass="h-40" />
+      ) : recent ? (
+        <div className="rounded-admin-card border border-admin-border bg-admin-surface shadow-admin-card p-5">
+          <p className="text-admin-text-tertiary text-xs mb-3">
+            {recent.total} usuario{recent.total === 1 ? '' : 's'} con inicio de sesión en los últimos {recent.minutes} min
+            {recent.total > recent.users.length ? ` (mostrando los ${recent.users.length} más recientes)` : ''}.
+          </p>
+          {recent.users.length === 0 ? (
+            <p className="text-admin-text-tertiary text-sm py-4 text-center">Nadie ha iniciado sesión en esta ventana de tiempo.</p>
+          ) : (
+            <ul className="divide-y divide-admin-border-soft max-h-[280px] overflow-y-auto">
+              {recent.users.map((u) => (
+                <li key={u.email} className="py-2 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[13px] text-admin-text truncate">{u.email}</p>
+                    {u.name && <p className="text-admin-text-muted text-xs truncate">{u.name}</p>}
+                  </div>
+                  <span className="shrink-0 text-[12px] text-admin-text-secondary tabular-nums">{timeAgo(u.last_login_at)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function SectionSkeleton({ heightClass = 'h-40' }: { heightClass?: string }) {
   return <div className={`rounded-admin-card border border-admin-border bg-admin-surface shadow-admin-card animate-pulse ${heightClass}`} />;
 }
@@ -121,6 +224,22 @@ export default function LaunchMetricsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+
+  const [recent, setRecent] = useState<RecentActivity | null>(null);
+  const [recentLoading, setRecentLoading] = useState(true);
+  const [recentError, setRecentError] = useState('');
+  const [recentMinutes, setRecentMinutes] = useState(30);
+
+  const loadRecent = useCallback((minutes: number) => {
+    setRecentLoading(true);
+    setRecentError('');
+    apiClient.getAdminRecentActivity(minutes)
+      .then(setRecent)
+      .catch((e) => setRecentError(e instanceof ApiError ? e.message : 'Error al cargar la actividad reciente'))
+      .finally(() => setRecentLoading(false));
+  }, []);
+
+  useEffect(() => { loadRecent(recentMinutes); }, [loadRecent, recentMinutes]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -258,6 +377,18 @@ export default function LaunchMetricsPage() {
               Porcentaje siempre sobre el total de migrados ({nf(f.migrated)}). No incluye la apertura del email — el SMTP no la registra.
             </p>
           )}
+
+          {/* Actividad reciente — quién ha entrado en los últimos N minutos */}
+          <div className="mt-6">
+            <RecentActivityCard
+              recent={recent}
+              loading={recentLoading}
+              error={recentError}
+              minutes={recentMinutes}
+              onMinutesChange={setRecentMinutes}
+              onRefresh={() => loadRecent(recentMinutes)}
+            />
+          </div>
         </div>
       </div>
     </div>
