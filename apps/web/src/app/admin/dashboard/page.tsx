@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import type { DashboardStats } from '@carp-partners/api-client';
 
@@ -12,19 +13,21 @@ function MetricCard({
   sub,
   icon,
   accent = false,
+  href,
 }: {
   label: string;
   value: string;
   sub?: string;
   icon: React.ReactNode;
   accent?: boolean;
+  /** Si se pasa, la tarjeta entera es un enlace (p. ej. al listado ya filtrado). */
+  href?: string;
 }) {
-  return (
+  const content = (
     <div className={[
       'rounded-admin-card border p-5 flex flex-col gap-3 bg-admin-surface shadow-admin-card',
-      accent
-        ? 'border-brand/25'
-        : 'border-admin-border',
+      accent ? 'border-brand/25' : 'border-admin-border',
+      href ? 'transition-shadow hover:shadow-md hover:border-brand/40 cursor-pointer' : '',
     ].join(' ')}>
       <div className="flex items-start justify-between">
         <p className="text-xs font-semibold text-admin-text-secondary uppercase tracking-wide">{label}</p>
@@ -38,6 +41,7 @@ function MetricCard({
       </div>
     </div>
   );
+  return href ? <Link href={href}>{content}</Link> : content;
 }
 
 // ─── Skeleton de carga ────────────────────────────────────────────────────────
@@ -87,16 +91,17 @@ export default function AdminDashboardPage() {
       )}
 
       {/* Grid de métricas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         {loading ? (
-          Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+          Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
         ) : stats ? (
           <>
             <MetricCard
               label="Suscriptores activos"
               value={stats.activeSubscribers.toLocaleString('es-ES')}
-              sub="Cuentas activas o en prueba"
+              sub="Igual que la pestaña «Activos» de Suscriptores"
               accent
+              href="/admin/suscriptores?tab=active"
               icon={
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -108,10 +113,23 @@ export default function AdminDashboardPage() {
               label="Vídeos publicados"
               value={stats.publishedVideos.toLocaleString('es-ES')}
               sub="Visibles para suscriptores"
+              href="/admin/videos?published=publicado"
               icon={
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+                </svg>
+              }
+            />
+            <MetricCard
+              label="Vídeos programados"
+              value={stats.scheduledVideos.toLocaleString('es-ES')}
+              sub="Publicación programada a futuro"
+              href="/admin/videos?published=programado"
+              icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               }
             />

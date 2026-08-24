@@ -180,6 +180,7 @@ export interface AuthResponse {
 export interface DashboardStats {
   activeSubscribers: number;
   publishedVideos: number;
+  scheduledVideos: number;
   playsToday: number;
   mrr: number;
 }
@@ -210,6 +211,8 @@ export interface UserStatusCounts {
   cancelled: number;
   /** Suscriptores cuya suscripción más reciente es de cortesía (source='courtesy'), no un status real */
   courtesy: number;
+  /** Usuarios con role='admin' — excluidos de todas las demás pestañas de estado */
+  admin: number;
   with_subscription: number;
   total: number;
 }

@@ -117,11 +117,22 @@ adminRouter.use(requireAuth, requireAdmin);
 adminRouter.get(
   '/dashboard',
   asyncHandler(async (_req, res) => {
+    // Misma definición exacta que la pestaña "Activos" de /admin/users
+    // (SUB_LATERAL: una fila por usuario, status='active', sin admins) —
+    // para que este número y el de esa pestaña coincidan siempre.
     const activeSubs = await queryOne(
-      `SELECT COUNT(*)::int AS n FROM subscriptions WHERE status IN ('active','trialing')`,
+      `SELECT COUNT(*)::int AS n FROM users u ${SUB_LATERAL} WHERE u.role <> 'admin' AND s.status = 'active'`,
     );
+    // Misma definición exacta que status=publicado/programado en GET
+    // /admin/videos — "publicado" excluye los programados a futuro (aunque
+    // published=true), para que el número coincida con el filtro del listado.
     const publishedVideos = await queryOne(
-      `SELECT COUNT(*)::int AS n FROM videos WHERE published = true`,
+      `SELECT COUNT(*)::int AS n FROM videos v
+        WHERE v.published = true AND (v.published_at IS NULL OR v.published_at <= now())`,
+    );
+    const scheduledVideos = await queryOne(
+      `SELECT COUNT(*)::int AS n FROM videos v
+        WHERE v.published = true AND v.published_at IS NOT NULL AND v.published_at > now()`,
     );
     const playsToday = await queryOne(
       `SELECT COUNT(*)::int AS n FROM watch_history WHERE last_watched_at >= current_date`,
@@ -137,6 +148,7 @@ adminRouter.get(
     res.json({
       activeSubscribers: activeSubs.n,
       publishedVideos: publishedVideos.n,
+      scheduledVideos: scheduledVideos.n,
       playsToday: playsToday.n,
       mrr: Number(mrr.mrr),
     });
@@ -264,18 +276,22 @@ const SUB_LATERAL = `LEFT JOIN LATERAL (
    LIMIT 1
 ) s ON true`;
 
-// Contadores por estado (para las pestañas del panel)
+// Contadores por estado (para las pestañas del panel). Los admins (role=
+// 'admin') quedan fuera de todas las pestañas de estado de suscripción
+// (activos, vencidos, cancelados, cortesía, con suscripción) — tienen su
+// propia pestaña "Administradores". "Todos" sigue siendo literalmente
+// todos los usuarios, admins incluidos.
 adminRouter.get(
   '/users/stats',
   asyncHandler(async (_req, res) => {
     const { rows } = await query(
       `SELECT COALESCE(s.status, '__none__') AS status, COUNT(*)::int AS count
          FROM users u ${SUB_LATERAL}
+        WHERE u.role <> 'admin'
         GROUP BY s.status`,
     );
-    const counts = { active: 0, trialing: 0, past_due: 0, cancelled: 0, courtesy: 0, with_subscription: 0, total: 0 };
+    const counts = { active: 0, trialing: 0, past_due: 0, cancelled: 0, courtesy: 0, admin: 0, with_subscription: 0, total: 0 };
     for (const r of rows) {
-      counts.total += r.count;
       if (r.status !== '__none__') {
         counts[r.status] = r.count;
         counts.with_subscription += r.count;
@@ -284,9 +300,15 @@ adminRouter.get(
     // Cortesía es una dimensión aparte (source, no status) — se cuenta por
     // separado en vez de agruparla con el resto.
     const courtesyRow = await queryOne(
-      `SELECT COUNT(*)::int AS n FROM users u ${SUB_LATERAL} WHERE s.source = 'courtesy'`,
+      `SELECT COUNT(*)::int AS n FROM users u ${SUB_LATERAL} WHERE s.source = 'courtesy' AND u.role <> 'admin'`,
     );
     counts.courtesy = courtesyRow.n;
+
+    const adminRow = await queryOne(`SELECT COUNT(*)::int AS n FROM users WHERE role = 'admin'`);
+    counts.admin = adminRow.n;
+
+    const totalRow = await queryOne(`SELECT COUNT(*)::int AS n FROM users`);
+    counts.total = totalRow.n;
     res.json({ counts });
   }),
 );
@@ -301,15 +323,22 @@ adminRouter.get(
     const filters = [];
     const params = [];
 
-    // 'with_subscription' y 'courtesy' son valores especiales: no son un
-    // status real, sino que filtran por otra columna (source).
-    if (status === 'with_subscription') {
+    // 'with_subscription', 'courtesy' y 'admin' son valores especiales: no
+    // son un status real, sino que filtran por otra columna (source / role).
+    // 'admin' es la única pestaña que SÍ incluye administradores — el resto
+    // de pestañas de estado los excluye (tienen su propia pestaña).
+    if (status === 'admin') {
+      filters.push(`u.role = 'admin'`);
+    } else if (status === 'with_subscription') {
       filters.push(`s.status IS NOT NULL`);
+      filters.push(`u.role <> 'admin'`);
     } else if (status === 'courtesy') {
       filters.push(`s.source = 'courtesy'`);
+      filters.push(`u.role <> 'admin'`);
     } else if (status) {
       params.push(status);
       filters.push(`s.status = $${params.length}`);
+      filters.push(`u.role <> 'admin'`);
     }
     if (q) {
       params.push(`%${q}%`);

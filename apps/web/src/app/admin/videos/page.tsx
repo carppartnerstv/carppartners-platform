@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import type { AdminVideo, AdminVideoInput, AdminSeries, CrewMember } from '@carp-partners/api-client';
 import { Button, Pagination } from '@carp-partners/ui';
@@ -332,6 +333,7 @@ function CrewMultiSelect({ crewList, selectedIds, onChange }: {
 
 export default function AdminVideosPage() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   const [videos, setVideos]         = useState<AdminVideo[]>([]);
   const [seriesList, setSeriesList] = useState<AdminSeries[]>([]);
   const [crewList, setCrewList]     = useState<CrewMember[]>([]);
@@ -340,9 +342,12 @@ export default function AdminVideosPage() {
   const [total, setTotal]           = useState(0);
   const [page, setPage]             = useState(0);
 
-  // Filtros
+  // Filtros — filterPub admite un valor inicial por URL (?published=publicado),
+  // para poder enlazar aquí ya filtrado desde el dashboard.
   const [q, setQ]                   = useState('');
-  const [filterPub, setFilterPub]   = useState<'' | 'borrador' | 'programado' | 'publicado'>('');
+  const [filterPub, setFilterPub]   = useState<'' | 'borrador' | 'programado' | 'publicado'>(
+    () => (searchParams.get('published') as '' | 'borrador' | 'programado' | 'publicado' | null) || '',
+  );
   const [filterSeries, setFilterSeries] = useState('');
   const [sort, setSort]             = useState<'' | 'rated' | 'series'>('series');
 

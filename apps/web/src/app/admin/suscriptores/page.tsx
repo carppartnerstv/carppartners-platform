@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import { Button, Pagination } from '@carp-partners/ui';
 import type { AdminUser, UserStatusCounts, CourtesySubscriptionInput } from '@carp-partners/api-client';
@@ -379,10 +380,11 @@ function CourtesyModal({ user, onClose, onSaved }: {
 
 // ─── Pestañas ─────────────────────────────────────────────────────────────────
 
-// 'with_subscription' = usuarios con cualquier suscripción (default)
-// 'courtesy'          = filtra por source='courtesy', no es un status real
-// ''                  = todos sin filtro (incluye usuarios sin suscripción)
-type TabKey = 'with_subscription' | 'active' | 'courtesy' | 'past_due' | 'cancelled' | '';
+// 'with_subscription' = usuarios con cualquier suscripción (excluye admins)
+// 'courtesy'          = filtra por source='courtesy', no es un status real (excluye admins)
+// 'admin'             = filtra por role='admin' — única pestaña que SÍ los incluye
+// ''                  = todos sin filtro (incluye admins y usuarios sin suscripción)
+type TabKey = 'active' | 'past_due' | 'cancelled' | 'courtesy' | 'admin' | 'with_subscription' | '';
 
 interface Tab {
   key: TabKey;
@@ -391,11 +393,12 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { key: 'with_subscription', label: 'Con suscripción', countKey: 'with_subscription' },
   { key: 'active',            label: 'Activos',         countKey: 'active' },
-  { key: 'courtesy',          label: 'Cortesía',        countKey: 'courtesy' },
   { key: 'past_due',          label: 'Vencidos',        countKey: 'past_due' },
   { key: 'cancelled',         label: 'Cancelados',      countKey: 'cancelled' },
+  { key: 'courtesy',          label: 'Cortesía',        countKey: 'courtesy' },
+  { key: 'admin',             label: 'Administradores', countKey: 'admin' },
+  { key: 'with_subscription', label: 'Con suscripción', countKey: 'with_subscription' },
   { key: '',                  label: 'Todos',           countKey: 'total' },
 ];
 
@@ -404,6 +407,7 @@ const PAGE_SIZE = 25;
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export default function AdminSuscriptoresPage() {
+  const searchParams = useSearchParams();
   const [users, setUsers]     = useState<AdminUser[]>([]);
   const [total, setTotal]     = useState(0);
   const [page, setPage]       = useState(0);
@@ -414,8 +418,12 @@ export default function AdminSuscriptoresPage() {
   const [counts, setCounts]         = useState<UserStatusCounts | null>(null);
   const [countsLoading, setCountsLoading] = useState(true);
 
-  // Filtros
-  const [tab, setTab] = useState<TabKey>('with_subscription'); // default: solo con suscripción
+  // Filtros — tab admite un valor inicial por URL (?tab=active), para poder
+  // enlazar aquí ya filtrado desde el dashboard.
+  const [tab, setTab] = useState<TabKey>(() => {
+    const fromUrl = searchParams.get('tab');
+    return (TABS.some((t) => t.key === fromUrl) ? (fromUrl as TabKey) : 'active');
+  });
   const [q, setQ]     = useState('');
 
   const [showCreate, setShowCreate]       = useState(false);
