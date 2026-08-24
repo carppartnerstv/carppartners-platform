@@ -27,6 +27,7 @@
 // probarlos en local, porque los abre la misma persona que está probando).
 const EMAIL_ASSET_BASE_URL = 'https://app.carppartners.tv';
 const LOGO_URL = `${EMAIL_ASSET_BASE_URL}/carp-partners-logo%20blanc.png`;
+const SOCIAL_ICON_BASE_URL = `${EMAIL_ASSET_BASE_URL}/icons/social`;
 
 const OUTER_BG = '#e7e9ea'; // fondo del "lienzo" del cliente de correo (Gmail/Outlook en claro)
 const CARD_BG = '#0e151a';
@@ -67,6 +68,7 @@ function nl2br(escaped) {
  * @param {string} p.heading        Título principal (h1)
  * @param {string} p.bodyText1      Primer párrafo de cuerpo
  * @param {string} [p.bodyText2]    Segundo párrafo, opcional
+ * @param {string} [p.bodyText3]    Tercer párrafo, opcional (justo antes del botón)
  * @param {string} [p.heroImageUrl] Imagen ancha bajo el header, opcional
  * @param {string} [p.heroImageAlt]
  * @param {string} [p.quoteLabel]   Etiqueta del bloque de cita (por defecto "Tu mensaje original")
@@ -89,6 +91,9 @@ export function renderEmailLayout(p) {
 
   const bodyText2Block = p.bodyText2 ? `
         <p style="font-family:${FONT_BODY};font-size:15px;line-height:1.7;color:${TEXT_BODY};margin:14px 0 0;text-align:left">${escapeHtml(p.bodyText2)}</p>` : '';
+
+  const bodyText3Block = p.bodyText3 ? `
+        <p style="font-family:${FONT_BODY};font-size:15px;line-height:1.7;color:${TEXT_BODY};margin:14px 0 0;text-align:left">${escapeHtml(p.bodyText3)}</p>` : '';
 
   const quoteBlock = p.quoteText ? `
     <tr>
@@ -164,7 +169,7 @@ export function renderEmailLayout(p) {
         <td style="padding:44px 44px 8px;text-align:center">
           <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:rgba(104,20,11,0.18);color:${BRAND_BRIGHT};font-family:${FONT_BODY};font-size:11.5px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:22px">${escapeHtml(p.eyebrow)}</div>
           <h1 style="font-family:${FONT_HEADING};font-weight:800;font-size:26px;line-height:1.25;letter-spacing:-0.01em;color:#ffffff;margin:0 0 16px">${escapeHtml(p.heading)}</h1>
-          <p style="font-family:${FONT_BODY};font-size:15px;line-height:1.7;color:${TEXT_BODY};margin:0;text-align:left">${escapeHtml(p.bodyText1)}</p>${bodyText2Block}
+          <p style="font-family:${FONT_BODY};font-size:15px;line-height:1.7;color:${TEXT_BODY};margin:0;text-align:left">${escapeHtml(p.bodyText1)}</p>${bodyText2Block}${bodyText3Block}
         </td>
       </tr>
       ${quoteBlock}
@@ -183,9 +188,9 @@ export function renderEmailLayout(p) {
       <tr>
         <td style="background:${FOOTER_BG};padding:30px 44px;text-align:center;border-top:1px solid ${BORDER}">
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 16px"><tr>
-            <td style="padding:0 7px"><a href="https://www.youtube.com/@CarpPartners" style="display:inline-block;width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,0.06);text-align:center;line-height:30px;font-family:${FONT_BODY};font-size:11px;color:${TEXT_FAINT};text-decoration:none">YT</a></td>
-            <td style="padding:0 7px"><a href="https://www.tiktok.com/@carppartners" style="display:inline-block;width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,0.06);text-align:center;line-height:30px;font-family:${FONT_BODY};font-size:11px;color:${TEXT_FAINT};text-decoration:none">TT</a></td>
-            <td style="padding:0 7px"><a href="https://www.instagram.com/carp_partners/" style="display:inline-block;width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,0.06);text-align:center;line-height:30px;font-family:${FONT_BODY};font-size:11px;color:${TEXT_FAINT};text-decoration:none">IG</a></td>
+            <td style="padding:0 7px"><a href="https://www.youtube.com/@CarpPartners" style="display:inline-block;width:30px;height:30px;line-height:30px;border-radius:8px;background:rgba(255,255,255,0.06);text-align:center"><img src="${SOCIAL_ICON_BASE_URL}/youtube.svg" width="16" height="16" alt="YouTube" style="vertical-align:middle;border:0" /></a></td>
+            <td style="padding:0 7px"><a href="https://www.tiktok.com/@carppartners" style="display:inline-block;width:30px;height:30px;line-height:30px;border-radius:8px;background:rgba(255,255,255,0.06);text-align:center"><img src="${SOCIAL_ICON_BASE_URL}/tiktok.svg" width="16" height="16" alt="TikTok" style="vertical-align:middle;border:0" /></a></td>
+            <td style="padding:0 7px"><a href="https://www.instagram.com/carp_partners.tv" style="display:inline-block;width:30px;height:30px;line-height:30px;border-radius:8px;background:rgba(255,255,255,0.06);text-align:center"><img src="${SOCIAL_ICON_BASE_URL}/instagram.svg" width="16" height="16" alt="Instagram" style="vertical-align:middle;border:0" /></a></td>
           </tr></table>
           <p style="font-family:${FONT_BODY};font-size:12px;line-height:1.7;color:${TEXT_FAINT};margin:0 0 6px">Carp Partners TV &middot; La plataforma del carpfishing en España</p>
           <p style="font-family:${FONT_BODY};font-size:12px;line-height:1.7;color:${TEXT_COPYRIGHT};margin:0">

@@ -16,6 +16,7 @@ export type {
   WatchlistItem,
   AuthResponse,
   DashboardStats,
+  LaunchMetrics,
   AdminUser,
   AdminCreateUserInput,
   AdminCreatedUser,

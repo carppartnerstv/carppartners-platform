@@ -13,6 +13,7 @@ import type {
   WatchlistItem,
   AuthResponse,
   DashboardStats,
+  LaunchMetrics,
   AdminUser,
   AdminCreateUserInput,
   AdminCreatedUser,
@@ -441,6 +442,10 @@ export class ApiClient {
 
   async getAdminDashboard(): Promise<DashboardStats> {
     return this.request('GET', '/admin/dashboard');
+  }
+
+  async getAdminLaunchMetrics(): Promise<LaunchMetrics> {
+    return this.request('GET', '/admin/launch-metrics');
   }
 
   async getAdminUserStats(): Promise<{ counts: UserStatusCounts }> {

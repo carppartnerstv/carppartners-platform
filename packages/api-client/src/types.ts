@@ -184,6 +184,25 @@ export interface DashboardStats {
   mrr: number;
 }
 
+export interface LaunchMetrics {
+  funnel: {
+    migrated: number;
+    withPassword: number;
+    withoutPassword: number;
+    hasAccessed: number;
+    hasWatched: number;
+    hasRated: number;
+  };
+  subscriptions: {
+    active: number;
+    inactive: number;
+    activeWithPassword: number;
+    activeWithoutPassword: number;
+  };
+  topWatched: { id: string; title: string; viewers: number }[];
+  topRated: { id: string; title: string; avgRating: number | null; votes: number }[];
+}
+
 export interface UserStatusCounts {
   active: number;
   trialing: number;

@@ -150,6 +150,8 @@ authRouter.post(
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) throw unauthorized('Email o contraseña incorrectos', 'BAD_CREDENTIALS');
 
+    await query('UPDATE users SET last_login_at = now() WHERE id = $1', [user.id]);
+
     delete user.password_hash;
     const tokens = await issueTokens(user);
     res.json({ user, ...tokens });

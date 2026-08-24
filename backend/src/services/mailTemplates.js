@@ -126,6 +126,66 @@ export function contactAcknowledgmentEmail({ name, subject, message }) {
 // Se añaden ya redactadas para cuando se decida activarlas.
 // ---------------------------------------------------------------------
 
+// Campaña de migración: aviso a los suscriptores activos de la plataforma
+// WordPress antigua para que activen su cuenta en la nueva. Usa el mismo
+// mecanismo de `password_set_token` que la migración WP / alta manual desde
+// el panel (setPasswordEmail) — aquí solo cambia el copy, pensado para un
+// envío puntual y masivo, no para cada alta individual. Sin disparador
+// automático todavía: se genera `setUrl` (`${PUBLIC_WEB_URL}/set-password?token=...`)
+// por cada usuario desde un script de migración puntual y se llama a esta
+// función manualmente.
+export function platformLaunchEmail({ name, setUrl }) {
+  const greeting = greetingLine(name);
+  const html = renderEmailLayout({
+    previewText: 'Activa tu cuenta en la nueva plataforma Carp Partners TV.',
+    eyebrow: 'Plataforma nueva',
+    heading: 'Carp Partners TV estrena plataforma',
+    bodyText1: 'Hemos estado trabajando en algo grande, y por fin está listo: una plataforma Carp Partners TV completamente nueva.',
+    bodyText2: 'Se acabaron los problemas de la web anterior. La hemos construido desde cero, pensada solo para el carpfishing y para que veas nuestro contenido mejor que nunca. Más rápida, con series y temporadas organizadas, calidad hasta 4K y lista para funcionar en cualquier dispositivo.',
+    bodyText3: 'Como ya eres suscriptor, tu suscripción sigue exactamente igual. Mismo plan, mismo precio, sin ningún cobro nuevo. Solo tienes que crear tu contraseña para entrar:',
+    button: { label: 'Establecer mi contraseña', url: setUrl },
+    linkFallback: { label: 'Si el botón no funciona, copia y pega este enlace en tu navegador:', url: setUrl },
+    note: 'En menos de un minuto estarás dentro, con todo tu contenido esperándote.',
+    signOffLine1: 'Gracias por seguir formando parte de la tripulación. Esto no ha hecho más que empezar.',
+    signOffLine2: 'Nos vemos dentro, el equipo de Carp Partners TV.',
+  });
+  return {
+    subject: name ? `¡${name}, Carp Partners estrena plataforma!` : 'Carp Partners TV estrena plataforma',
+    html,
+    text: `${greeting}\n\nHemos estado trabajando en algo grande, y por fin está listo: una plataforma Carp Partners TV completamente nueva.\n\nSe acabaron los problemas de la web anterior. La hemos construido desde cero, pensada solo para el carpfishing y para que veas nuestro contenido mejor que nunca. Más rápida, con series y temporadas organizadas, calidad hasta 4K y lista para funcionar en cualquier dispositivo.\n\nComo ya eres suscriptor, tu suscripción sigue exactamente igual. Mismo plan, mismo precio, sin ningún cobro nuevo. Solo tienes que crear tu contraseña para entrar:\n${setUrl}\n\nEn menos de un minuto estarás dentro, con todo tu contenido esperándote.\n\nGracias por seguir formando parte de la tripulación. Esto no ha hecho más que empezar.\n\nNos vemos dentro,\nEl equipo de Carp Partners TV`,
+  };
+}
+
+// Campaña de reenganche a NO suscriptores (leads antiguos de WordPress que
+// nunca llegaron a pagar, o suscripciones ya caducadas) — distinta de
+// subscriptionEndedEmail, que se dispara sola por el webhook de Stripe justo
+// cuando SE ACABA de perder el acceso. Esta es para un envío puntual y
+// masivo, mucho después, sin relación con ningún evento de Stripe. Enlaza a
+// la landing, no a un login/checkout directo, porque muchos destinatarios ni
+// siquiera tendrán ya contraseña utilizable. Sin disparador automático
+// todavía: se llama a mano desde un script de campaña puntual.
+export function winbackNonSubscriberEmail({ name }) {
+  const greeting = greetingLine(name);
+  const landingUrl = `${config.publicWebUrl}/`;
+  const html = renderEmailLayout({
+    previewText: 'Hemos vuelto con una plataforma completamente nueva.',
+    eyebrow: 'Te echamos de menos',
+    heading: 'Ha vuelto Carp Partners, y viene con todo',
+    bodyText1: 'Sabemos que hace tiempo que no te vemos por Carp Partners. Puede que la plataforma de antes no estuviera a la altura, y precisamente por eso hemos hecho algo al respecto.',
+    bodyText2: 'Estrenamos una plataforma nueva, hecha desde cero y solo para el carpfishing: rápida, con las series organizadas por temporadas, alta calidad de imagen y muchas horas de contenido nuevo esperándote. Y muy pronto llegará también la app para móvil, tablet y televisión, para que nos lleves contigo a donde quieras.',
+    bodyText3: 'Nos encantaría que le dieras una segunda oportunidad. Echa un vistazo a todo lo nuevo:',
+    button: { label: 'Ver la nueva plataforma', url: landingUrl },
+    linkFallback: { label: 'Si el botón no funciona, copia y pega este enlace en tu navegador:', url: landingUrl },
+    signOffLine1: 'Aquí seguimos, con la caña preparada.',
+    signOffLine2: 'El equipo de Carp Partners TV',
+  });
+  return {
+    subject: name ? `¡${name}, ha vuelto Carp Partners, y viene con todo!` : 'Ha vuelto Carp Partners, y viene con todo',
+    html,
+    text: `${greeting}\n\nSabemos que hace tiempo que no te vemos por Carp Partners. Puede que la plataforma de antes no estuviera a la altura, y precisamente por eso hemos hecho algo al respecto.\n\nEstrenamos una plataforma nueva, hecha desde cero y solo para el carpfishing: rápida, con las series organizadas por temporadas, alta calidad de imagen y muchas horas de contenido nuevo esperándote. Y muy pronto llegará también la app para móvil, tablet y televisión, para que nos lleves contigo a donde quieras.\n\nNos encantaría que le dieras una segunda oportunidad. Echa un vistazo a todo lo nuevo:\n${landingUrl}\n\nAquí seguimos, con la caña preparada.\nEl equipo de Carp Partners TV`,
+  };
+}
+
 export function emailVerificationEmail({ name, verifyUrl }) {
   const greeting = greetingLine(name);
   const html = renderEmailLayout({

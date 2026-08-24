@@ -92,7 +92,6 @@ export function TopTenCarousel({ title, items, categories, onItemClick }: TopTen
 
   const goNext = () => { setActiveIndex((i) => i + 1); setTick((t) => t + 1); };
   const goPrev = () => { setActiveIndex((i) => i - 1); setTick((t) => t + 1); };
-  const goTo = (offset: number) => { setActiveIndex((i) => i + offset); setTick((t) => t + 1); };
 
   const handlePointerDown = (e: React.PointerEvent) => {
     dragState.current = { startX: e.clientX, dragging: true };
@@ -193,7 +192,7 @@ export function TopTenCarousel({ title, items, categories, onItemClick }: TopTen
                 // retroceder), no se tapan de golpe — la nueva se ve llegar
                 // suavemente mientras la otra ya se está apartando.
                 key={`${s.id}:${featured ? 'big' : 'poster'}`}
-                onClick={() => (featured ? onItemClick?.(s) : goTo(offset))}
+                onClick={() => onItemClick?.(s)}
                 featured={featured}
                 x={x + dragPx}
                 dragging={dragging}

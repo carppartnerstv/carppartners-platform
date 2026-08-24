@@ -143,6 +143,108 @@ adminRouter.get(
   }),
 );
 
+// --- Métricas de lanzamiento -------------------------------------------
+// Embudo de activación de los suscriptores migrados desde WordPress/Stripe
+// — solo lectura, no modifica nada. Excluye role='admin' de TODOS los
+// conteos. La misma condición de acceso que requireSubscription (auth.js)
+// se repite aquí a propósito (igual que en scripts/send-launch-campaign.js)
+// para que "activo" signifique siempre lo mismo en todo el proyecto.
+//
+// "Han accedido alguna vez" usa users.last_login_at (migración 020),
+// actualizado en cada POST /auth/login correcto — exacto, ya no es un proxy.
+// La apertura de email NO se puede medir (SMTP sin tracking), así que el
+// embudo empieza en "creó contraseña", no antes.
+const LAUNCH_ACCESS_SQL = `
+  EXISTS (
+    SELECT 1 FROM subscriptions s
+     WHERE s.user_id = u.id
+       AND s.status IN ('active', 'trialing', 'past_due')
+       AND (s.period_end IS NULL OR s.period_end > now())
+  )
+`;
+
+adminRouter.get(
+  '/launch-metrics',
+  asyncHandler(async (_req, res) => {
+    const funnel = await queryOne(
+      `WITH base AS (
+         SELECT
+           u.id,
+           u.password_hash IS NOT NULL AS has_password,
+           u.last_login_at IS NOT NULL AS logged_in,
+           EXISTS (SELECT 1 FROM watch_history wh WHERE wh.user_id = u.id) AS watched,
+           EXISTS (SELECT 1 FROM video_ratings vr WHERE vr.user_id = u.id) AS rated
+         FROM users u
+         WHERE u.role <> 'admin'
+       )
+       SELECT
+         COUNT(*)::int AS migrated,
+         COUNT(*) FILTER (WHERE has_password)::int AS with_password,
+         COUNT(*) FILTER (WHERE NOT has_password)::int AS without_password,
+         COUNT(*) FILTER (WHERE logged_in)::int AS has_accessed,
+         COUNT(*) FILTER (WHERE watched)::int AS has_watched,
+         COUNT(*) FILTER (WHERE rated)::int AS has_rated
+       FROM base`,
+    );
+
+    const subs = await queryOne(
+      `WITH base AS (
+         SELECT u.id, u.password_hash IS NOT NULL AS has_password, ${LAUNCH_ACCESS_SQL} AS has_access
+         FROM users u
+         WHERE u.role <> 'admin'
+       )
+       SELECT
+         COUNT(*) FILTER (WHERE has_access)::int AS active,
+         COUNT(*) FILTER (WHERE NOT has_access)::int AS inactive,
+         COUNT(*) FILTER (WHERE has_access AND has_password)::int AS active_with_password,
+         COUNT(*) FILTER (WHERE has_access AND NOT has_password)::int AS active_without_password
+       FROM base`,
+    );
+
+    const { rows: topWatched } = await query(
+      `SELECT v.id, v.title, COUNT(wh.id)::int AS viewers
+         FROM watch_history wh
+         JOIN videos v ON v.id = wh.video_id
+        GROUP BY v.id, v.title
+        ORDER BY viewers DESC, v.title
+        LIMIT 10`,
+    );
+
+    const { rows: topRated } = await query(
+      `SELECT v.id, v.title, ROUND(AVG(vr.rating)::numeric, 2) AS avg_rating, COUNT(*)::int AS votes
+         FROM video_ratings vr
+         JOIN videos v ON v.id = vr.video_id
+        GROUP BY v.id, v.title
+        ORDER BY avg_rating DESC, votes DESC, v.title
+        LIMIT 10`,
+    );
+
+    res.json({
+      funnel: {
+        migrated: funnel.migrated,
+        withPassword: funnel.with_password,
+        withoutPassword: funnel.without_password,
+        hasAccessed: funnel.has_accessed,
+        hasWatched: funnel.has_watched,
+        hasRated: funnel.has_rated,
+      },
+      subscriptions: {
+        active: subs.active,
+        inactive: subs.inactive,
+        activeWithPassword: subs.active_with_password,
+        activeWithoutPassword: subs.active_without_password,
+      },
+      topWatched: topWatched.map((r) => ({ id: r.id, title: r.title, viewers: r.viewers })),
+      topRated: topRated.map((r) => ({
+        id: r.id,
+        title: r.title,
+        avgRating: r.avg_rating === null ? null : Number(r.avg_rating),
+        votes: r.votes,
+      })),
+    });
+  }),
+);
+
 // --- Suscriptores -----------------------------------------------------
 
 // Lateral reutilizable para "la" suscripción de cada usuario a mostrar en el

@@ -62,7 +62,7 @@ async function migrateCustomer(customer) {
     const status = mapStripeStatus(sub.status);
 
     if (DRY_RUN) {
-      console.log(`    [dry] Sub ${sub.id}: plan=${plan} status=${status}`);
+      console.log(`    [dry] Sub ${sub.id}: plan=${plan} status=${status} cancelAtPeriodEnd=${!!sub.cancel_at_period_end}`);
       continue;
     }
 
@@ -72,17 +72,18 @@ async function migrateCustomer(customer) {
 
     await pool.query(
       `INSERT INTO subscriptions
-          (user_id, stripe_sub_id, plan, status, period_start, period_end, cancelled_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)
+          (user_id, stripe_sub_id, plan, status, period_start, period_end, cancelled_at, cancel_at_period_end)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        ON CONFLICT (stripe_sub_id) DO UPDATE SET
           plan = EXCLUDED.plan, status = EXCLUDED.status,
           period_start = EXCLUDED.period_start, period_end = EXCLUDED.period_end,
-          cancelled_at = EXCLUDED.cancelled_at`,
+          cancelled_at = EXCLUDED.cancelled_at, cancel_at_period_end = EXCLUDED.cancel_at_period_end`,
       [
         userId, sub.id, plan, status,
         sub.current_period_start ? new Date(sub.current_period_start * 1000) : null,
         sub.current_period_end ? new Date(sub.current_period_end * 1000) : null,
         sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
+        !!sub.cancel_at_period_end,
       ],
     );
   }
