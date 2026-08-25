@@ -1,6 +1,7 @@
 import type {
   User,
   Subscription,
+  PaymentMethodSummary,
   Video,
   RelatedVideo,
   NextEpisode,
@@ -437,6 +438,10 @@ export class ApiClient {
 
   async getBillingPortal(): Promise<{ url: string }> {
     return this.request('POST', '/billing/portal');
+  }
+
+  async getBillingPaymentMethod(): Promise<{ paymentMethod: PaymentMethodSummary | null }> {
+    return this.request('GET', '/billing/payment-method');
   }
 
   // ─── Admin ─────────────────────────────────────────────────────────────────

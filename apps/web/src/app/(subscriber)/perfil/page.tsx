@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/context/SessionContext';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { WatchHistoryItem, User } from '@carp-partners/api-client';
+import type { WatchHistoryItem, User, PaymentMethodSummary } from '@carp-partners/api-client';
 import { Button } from '@carp-partners/ui';
 import { ToastProvider, useToast } from '@/context/ToastContext';
 import { AvatarUploader } from '@/components/AvatarUploader';
@@ -23,6 +23,18 @@ const PLAN_PRICES: Record<string, string> = {
   monthly: '9,99€ / mes',
   annual: '89,99€ / año',
   courtesy: 'Acceso de cortesía',
+};
+
+// Stripe devuelve la marca en minúsculas y a veces con un nombre técnico
+// (p. ej. 'amex') — aquí solo el mapeo a lo que se ve bien en pantalla.
+const CARD_BRAND_LABELS: Record<string, string> = {
+  visa: 'Visa',
+  mastercard: 'Mastercard',
+  amex: 'American Express',
+  discover: 'Discover',
+  diners: 'Diners Club',
+  jcb: 'JCB',
+  unionpay: 'UnionPay',
 };
 
 const NOTIF_ROWS = [
@@ -69,6 +81,8 @@ function PerfilContent() {
   const [notifs, setNotifs] = useState<Record<string, boolean>>({
     estrenos: true, recomendaciones: true, promos: false, push: true,
   });
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodSummary | null>(null);
+  const [loadingPaymentMethod, setLoadingPaymentMethod] = useState(true);
 
   useEffect(() => {
     apiClient
@@ -77,6 +91,19 @@ function PerfilContent() {
       .catch(() => null)
       .finally(() => setLoadingHistory(false));
   }, []);
+
+  // La cortesía no tiene tarjeta en Stripe — nos ahorramos la llamada.
+  useEffect(() => {
+    if (!subscription || subscription.plan === 'courtesy') {
+      setLoadingPaymentMethod(false);
+      return;
+    }
+    apiClient
+      .getBillingPaymentMethod()
+      .then(({ paymentMethod }) => setPaymentMethod(paymentMethod))
+      .catch(() => null)
+      .finally(() => setLoadingPaymentMethod(false));
+  }, [subscription]);
 
   const openBillingPortal = async () => {
     setPortalError('');
@@ -100,6 +127,7 @@ function PerfilContent() {
     : user?.email?.[0]?.toUpperCase() ?? '?';
 
   const planLabel = subscription ? PLAN_LABELS[subscription.plan] ?? subscription.plan : '';
+  const showPaymentMethodRow = !!subscription && subscription.plan !== 'courtesy';
   const planPrice = subscription ? PLAN_PRICES[subscription.plan] : undefined;
   // Ya canceló desde el Customer Portal pero Stripe no cambia `status` hasta
   // que termina el periodo ya pagado — así lo distinguimos de "se renueva".
@@ -282,18 +310,29 @@ function PerfilContent() {
                       Cambiar contraseña
                     </button>
                   }
+                  last={!showPaymentMethodRow}
                 />
-                {/* Método de pago: placeholder — no hay endpoint que exponga la tarjeta guardada en Stripe todavía */}
-                <AccountRow
-                  label="Método de pago"
-                  value={
-                    <span className="inline-flex items-center gap-2" style={{ color: '#e9efeb' }}>
-                      <i className="ti ti-credit-card text-[17px]" style={{ color: '#85958e' }} />
-                      Visa ···· 4242
-                    </span>
-                  }
-                  last
-                />
+                {/* Método de pago: la cortesía no tiene tarjeta en Stripe, así
+                    que la fila se omite del todo para ese caso — no solo se
+                    deja vacía. */}
+                {showPaymentMethodRow && (
+                  <AccountRow
+                    label="Método de pago"
+                    value={
+                      loadingPaymentMethod ? (
+                        <span style={{ color: '#85958e' }}>Cargando…</span>
+                      ) : paymentMethod ? (
+                        <span className="inline-flex items-center gap-2" style={{ color: '#e9efeb' }}>
+                          <i className="ti ti-credit-card text-[17px]" style={{ color: '#85958e' }} />
+                          {CARD_BRAND_LABELS[paymentMethod.brand] ?? paymentMethod.brand} ···· {paymentMethod.last4}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#85958e' }}>No hay tarjeta guardada</span>
+                      )
+                    }
+                    last
+                  />
+                )}
               </div>
 
               {/* Móvil: el acceso al perfil vive solo en el menú inferior, así

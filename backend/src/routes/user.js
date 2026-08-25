@@ -8,13 +8,14 @@
 //   POST   /push-tokens              registra token FCM
 //   POST   /billing/checkout         sesión de Stripe Checkout (alta de plan)
 //   POST   /billing/portal           sesión Customer Portal de Stripe
+//   GET    /billing/payment-method   tarjeta de la suscripción actual (para /perfil)
 // =====================================================================
 import { Router } from 'express';
 import { z } from 'zod';
 import { query, queryOne } from '../config/db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { asyncHandler, badRequest } from '../utils/errors.js';
-import { createPortalSession, getOrCreateStripeCustomer, resolvePriceIdForPlan, createCheckoutSession } from '../services/stripe.js';
+import { createPortalSession, getOrCreateStripeCustomer, resolvePriceIdForPlan, createCheckoutSession, getSubscriptionCardSummary } from '../services/stripe.js';
 import { config } from '../config/index.js';
 
 export const userRouter = Router();
@@ -184,5 +185,40 @@ userRouter.post(
       `${config.publicUrl}/perfil`,
     );
     res.json({ url: session.url });
+  }),
+);
+
+// --- Tarjeta de la suscripción actual (para /perfil) ------------------
+// Mismo criterio que GET /auth/me para elegir "la" suscripción: prioriza
+// la vigente ahora mismo. Si es de cortesía (sin stripe_sub_id) o el
+// usuario no tiene stripe_customer_id, no hay tarjeta que mostrar.
+userRouter.get(
+  '/billing/payment-method',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const sub = await queryOne(
+      `SELECT stripe_sub_id FROM subscriptions
+        WHERE user_id = $1
+        ORDER BY
+          (status IN ('active','trialing','past_due') AND (period_end IS NULL OR period_end > now())) DESC,
+          period_end DESC NULLS FIRST
+        LIMIT 1`,
+      [req.user.id],
+    );
+
+    if (!sub?.stripe_sub_id && !req.user.stripe_customer_id) {
+      return res.json({ paymentMethod: null });
+    }
+
+    // Es solo un detalle cosmético del perfil — si Stripe falla (rate limit,
+    // hipo de red...) no debe tumbar la página con un 500, mejor no mostrar
+    // la tarjeta esta vez.
+    let paymentMethod = null;
+    try {
+      paymentMethod = await getSubscriptionCardSummary(sub?.stripe_sub_id ?? null, req.user.stripe_customer_id);
+    } catch (err) {
+      console.error('[billing] No se pudo obtener el método de pago:', err.message);
+    }
+    res.json({ paymentMethod });
   }),
 );

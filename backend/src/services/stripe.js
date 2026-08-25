@@ -106,6 +106,43 @@ export async function resolvePriceIdForPlan(plan) {
 }
 
 /**
+ * Resumen de la tarjeta asociada a una suscripción (para mostrarla en
+ * /perfil). Primero mira el método de pago propio de ESA suscripción
+ * (default_payment_method); si no tiene uno asignado, cae en el método de
+ * pago por defecto del customer. Solo cubre tarjetas (type 'card') — para
+ * cualquier otro método (SEPA, etc.) devuelve null, ya que no hay UI para
+ * representarlo.
+ * @param {string|null} stripeSubId
+ * @param {string|null} stripeCustomerId
+ */
+export async function getSubscriptionCardSummary(stripeSubId, stripeCustomerId) {
+  let pm = null;
+
+  if (stripeSubId) {
+    const sub = await stripe.subscriptions.retrieve(stripeSubId, { expand: ['default_payment_method'] });
+    pm = sub.default_payment_method;
+  }
+
+  if (!pm && stripeCustomerId) {
+    const customer = await stripe.customers.retrieve(stripeCustomerId, {
+      expand: ['invoice_settings.default_payment_method'],
+    });
+    if (!customer.deleted) pm = customer.invoice_settings?.default_payment_method ?? null;
+  }
+
+  if (!pm) return null;
+  if (typeof pm === 'string') pm = await stripe.paymentMethods.retrieve(pm);
+  if (pm.type !== 'card' || !pm.card) return null;
+
+  return {
+    brand: pm.card.brand,
+    last4: pm.card.last4,
+    expMonth: pm.card.exp_month,
+    expYear: pm.card.exp_year,
+  };
+}
+
+/**
  * Crea la Checkout Session en modo suscripción para dar de alta un plan.
  */
 export async function createCheckoutSession({ customerId, priceId, successUrl, cancelUrl }) {

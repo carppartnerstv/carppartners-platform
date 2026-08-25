@@ -3,6 +3,7 @@ export type { TokenStorage } from './client';
 export type {
   User,
   Subscription,
+  PaymentMethodSummary,
   Video,
   RelatedVideo,
   NextEpisode,

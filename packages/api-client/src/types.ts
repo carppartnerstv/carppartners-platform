@@ -20,6 +20,14 @@ export interface Subscription {
   cancel_at_period_end: boolean;
 }
 
+export interface PaymentMethodSummary {
+  /** Marca tal cual la devuelve Stripe, en minúsculas: 'visa', 'mastercard', 'amex'... */
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+}
+
 export interface Video {
   id: string;
   title: string;
