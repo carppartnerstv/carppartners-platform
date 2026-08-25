@@ -229,6 +229,8 @@ export interface UserStatusCounts {
   /** Usuarios con role='admin' — excluidos de todas las demás pestañas de estado */
   admin: number;
   with_subscription: number;
+  /** Sin ninguna fila en subscriptions (excluye admins) */
+  no_plan: number;
   total: number;
 }
 

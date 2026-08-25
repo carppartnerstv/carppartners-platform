@@ -39,20 +39,28 @@ const PLAN_LABELS: Record<string, string> = {
 function StatusBadge({
   status,
   source,
+  plan,
   periodEnd,
 }: {
   status: string | null;
   source?: 'stripe' | 'courtesy' | null;
+  plan?: string | null;
   periodEnd?: string | null;
 }) {
   if (!status) return <span className="text-admin-text-tertiary text-xs">—</span>;
 
   const isCourtesy = source === 'courtesy';
+  // Puente para clientes de Stripe reales cuya Subscription todavía no
+  // existe (solo un Schedule futuro) — se distingue de una cortesía-regalo
+  // real por tener un plan de pago normal en vez de plan='courtesy'.
+  const isStripeBridge = isCourtesy && plan !== 'courtesy';
   const expired = isCourtesy && !!periodEnd && new Date(periodEnd) < new Date();
 
-  const label = isCourtesy
-    ? (expired ? 'Cortesía vencida' : 'Cortesía activa')
-    : (STATUS_LABELS[status] ?? status);
+  const label = isStripeBridge
+    ? (expired ? 'Stripe · vencido' : 'Stripe · pendiente de activar')
+    : isCourtesy
+      ? (expired ? 'Cortesía vencida' : 'Cortesía activa')
+      : (STATUS_LABELS[status] ?? status);
 
   const cls = expired
     ? 'bg-[#fdecea] text-[#c0392b]'
@@ -384,7 +392,7 @@ function CourtesyModal({ user, onClose, onSaved }: {
 // 'courtesy'          = filtra por source='courtesy', no es un status real (excluye admins)
 // 'admin'             = filtra por role='admin' — única pestaña que SÍ los incluye
 // ''                  = todos sin filtro (incluye admins y usuarios sin suscripción)
-type TabKey = 'active' | 'past_due' | 'cancelled' | 'courtesy' | 'admin' | 'with_subscription' | '';
+type TabKey = 'active' | 'past_due' | 'cancelled' | 'courtesy' | 'admin' | 'with_subscription' | 'no_plan' | '';
 
 interface Tab {
   key: TabKey;
@@ -399,6 +407,7 @@ const TABS: Tab[] = [
   { key: 'courtesy',          label: 'Cortesía',        countKey: 'courtesy' },
   { key: 'admin',             label: 'Administradores', countKey: 'admin' },
   { key: 'with_subscription', label: 'Con suscripción', countKey: 'with_subscription' },
+  { key: 'no_plan',           label: 'Sin plan',        countKey: 'no_plan' },
   { key: '',                  label: 'Todos',           countKey: 'total' },
 ];
 
@@ -565,7 +574,7 @@ export default function AdminSuscriptoresPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <StatusBadge status={u.status} source={u.source} periodEnd={u.period_end} />
+                  <StatusBadge status={u.status} source={u.source} plan={u.plan} periodEnd={u.period_end} />
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
                   <span className={[

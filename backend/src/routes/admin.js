@@ -319,11 +319,13 @@ adminRouter.get(
         WHERE u.role <> 'admin'
         GROUP BY s.status`,
     );
-    const counts = { active: 0, trialing: 0, past_due: 0, cancelled: 0, courtesy: 0, admin: 0, with_subscription: 0, total: 0 };
+    const counts = { active: 0, trialing: 0, past_due: 0, cancelled: 0, courtesy: 0, admin: 0, with_subscription: 0, no_plan: 0, total: 0 };
     for (const r of rows) {
       if (r.status !== '__none__') {
         counts[r.status] = r.count;
         counts.with_subscription += r.count;
+      } else {
+        counts.no_plan = r.count;
       }
     }
     // Cortesía es una dimensión aparte (source, no status) — se cuenta por
@@ -360,6 +362,9 @@ adminRouter.get(
       filters.push(`u.role = 'admin'`);
     } else if (status === 'with_subscription') {
       filters.push(`s.status IS NOT NULL`);
+      filters.push(`u.role <> 'admin'`);
+    } else if (status === 'no_plan') {
+      filters.push(`s.status IS NULL`);
       filters.push(`u.role <> 'admin'`);
     } else if (status === 'courtesy') {
       filters.push(`s.source = 'courtesy'`);
