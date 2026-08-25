@@ -467,6 +467,8 @@ export class ApiClient {
     q?: string;
     limit?: number;
     offset?: number;
+    sort?: 'email' | 'plan' | 'status' | 'period_end' | 'created_at';
+    order?: 'asc' | 'desc';
   }): Promise<{ users: AdminUser[]; limit: number; offset: number; total: number }> {
     return this.request('GET', '/admin/users', { query: params });
   }

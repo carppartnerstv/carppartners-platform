@@ -349,7 +349,19 @@ adminRouter.get(
   asyncHandler(async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit ?? '50', 10), 200);
     const offset = Math.max(parseInt(req.query.offset ?? '0', 10), 0);
-    const { status, q } = req.query;
+    const { status, q, sort, order } = req.query;
+
+    // Lista blanca de columnas ordenables — nunca interpolar el nombre de
+    // columna directamente desde el query param (inyección SQL).
+    const SORT_COLUMNS = {
+      email:       'u.email',
+      plan:        's.plan',
+      status:      's.status',
+      period_end:  's.period_end',
+      created_at:  'COALESCE(u.stripe_created_at, u.created_at)',
+    };
+    const sortCol = SORT_COLUMNS[sort] ?? SORT_COLUMNS.created_at;
+    const sortDir = order === 'asc' ? 'ASC' : 'DESC';
 
     const filters = [];
     const params = [];
@@ -398,7 +410,7 @@ adminRouter.get(
               s.plan, s.status, s.period_end, s.source
          FROM users u ${SUB_LATERAL}
         ${where}
-        ORDER BY COALESCE(u.stripe_created_at, u.created_at) DESC
+        ORDER BY ${sortCol} ${sortDir} NULLS LAST
         LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params,
     );

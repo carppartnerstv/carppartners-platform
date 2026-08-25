@@ -30,6 +30,42 @@ const PLAN_LABELS: Record<string, string> = {
   courtesy: 'Cortesía',
 };
 
+type SortKey = 'email' | 'plan' | 'status' | 'period_end' | 'created_at';
+type SortOrder = 'asc' | 'desc';
+
+// Cabecera de columna clicable — alterna asc/desc si ya es la columna activa,
+// o pasa a esa columna en desc si se cambia de columna.
+function SortableTh({
+  label,
+  sortKey,
+  currentSort,
+  currentOrder,
+  onSort,
+  className = '',
+}: {
+  label: string;
+  sortKey: SortKey;
+  currentSort: SortKey;
+  currentOrder: SortOrder;
+  onSort: (key: SortKey) => void;
+  className?: string;
+}) {
+  const active = currentSort === sortKey;
+  return (
+    <th className={`text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide ${className}`}>
+      <button
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-1 transition-colors ${active ? 'text-admin-text' : 'hover:text-admin-text'}`}
+      >
+        {label}
+        <span className={active ? 'text-brand-bright' : 'text-admin-text-tertiary'}>
+          {active ? (currentOrder === 'asc' ? '▲' : '▼') : '↕'}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 // Para las cortesías, "status" se fija a 'active' al otorgarlas y no se
 // vuelve a tocar nunca (no hay webhook que las revise, a diferencia de las
 // de Stripe) — así que puede seguir diciendo "Activo" mucho después de que
@@ -434,6 +470,8 @@ export default function AdminSuscriptoresPage() {
     return (TABS.some((t) => t.key === fromUrl) ? (fromUrl as TabKey) : 'active');
   });
   const [q, setQ]     = useState('');
+  const [sort, setSort]   = useState<SortKey>('created_at');
+  const [order, setOrder] = useState<SortOrder>('desc');
 
   const [showCreate, setShowCreate]       = useState(false);
   const [courtesyUser, setCourtesyUser]   = useState<AdminUser | null>(null);
@@ -446,7 +484,7 @@ export default function AdminSuscriptoresPage() {
       .finally(() => setCountsLoading(false));
   }, []);
 
-  const load = useCallback(async (p: number, currentTab: TabKey, currentQ: string) => {
+  const load = useCallback(async (p: number, currentTab: TabKey, currentQ: string, currentSort: SortKey, currentOrder: SortOrder) => {
     setLoading(true); setError('');
     try {
       const res = await apiClient.getAdminUsers({
@@ -454,6 +492,8 @@ export default function AdminSuscriptoresPage() {
         q:       currentQ   || undefined,
         limit:   PAGE_SIZE,
         offset:  p * PAGE_SIZE,
+        sort:    currentSort,
+        order:   currentOrder,
       });
       setUsers(res.users);
       setTotal(res.total);
@@ -462,15 +502,20 @@ export default function AdminSuscriptoresPage() {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { load(page, tab, q); }, [load, page, tab, q]);
+  useEffect(() => { load(page, tab, q, sort, order); }, [load, page, tab, q, sort, order]);
 
   const refresh = useCallback(() => {
-    load(page, tab, q);
+    load(page, tab, q, sort, order);
     apiClient.getAdminUserStats().then(res => setCounts(res.counts)).catch(() => null);
-  }, [load, page, tab, q]);
+  }, [load, page, tab, q, sort, order]);
 
   const handleTab = (t: TabKey) => { setTab(t); setPage(0); };
   const handleQ   = (v: string)  => { setQ(v);  setPage(0); };
+  const handleSort = (key: SortKey) => {
+    if (key === sort) setOrder(o => (o === 'asc' ? 'desc' : 'asc'));
+    else { setSort(key); setOrder('desc'); }
+    setPage(0);
+  };
 
   return (
     <div className="p-6 space-y-5">
@@ -536,11 +581,11 @@ export default function AdminSuscriptoresPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-admin-thead border-b border-admin-border">
-              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide">Usuario</th>
-              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden md:table-cell">Plan</th>
-              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide">Estado</th>
-              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden lg:table-cell">Fin de período</th>
-              <th className="text-left px-4 py-3 text-admin-text-muted font-medium text-xs uppercase tracking-wide hidden xl:table-cell">Creación</th>
+              <SortableTh label="Usuario" sortKey="email" currentSort={sort} currentOrder={order} onSort={handleSort} />
+              <SortableTh label="Plan" sortKey="plan" currentSort={sort} currentOrder={order} onSort={handleSort} className="hidden md:table-cell" />
+              <SortableTh label="Estado" sortKey="status" currentSort={sort} currentOrder={order} onSort={handleSort} />
+              <SortableTh label="Fin de período" sortKey="period_end" currentSort={sort} currentOrder={order} onSort={handleSort} className="hidden lg:table-cell" />
+              <SortableTh label="Creación" sortKey="created_at" currentSort={sort} currentOrder={order} onSort={handleSort} className="hidden xl:table-cell" />
               <th className="px-4 py-3 w-16" />
             </tr>
           </thead>
