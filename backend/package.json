@@ -16,6 +16,7 @@
     "migrate:stripe": "node ../scripts/migrate-stripe.js",
     "send-campaign": "node ../scripts/send-launch-campaign.js",
     "backfill-stripe-created": "node ../scripts/backfill-stripe-created-at.js",
+    "diagnose-missing-subs": "node ../scripts/diagnose-missing-subscriptions.js",
     "test": "node --test tests/"
   },
   "dependencies": {
