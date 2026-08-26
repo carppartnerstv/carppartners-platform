@@ -533,9 +533,13 @@ adminRouter.get(
   asyncHandler(async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit ?? '50', 10), 100);
     const charges = await stripe.charges.list({ limit });
+    // amount en la unidad más pequeña de la divisa (céntimos), sin dividir
+    // — el frontend (fmtAmount) es el único sitio que lo convierte a euros
+    // para mostrarlo. Dividir aquí Y en el frontend duplicaba la división,
+    // mostrando p. ej. un cobro real de 9,99€ como "0,10€".
     const payments = charges.data.map((c) => ({
       id: c.id,
-      amount: c.amount / 100,
+      amount: c.amount,
       currency: c.currency,
       status: c.status,
       email: c.billing_details?.email ?? null,
