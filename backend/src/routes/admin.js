@@ -533,19 +533,40 @@ adminRouter.get(
   asyncHandler(async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit ?? '50', 10), 100);
     const charges = await stripe.charges.list({ limit });
+
+    // billing_details.email de Stripe casi nunca viene relleno en cobros
+    // automáticos de renovación (solo es fiable en altas nuevas vía
+    // Checkout) — cruzamos por customer_id contra nuestra propia tabla de
+    // usuarios, que sí tiene el email de cualquier suscriptor nuestro,
+    // haya tenido éxito el cobro o no.
+    const customerIds = [...new Set(
+      charges.data.map((c) => (typeof c.customer === 'string' ? c.customer : c.customer?.id)).filter(Boolean),
+    )];
+    let emailByCustomer = {};
+    if (customerIds.length > 0) {
+      const { rows } = await query(
+        `SELECT stripe_customer_id, email FROM users WHERE stripe_customer_id = ANY($1::text[])`,
+        [customerIds],
+      );
+      emailByCustomer = Object.fromEntries(rows.map((r) => [r.stripe_customer_id, r.email]));
+    }
+
     // amount en la unidad más pequeña de la divisa (céntimos), sin dividir
     // — el frontend (fmtAmount) es el único sitio que lo convierte a euros
     // para mostrarlo. Dividir aquí Y en el frontend duplicaba la división,
     // mostrando p. ej. un cobro real de 9,99€ como "0,10€".
-    const payments = charges.data.map((c) => ({
-      id: c.id,
-      amount: c.amount,
-      currency: c.currency,
-      status: c.status,
-      email: c.billing_details?.email ?? null,
-      refunded: c.refunded,
-      created: new Date(c.created * 1000).toISOString(),
-    }));
+    const payments = charges.data.map((c) => {
+      const customerId = typeof c.customer === 'string' ? c.customer : c.customer?.id ?? null;
+      return {
+        id: c.id,
+        amount: c.amount,
+        currency: c.currency,
+        status: c.status,
+        email: emailByCustomer[customerId] ?? c.billing_details?.email ?? c.receipt_email ?? null,
+        refunded: c.refunded,
+        created: new Date(c.created * 1000).toISOString(),
+      };
+    });
     res.json({ payments });
   }),
 );
