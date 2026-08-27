@@ -17,6 +17,7 @@ import type {
   LaunchMetrics,
   RecentActivity,
   AdminUser,
+  AdminUserDetail,
   AdminCreateUserInput,
   AdminCreatedUser,
   CourtesySubscriptionInput,
@@ -471,6 +472,10 @@ export class ApiClient {
     order?: 'asc' | 'desc';
   }): Promise<{ users: AdminUser[]; limit: number; offset: number; total: number }> {
     return this.request('GET', '/admin/users', { query: params });
+  }
+
+  async getAdminUserDetail(id: string): Promise<AdminUserDetail> {
+    return this.request('GET', `/admin/users/${id}/detail`);
   }
 
   async getAdminPayments(params?: { limit?: number }): Promise<{ payments: Payment[] }> {

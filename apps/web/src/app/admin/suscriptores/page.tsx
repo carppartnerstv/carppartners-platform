@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import { Button, Pagination } from '@carp-partners/ui';
-import type { AdminUser, UserStatusCounts, CourtesySubscriptionInput } from '@carp-partners/api-client';
+import type { AdminUser, AdminUserDetail, UserStatusCounts, CourtesySubscriptionInput } from '@carp-partners/api-client';
 import { AdminModal } from '@/components/admin/AdminModal';
 import { useToast } from '@/context/ToastContext';
 
@@ -14,6 +14,13 @@ function fmtDate(iso: string | null | undefined) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('es-ES', {
     day: '2-digit', month: 'short', year: 'numeric',
+  });
+}
+
+function fmtDateTime(iso: string | null | undefined) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('es-ES', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 }
 
@@ -422,6 +429,137 @@ function CourtesyModal({ user, onClose, onSaved }: {
   );
 }
 
+// ─── Popup de detalle del suscriptor ───────────────────────────────────────────
+
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  succeeded: 'Cobrado',
+  pending:   'Pendiente',
+  failed:    'Fallido',
+};
+
+function DetailTable({ head, children }: { head: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-admin-border overflow-hidden overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="bg-admin-thead border-b border-admin-border">{head}</tr>
+        </thead>
+        <tbody className="divide-y divide-admin-border-soft">{children}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
+  return (
+    <th className={`px-3 py-2 text-admin-text-muted font-medium uppercase tracking-wide whitespace-nowrap ${right ? 'text-right' : 'text-left'}`}>
+      {children}
+    </th>
+  );
+}
+
+// Popup lateral con el historial completo de un suscriptor concreto: TODAS
+// sus filas de subscriptions (no solo la vigente, a diferencia de la tabla
+// principal), sus cargos reales de Stripe, y su último inicio de sesión —
+// no hay tabla de histórico de sesiones, solo el último momento registrado
+// (users.last_login_at), así que se muestra tal cual, sin inventar más.
+function SubscriberDetailModal({ userId, onClose }: { userId: string | null; onClose: () => void }) {
+  const [detail, setDetail]   = useState<AdminUserDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState('');
+
+  useEffect(() => {
+    if (!userId) { setDetail(null); return; }
+    setDetail(null); setLoading(true); setError('');
+    apiClient.getAdminUserDetail(userId)
+      .then(setDetail)
+      .catch((e) => setError(e instanceof ApiError ? e.message : 'No se pudo cargar el detalle'))
+      .finally(() => setLoading(false));
+  }, [userId]);
+
+  return (
+    <AdminModal theme="light" title="Detalle del suscriptor" open={!!userId} onClose={onClose} maxWidth="max-w-2xl">
+      {loading ? (
+        <p className="text-admin-text-tertiary text-sm py-10 text-center">Cargando…</p>
+      ) : error ? (
+        <p className="text-[#c0392b] text-sm bg-[#fdecea] border border-[#f7cfc9] rounded px-3 py-2">{error}</p>
+      ) : detail ? (
+        <div className="space-y-6">
+          <div>
+            <p className="text-admin-text font-semibold text-[15px]">{detail.user.email}</p>
+            {detail.user.name && <p className="text-admin-text-muted text-xs mt-0.5">{detail.user.name}</p>}
+          </div>
+
+          <div>
+            <h3 className="text-admin-text font-semibold text-sm mb-2">Historial de membresía</h3>
+            {detail.subscriptions.length === 0 ? (
+              <p className="text-admin-text-tertiary text-xs">Sin ninguna suscripción registrada.</p>
+            ) : (
+              <DetailTable head={<>
+                <Th>Plan</Th><Th>Tipo</Th><Th>Inicio</Th><Th>Caducidad</Th><Th right>Importe</Th><Th>Creado</Th>
+              </>}>
+                {detail.subscriptions.map((s) => (
+                  <tr key={s.id}>
+                    <td className="px-3 py-2 text-admin-text whitespace-nowrap">{s.plan ? (PLAN_LABELS[s.plan] ?? s.plan) : '—'}</td>
+                    <td className="px-3 py-2 text-admin-text-secondary whitespace-nowrap">{s.source === 'stripe' ? 'Stripe' : 'Cortesía'}</td>
+                    <td className="px-3 py-2 text-admin-text-secondary tabular-nums whitespace-nowrap">{fmtDate(s.periodStart)}</td>
+                    <td className="px-3 py-2 text-admin-text-secondary tabular-nums whitespace-nowrap">{s.periodEnd ? fmtDate(s.periodEnd) : 'Sin caducidad'}</td>
+                    <td className="px-3 py-2 text-right text-admin-text tabular-nums whitespace-nowrap">{s.amount != null ? `${s.amount.toFixed(2)} €` : '—'}</td>
+                    <td className="px-3 py-2 text-admin-text-tertiary tabular-nums whitespace-nowrap">{fmtDate(s.createdAt)}</td>
+                  </tr>
+                ))}
+              </DetailTable>
+            )}
+          </div>
+
+          <div>
+            <h3 className="text-admin-text font-semibold text-sm mb-2">Historial de pagos</h3>
+            {!detail.user.stripeCustomerId ? (
+              <p className="text-admin-text-tertiary text-xs">Sin cliente de Stripe asociado.</p>
+            ) : detail.payments.length === 0 ? (
+              <p className="text-admin-text-tertiary text-xs">Sin cargos registrados en Stripe.</p>
+            ) : (
+              <DetailTable head={<><Th>Fecha</Th><Th right>Importe</Th><Th>Estado</Th></>}>
+                {detail.payments.map((p) => (
+                  <tr key={p.id}>
+                    <td className="px-3 py-2 text-admin-text-secondary tabular-nums whitespace-nowrap">{fmtDateTime(p.created)}</td>
+                    <td className="px-3 py-2 text-right text-admin-text tabular-nums whitespace-nowrap">
+                      {(p.amount / 100).toLocaleString('es-ES', { style: 'currency', currency: p.currency.toUpperCase() })}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {p.refunded ? 'Reembolsado' : (PAYMENT_STATUS_LABELS[p.status] ?? p.status)}
+                    </td>
+                  </tr>
+                ))}
+              </DetailTable>
+            )}
+          </div>
+
+          <div>
+            <h3 className="text-admin-text font-semibold text-sm mb-2">Historial de inicio de sesión</h3>
+            {detail.loginHistory.length === 0 ? (
+              <p className="text-admin-text-tertiary text-xs">Nunca ha iniciado sesión.</p>
+            ) : (
+              <DetailTable head={<><Th>Fecha</Th><Th>País</Th><Th>IP</Th><Th>Navegador</Th></>}>
+                {detail.loginHistory.map((l, i) => (
+                  <tr key={i}>
+                    <td className="px-3 py-2 text-admin-text-secondary tabular-nums whitespace-nowrap">{fmtDateTime(l.loggedInAt)}</td>
+                    <td className="px-3 py-2 text-admin-text-secondary whitespace-nowrap">{l.country ?? '—'}</td>
+                    <td className="px-3 py-2 text-admin-text-secondary tabular-nums whitespace-nowrap">{l.ipAddress ?? '—'}</td>
+                    <td className="px-3 py-2 text-admin-text-tertiary whitespace-nowrap" title={l.userAgent ?? undefined}>
+                      {l.browser ?? '—'}
+                    </td>
+                  </tr>
+                ))}
+              </DetailTable>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </AdminModal>
+  );
+}
+
 // ─── Pestañas ─────────────────────────────────────────────────────────────────
 
 // 'with_subscription' = usuarios con cualquier suscripción (excluye admins)
@@ -475,6 +613,7 @@ export default function AdminSuscriptoresPage() {
 
   const [showCreate, setShowCreate]       = useState(false);
   const [courtesyUser, setCourtesyUser]   = useState<AdminUser | null>(null);
+  const [detailUserId, setDetailUserId]   = useState<string | null>(null);
 
   // Carga contadores al montar
   useEffect(() => {
@@ -586,7 +725,7 @@ export default function AdminSuscriptoresPage() {
               <SortableTh label="Estado" sortKey="status" currentSort={sort} currentOrder={order} onSort={handleSort} />
               <SortableTh label="Fin de período" sortKey="period_end" currentSort={sort} currentOrder={order} onSort={handleSort} className="hidden lg:table-cell" />
               <SortableTh label="Creación" sortKey="created_at" currentSort={sort} currentOrder={order} onSort={handleSort} className="hidden xl:table-cell" />
-              <th className="px-4 py-3 w-16" />
+              <th className="px-4 py-3 w-24" />
             </tr>
           </thead>
           <tbody className="divide-y divide-admin-border-soft">
@@ -633,13 +772,22 @@ export default function AdminSuscriptoresPage() {
                   <span className="text-admin-text-muted text-xs tabular-nums">{fmtDate(u.created_at)}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <button
-                    onClick={() => setCourtesyUser(u)}
-                    title="Otorgar / extender cortesía"
-                    className="p-1.5 rounded text-admin-text-secondary hover:text-admin-text hover:bg-admin-hover transition-colors"
-                  >
-                    <i className="ti ti-gift text-[18px]" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setDetailUserId(u.id)}
+                      title="Ver detalle del suscriptor"
+                      className="p-1.5 rounded text-admin-text-secondary hover:text-admin-text hover:bg-admin-hover transition-colors"
+                    >
+                      <i className="ti ti-info-circle text-[18px]" />
+                    </button>
+                    <button
+                      onClick={() => setCourtesyUser(u)}
+                      title="Otorgar / extender cortesía"
+                      className="p-1.5 rounded text-admin-text-secondary hover:text-admin-text hover:bg-admin-hover transition-colors"
+                    >
+                      <i className="ti ti-gift text-[18px]" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -662,6 +810,10 @@ export default function AdminSuscriptoresPage() {
         user={courtesyUser}
         onClose={() => setCourtesyUser(null)}
         onSaved={refresh}
+      />
+      <SubscriberDetailModal
+        userId={detailUserId}
+        onClose={() => setDetailUserId(null)}
       />
     </div>
   );

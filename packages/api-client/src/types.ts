@@ -245,6 +245,54 @@ export interface AdminUser {
   source: 'stripe' | 'courtesy' | null;
 }
 
+export interface AdminUserSubscriptionHistoryItem {
+  id: string;
+  source: 'stripe' | 'courtesy';
+  plan: string | null;
+  status: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  cancelledAt: string | null;
+  cancelAtPeriodEnd: boolean;
+  createdAt: string;
+  /** Precio de referencia del plan (9.99/89.99) — null para cortesía */
+  amount: number | null;
+}
+
+export interface AdminUserPaymentHistoryItem {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  refunded: boolean;
+  created: string;
+}
+
+export interface AdminUserLoginHistoryItem {
+  loggedInAt: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  /** Navegador legible, p. ej. "Chrome (128.0.0.0)" — derivado del user-agent */
+  browser: string | null;
+  /** Nombre del país en español, p. ej. "España" — derivado de la IP */
+  country: string | null;
+}
+
+export interface AdminUserDetail {
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    createdAt: string;
+    lastLoginAt: string | null;
+    stripeCustomerId: string | null;
+    stripeCreatedAt: string | null;
+  };
+  subscriptions: AdminUserSubscriptionHistoryItem[];
+  payments: AdminUserPaymentHistoryItem[];
+  loginHistory: AdminUserLoginHistoryItem[];
+}
+
 export interface AdminCreateUserInput {
   email: string;
   name?: string;

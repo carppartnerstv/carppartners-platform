@@ -27,6 +27,13 @@ import { sendMail } from '../services/mail.js';
 import { setPasswordEmail } from '../services/mailTemplates.js';
 import { config } from '../config/index.js';
 import sanitizeHtml from 'sanitize-html';
+import { UAParser } from 'ua-parser-js';
+import geoip from 'geoip-lite';
+
+// Nombre de país en español a partir del código ISO de geoip-lite (p. ej.
+// "ES" -> "España") — Intl.DisplayNames es nativo de Node, no hace falta
+// ninguna dependencia ni base de datos extra para esta parte.
+const countryNames = new Intl.DisplayNames(['es'], { type: 'region' });
 
 // ─── Configuración de subida de imágenes (avatares de crew, portadas de series,
 // imagen social de páginas de contenido) ──────────────────────────────────────
@@ -418,6 +425,103 @@ adminRouter.get(
   }),
 );
 
+// Precio de referencia por plan — mismo criterio que el MRR del dashboard
+// (no hay tabla de precios propia, son los dos planes fijos del briefing).
+const PLAN_AMOUNTS = { monthly: 9.99, annual: 89.99 };
+
+// GET /admin/users/:id/detail — historial completo de un suscriptor para el
+// popup de detalle: TODAS sus filas de subscriptions (no solo la vigente,
+// a diferencia del listado), sus cargos reales de Stripe (si tiene
+// stripe_customer_id) y su historial de inicio de sesión. Solo lectura.
+adminRouter.get(
+  '/users/:id/detail',
+  asyncHandler(async (req, res) => {
+    const user = await queryOne(
+      `SELECT id, email, name, created_at, last_login_at, stripe_customer_id, stripe_created_at
+         FROM users WHERE id = $1`,
+      [req.params.id],
+    );
+    if (!user) throw notFound('Usuario no encontrado', 'USER_NOT_FOUND');
+
+    const { rows: subscriptions } = await query(
+      `SELECT id, source, plan, status, period_start, period_end, cancelled_at, cancel_at_period_end, created_at
+         FROM subscriptions WHERE user_id = $1 ORDER BY created_at DESC`,
+      [user.id],
+    );
+
+    const { rows: loginHistory } = await query(
+      `SELECT logged_in_at, ip_address, user_agent
+         FROM login_history WHERE user_id = $1
+        ORDER BY logged_in_at DESC LIMIT 20`,
+      [user.id],
+    );
+
+    let payments = [];
+    if (user.stripe_customer_id) {
+      try {
+        const charges = await stripe.charges.list({ customer: user.stripe_customer_id, limit: 20 });
+        payments = charges.data.map((c) => ({
+          id: c.id,
+          amount: c.amount,
+          currency: c.currency,
+          status: c.status,
+          refunded: c.refunded,
+          created: new Date(c.created * 1000).toISOString(),
+        }));
+      } catch (err) {
+        // No debe romper el popup si Stripe falla puntualmente — se
+        // muestra el resto de la información igualmente.
+        console.error(`[admin] No se pudieron leer los cargos de ${user.stripe_customer_id}:`, err.message);
+      }
+    }
+
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        createdAt: user.created_at,
+        lastLoginAt: user.last_login_at,
+        stripeCustomerId: user.stripe_customer_id,
+        stripeCreatedAt: user.stripe_created_at,
+      },
+      subscriptions: subscriptions.map((s) => ({
+        id: s.id,
+        source: s.source,
+        plan: s.plan,
+        status: s.status,
+        periodStart: s.period_start,
+        periodEnd: s.period_end,
+        cancelledAt: s.cancelled_at,
+        cancelAtPeriodEnd: s.cancel_at_period_end,
+        createdAt: s.created_at,
+        amount: PLAN_AMOUNTS[s.plan] ?? null,
+      })),
+      payments,
+      loginHistory: loginHistory.map((l) => {
+        const browserInfo = l.user_agent ? new UAParser(l.user_agent).getResult().browser : null;
+        const browser = browserInfo?.name
+          ? `${browserInfo.name}${browserInfo.version ? ` (${browserInfo.version})` : ''}`
+          : null;
+        const geo = l.ip_address ? geoip.lookup(l.ip_address) : null;
+        let country = null;
+        try {
+          country = geo?.country ? countryNames.of(geo.country) : null;
+        } catch {
+          country = geo?.country ?? null; // código ISO no reconocido — mostramos el código tal cual
+        }
+        return {
+          loggedInAt: l.logged_in_at,
+          ipAddress: l.ip_address,
+          userAgent: l.user_agent,
+          browser,
+          country,
+        };
+      }),
+    });
+  }),
+);
+
 // =====================================================================
 // Alta manual de suscriptores + suscripciones de cortesía (sin Stripe).
 // Pensado para familiares, sorteos, etc. Nunca tocan stripe_sub_id.
@@ -532,7 +636,10 @@ adminRouter.get(
   '/payments',
   asyncHandler(async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit ?? '50', 10), 100);
-    const charges = await stripe.charges.list({ limit });
+    // Pedimos más de la cuenta porque luego descartamos los que no se
+    // puedan identificar (sin email) — así el listado sigue teniendo
+    // `limit` filas útiles en vez de ir mermando según cuántos se filtren.
+    const charges = await stripe.charges.list({ limit: Math.min(limit * 2, 100) });
 
     // billing_details.email de Stripe casi nunca viene relleno en cobros
     // automáticos de renovación (solo es fiable en altas nuevas vía
@@ -555,18 +662,24 @@ adminRouter.get(
     // — el frontend (fmtAmount) es el único sitio que lo convierte a euros
     // para mostrarlo. Dividir aquí Y en el frontend duplicaba la división,
     // mostrando p. ej. un cobro real de 9,99€ como "0,10€".
-    const payments = charges.data.map((c) => {
-      const customerId = typeof c.customer === 'string' ? c.customer : c.customer?.id ?? null;
-      return {
-        id: c.id,
-        amount: c.amount,
-        currency: c.currency,
-        status: c.status,
-        email: emailByCustomer[customerId] ?? c.billing_details?.email ?? c.receipt_email ?? null,
-        refunded: c.refunded,
-        created: new Date(c.created * 1000).toISOString(),
-      };
-    });
+    const payments = charges.data
+      .map((c) => {
+        const customerId = typeof c.customer === 'string' ? c.customer : c.customer?.id ?? null;
+        return {
+          id: c.id,
+          amount: c.amount,
+          currency: c.currency,
+          status: c.status,
+          email: emailByCustomer[customerId] ?? c.billing_details?.email ?? c.receipt_email ?? null,
+          refunded: c.refunded,
+          created: new Date(c.created * 1000).toISOString(),
+        };
+      })
+      // Un cargo que no se puede atribuir a nadie identificable no aporta
+      // nada en un listado pensado para gestión — se descarta en vez de
+      // mostrarlo con un "—" inexplicable.
+      .filter((p) => p.email !== null)
+      .slice(0, limit);
     res.json({ payments });
   }),
 );

@@ -151,6 +151,12 @@ authRouter.post(
     if (!ok) throw unauthorized('Email o contraseña incorrectos', 'BAD_CREDENTIALS');
 
     await query('UPDATE users SET last_login_at = now() WHERE id = $1', [user.id]);
+    // Log completo (a diferencia de last_login_at, que solo guarda el
+    // último) — para el historial de inicio de sesión del panel admin.
+    await query(
+      `INSERT INTO login_history (user_id, ip_address, user_agent) VALUES ($1, $2, $3)`,
+      [user.id, req.ip, req.headers['user-agent'] ?? null],
+    );
 
     delete user.password_hash;
     const tokens = await issueTokens(user);
