@@ -84,11 +84,13 @@ async function main() {
   let mismatches = 0;
   let checked = 0;
   const notFoundInDb = [];
+  const duplicateCustomers = [];
 
   for (const customerId of customerIds) {
     checked++;
     // Estado real en Stripe ahora mismo
     const subs = await stripe.subscriptions.list({ customer: customerId, limit: 10 });
+    const subsSummary = subs.data.map((s) => `${s.id}(${s.status})`).join(', ') || 'ninguna';
 
     // Usuario en la BD
     const { rows } = await pool.query(
@@ -97,8 +99,27 @@ async function main() {
     );
 
     if (rows.length === 0) {
-      console.log(`⚠️  Cliente Stripe ${customerId} no encontrado en la tabla users. Suscripciones Stripe: ${subs.data.map((s) => `${s.id}(${s.status})`).join(', ') || 'ninguna'}`);
-      notFoundInDb.push(customerId);
+      // No hay fila con ESTE customer_id — antes de asumir que falta del
+      // todo, comprobamos si existe una fila con el MISMO email pero un
+      // stripe_customer_id distinto (cliente de Stripe duplicado: la
+      // migración enlazó el customer equivocado por el ON CONFLICT(email),
+      // caso descubierto con isaacmitjavila@gmail.com).
+      const customer = await stripe.customers.retrieve(customerId).catch(() => null);
+      const email = customer && !customer.deleted ? customer.email : null;
+
+      let byEmail = null;
+      if (email) {
+        const { rows: emailRows } = await pool.query('SELECT id, name, email, stripe_customer_id FROM users WHERE email = $1', [email.toLowerCase()]);
+        byEmail = emailRows[0] ?? null;
+      }
+
+      if (byEmail) {
+        console.log(`🔀 CUSTOMER DUPLICADO — ${byEmail.email}: la BD apunta a ${byEmail.stripe_customer_id}, pero Stripe ${customerId} (mismo email) tiene: ${subsSummary}`);
+        duplicateCustomers.push({ email: byEmail.email, dbCustomerId: byEmail.stripe_customer_id, staleStripeCustomerId: customerId, subs: subsSummary });
+      } else {
+        console.log(`⚠️  Cliente Stripe ${customerId}${email ? ` (${email})` : ''} no encontrado en la tabla users (ni por customer_id ni por email). Suscripciones Stripe: ${subsSummary}`);
+        notFoundInDb.push(customerId);
+      }
       mismatches++;
       continue;
     }
@@ -156,7 +177,11 @@ async function main() {
   console.log('\n' + '='.repeat(80));
   console.log(`\nResumen: ${mismatches} discrepancias de ${checked} clientes revisados.`);
   if (notFoundInDb.length > 0) {
-    console.log(`  De las cuales, ${notFoundInDb.length} son clientes de Stripe que no existen en absoluto en la tabla users.`);
+    console.log(`  · ${notFoundInDb.length} son clientes de Stripe que no existen en absoluto en la tabla users (ni por customer_id ni por email) — huecos genuinos, un re-run de migrate-stripe.js (ya corregido) los recupera solo.`);
+  }
+  if (duplicateCustomers.length > 0) {
+    console.log(`  · ${duplicateCustomers.length} son clientes de Stripe DUPLICADOS (mismo email, dos customer_id distintos) — la BD apunta al que no es. Estos NO se arreglan solo con un re-run; hay que decidir caso a caso a cuál customer_id debe apuntar cada usuario:`);
+    duplicateCustomers.forEach((d) => console.log(`      - ${d.email}: BD→${d.dbCustomerId}, Stripe también tiene ${d.staleStripeCustomerId} (${d.subs})`));
   }
   console.log(mismatches === 0
     ? '✅ Todo coincide — no se perdió ningún evento real de cliente en esa ventana.'
