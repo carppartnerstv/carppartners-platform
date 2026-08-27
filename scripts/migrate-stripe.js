@@ -105,15 +105,31 @@ async function run() {
   const start = Date.now();
   let users = 0;
   let subs = 0;
+  // Un fallo con UN cliente (rate limit, hipo de red, permisos...) ya no
+  // aborta el resto de la lista — se registra y se sigue con el siguiente.
+  // Como tanto el INSERT de users como el de subscriptions son idempotentes
+  // (ON CONFLICT), volver a ejecutar el script entero es seguro para
+  // reintentar solo lo que falló, sin duplicar ni tocar lo que ya está bien.
+  const failedCustomers = [];
 
   for await (const customer of iterateCustomers()) {
-    const r = await migrateCustomer(customer);
-    users += r.created;
-    subs += r.subs;
+    try {
+      const r = await migrateCustomer(customer);
+      users += r.created;
+      subs += r.subs;
+    } catch (err) {
+      console.error(`✗ Error migrando cliente ${customer.id} (${customer.email ?? 'sin email'}): ${err.message}`);
+      failedCustomers.push({ id: customer.id, email: customer.email ?? null, reason: err.message });
+    }
   }
 
   const secs = ((Date.now() - start) / 1000).toFixed(1);
   console.log(`\n=== Listo en ${secs}s — ${users} usuarios, ${subs} suscripciones ===`);
+  if (failedCustomers.length > 0) {
+    console.log(`\n⚠️  ${failedCustomers.length} cliente(s) fallaron y NO se migraron esta vez:`);
+    failedCustomers.forEach((f) => console.log(`   · ${f.id} (${f.email ?? '?'}) — ${f.reason}`));
+    console.log('   Vuelve a ejecutar el script (es idempotente, no duplica) para reintentarlos.');
+  }
   if (DRY_RUN) console.log('(dry-run: no se escribió nada en la base de datos)');
 }
 
