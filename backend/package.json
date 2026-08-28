@@ -18,6 +18,8 @@
     "backfill-stripe-created": "node ../scripts/backfill-stripe-created-at.js",
     "diagnose-missing-subs": "node ../scripts/diagnose-missing-subscriptions.js",
     "bridge-schedule-subs": "node ../scripts/bridge-schedule-subscriptions.js",
+    "reconcile-webhook-gap": "node ../scripts/reconcile-webhook-gap.js",
+    "relink-duplicate-customers": "node ../scripts/relink-duplicate-customers.js",
     "test": "node --test tests/"
   },
   "dependencies": {
