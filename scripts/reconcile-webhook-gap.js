@@ -70,6 +70,10 @@ function fmtPeriodEnd(unixSeconds) {
   return new Date(unixSeconds * 1000).toISOString().slice(0, 10);
 }
 
+function fmtDate(unixSeconds) {
+  return unixSeconds ? new Date(unixSeconds * 1000).toISOString().slice(0, 10) : '?';
+}
+
 async function main() {
   console.log(`Buscando eventos entre ${new Date(WINDOW_START * 1000).toISOString()} y ${new Date(WINDOW_END * 1000).toISOString()}...\n`);
 
@@ -90,7 +94,11 @@ async function main() {
     checked++;
     // Estado real en Stripe ahora mismo
     const subs = await stripe.subscriptions.list({ customer: customerId, limit: 10 });
-    const subsSummary = subs.data.map((s) => `${s.id}(${s.status})`).join(', ') || 'ninguna';
+    // La fecha de creación de CADA suscripción (no solo del customer) es
+    // la pista clave para separar "alta nueva atrapada en el apagón del
+    // webhook" (creada dentro de la ventana, 21-24 ago) de "hueco de la
+    // migración antigua" (creada mucho antes).
+    const subsSummary = subs.data.map((s) => `${s.id}(${s.status}, creada ${fmtDate(s.created)})`).join(', ') || 'ninguna';
 
     // Usuario en la BD
     const { rows } = await pool.query(
@@ -106,6 +114,7 @@ async function main() {
       // caso descubierto con isaacmitjavila@gmail.com).
       const customer = await stripe.customers.retrieve(customerId).catch(() => null);
       const email = customer && !customer.deleted ? customer.email : null;
+      const customerCreated = customer && !customer.deleted ? fmtDate(customer.created) : '?';
 
       let byEmail = null;
       if (email) {
@@ -114,11 +123,12 @@ async function main() {
       }
 
       if (byEmail) {
-        console.log(`🔀 CUSTOMER DUPLICADO — ${byEmail.email}: la BD apunta a ${byEmail.stripe_customer_id}, pero Stripe ${customerId} (mismo email) tiene: ${subsSummary}`);
-        duplicateCustomers.push({ email: byEmail.email, dbCustomerId: byEmail.stripe_customer_id, staleStripeCustomerId: customerId, subs: subsSummary });
+        console.log(`🔀 CUSTOMER DUPLICADO — ${byEmail.email} — Stripe ${customerId} (cliente desde ${customerCreated}) tiene: ${subsSummary}`);
+        console.log(`    La BD apunta a otro customer_id distinto: ${byEmail.stripe_customer_id}`);
+        duplicateCustomers.push({ email: byEmail.email, dbCustomerId: byEmail.stripe_customer_id, staleStripeCustomerId: customerId, customerCreated, subs: subsSummary });
       } else {
-        console.log(`⚠️  Cliente Stripe ${customerId}${email ? ` (${email})` : ''} no encontrado en la tabla users (ni por customer_id ni por email). Suscripciones Stripe: ${subsSummary}`);
-        notFoundInDb.push(customerId);
+        console.log(`⚠️  ${email ?? '(sin email)'} — cliente Stripe ${customerId} desde ${customerCreated} — no está en la tabla users (ni por customer_id ni por email). Suscripciones: ${subsSummary}`);
+        notFoundInDb.push({ customerId, email, customerCreated });
       }
       mismatches++;
       continue;
@@ -177,11 +187,16 @@ async function main() {
   console.log('\n' + '='.repeat(80));
   console.log(`\nResumen: ${mismatches} discrepancias de ${checked} clientes revisados.`);
   if (notFoundInDb.length > 0) {
-    console.log(`  · ${notFoundInDb.length} son clientes de Stripe que no existen en absoluto en la tabla users (ni por customer_id ni por email) — huecos genuinos, un re-run de migrate-stripe.js (ya corregido) los recupera solo.`);
+    console.log(`\n  · ${notFoundInDb.length} clientes de Stripe que no existen en absoluto en la tabla users (ni por customer_id ni por email):`);
+    console.log(`    Con "cliente desde" DENTRO de la ventana (21-24 ago) → alta nueva atrapada en el apagón del webhook, necesita cuenta creada ya (a mano si hace falta).`);
+    console.log(`    Con "cliente desde" muy anterior → hueco de la migración antigua, ya tiene su proceso conocido (pestaña "Sin plan"). Un re-run de migrate-stripe.js (ya corregido) recupera los que Stripe SÍ tenga como Subscription real.`);
+    [...notFoundInDb]
+      .sort((a, b) => (a.customerCreated < b.customerCreated ? 1 : -1))
+      .forEach((n) => console.log(`      - ${n.email ?? '(sin email)'} — cliente desde ${n.customerCreated} (${n.customerId})`));
   }
   if (duplicateCustomers.length > 0) {
-    console.log(`  · ${duplicateCustomers.length} son clientes de Stripe DUPLICADOS (mismo email, dos customer_id distintos) — la BD apunta al que no es. Estos NO se arreglan solo con un re-run; hay que decidir caso a caso a cuál customer_id debe apuntar cada usuario:`);
-    duplicateCustomers.forEach((d) => console.log(`      - ${d.email}: BD→${d.dbCustomerId}, Stripe también tiene ${d.staleStripeCustomerId} (${d.subs})`));
+    console.log(`\n  · ${duplicateCustomers.length} clientes de Stripe DUPLICADOS (mismo email, dos customer_id distintos) — la BD apunta al que no es. Estos NO se arreglan solo con un re-run; hay que decidir caso a caso a cuál customer_id debe apuntar cada usuario:`);
+    duplicateCustomers.forEach((d) => console.log(`      - ${d.email}: BD→${d.dbCustomerId}, Stripe también tiene ${d.staleStripeCustomerId} desde ${d.customerCreated} (${d.subs})`));
   }
   console.log(mismatches === 0
     ? '✅ Todo coincide — no se perdió ningún evento real de cliente en esa ventana.'
