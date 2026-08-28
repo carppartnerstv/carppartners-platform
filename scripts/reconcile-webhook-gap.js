@@ -92,8 +92,11 @@ async function main() {
 
   for (const customerId of customerIds) {
     checked++;
-    // Estado real en Stripe ahora mismo
-    const subs = await stripe.subscriptions.list({ customer: customerId, limit: 10 });
+    // Estado real en Stripe ahora mismo. status: 'all' es imprescindible —
+    // sin él, Stripe excluye por defecto las suscripciones canceladas, y un
+    // cliente duplicado que sí pagó (pero luego canceló) parecería no tener
+    // "ninguna" suscripción (caso real: dominguezcantin8@icloud.com).
+    const subs = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 10 });
     // La fecha de creación de CADA suscripción (no solo del customer) es
     // la pista clave para separar "alta nueva atrapada en el apagón del
     // webhook" (creada dentro de la ventana, 21-24 ago) de "hueco de la

@@ -141,7 +141,12 @@ async function main() {
 
       const user = byEmail[0];
 
-      const subs = await stripe.subscriptions.list({ customer: eventCustomerId, limit: 10 });
+      // status: 'all' es imprescindible — sin él, Stripe excluye por
+      // defecto las suscripciones canceladas, y un cliente que pagó varios
+      // meses y luego canceló parecería no tener "ninguna suscripción real"
+      // (caso real: dominguezcantin8@icloud.com, 3 pagos exitosos y
+      // suscripción cancelada, invisible sin este parámetro).
+      const subs = await stripe.subscriptions.list({ customer: eventCustomerId, status: 'all', limit: 10 });
       const bestSub = subs.data.find((s) => ACCESS_GRANTING_STRIPE_STATUSES.includes(s.status)) ?? subs.data[0];
 
       if (!bestSub) {
