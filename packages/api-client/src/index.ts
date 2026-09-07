@@ -17,6 +17,8 @@ export type {
   WatchlistItem,
   AuthResponse,
   DashboardStats,
+  RecentMembers,
+  RecentPayments,
   LaunchMetrics,
   RecentActivity,
   AdminUser,

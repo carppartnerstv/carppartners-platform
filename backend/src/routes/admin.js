@@ -162,6 +162,60 @@ adminRouter.get(
   }),
 );
 
+// GET /admin/dashboard/recent-members — equivalente al widget "Miembros
+// recientes" del panel de ARMember en WordPress: una fila de suscripción
+// nueva por cada alta (incluye re-altas tras cancelar, igual que contaba
+// ARMember) en los últimos 30 días, para tener un vistazo rápido sin salir
+// de nuestro panel mientras WordPress siga en paralelo.
+adminRouter.get(
+  '/dashboard/recent-members',
+  asyncHandler(async (_req, res) => {
+    const { rows: series } = await query(
+      `SELECT to_char(d::date, 'YYYY-MM-DD') AS date, COUNT(s.id)::int AS count
+         FROM generate_series(current_date - interval '29 days', current_date, interval '1 day') d
+         LEFT JOIN subscriptions s ON s.created_at::date = d::date
+        GROUP BY d
+        ORDER BY d`,
+    );
+
+    const { rows: recent } = await query(
+      `SELECT u.email, u.name, s.plan, s.created_at
+         FROM subscriptions s
+         JOIN users u ON u.id = s.user_id
+        ORDER BY s.created_at DESC
+        LIMIT 10`,
+    );
+
+    res.json({
+      series: series.map((r) => ({ date: r.date, count: r.count })),
+      recent: recent.map((r) => ({ email: r.email, name: r.name, plan: r.plan, createdAt: r.created_at })),
+    });
+  }),
+);
+
+// GET /admin/dashboard/recent-payments — equivalente al widget "Pagos
+// recientes" de ARMember: desglose por plan de las altas de los últimos 30
+// días (desde nuestra propia tabla, sin gastar llamadas a Stripe) + una
+// vista previa de los últimos cobros reales (reutiliza fetchRecentPayments,
+// misma fuente que /admin/payments).
+adminRouter.get(
+  '/dashboard/recent-payments',
+  asyncHandler(async (_req, res) => {
+    const { rows: byPlanRows } = await query(
+      `SELECT COALESCE(plan, 'sin_plan') AS plan, COUNT(*)::int AS n
+         FROM subscriptions
+        WHERE created_at >= now() - interval '30 days'
+        GROUP BY plan`,
+    );
+    const byPlan = { monthly: 0, annual: 0 };
+    byPlanRows.forEach((r) => { if (r.plan === 'monthly' || r.plan === 'annual') byPlan[r.plan] = r.n; });
+
+    const recent = await fetchRecentPayments(8);
+
+    res.json({ byPlan, recent });
+  }),
+);
+
 // --- Métricas de lanzamiento -------------------------------------------
 // Embudo de activación de los suscriptores migrados desde WordPress/Stripe
 // — solo lectura, no modifica nada. Excluye role='admin' de TODOS los
@@ -631,55 +685,63 @@ adminRouter.post(
   }),
 );
 
+// Cargos recientes de Stripe con el email resuelto — compartido entre el
+// listado completo (/admin/payments) y la vista previa del dashboard
+// (/admin/dashboard/recent-payments), para no duplicar la lógica de
+// resolución de email (ver comentario de abajo).
+async function fetchRecentPayments(limit) {
+  // Pedimos más de la cuenta porque luego descartamos los que no se puedan
+  // identificar (sin email) — así el listado sigue teniendo `limit` filas
+  // útiles en vez de ir mermando según cuántos se filtren.
+  const charges = await stripe.charges.list({ limit: Math.min(limit * 2, 100) });
+
+  // billing_details.email de Stripe casi nunca viene relleno en cobros
+  // automáticos de renovación (solo es fiable en altas nuevas vía
+  // Checkout) — cruzamos por customer_id contra nuestra propia tabla de
+  // usuarios, que sí tiene el email de cualquier suscriptor nuestro, haya
+  // tenido éxito el cobro o no.
+  const customerIds = [...new Set(
+    charges.data.map((c) => (typeof c.customer === 'string' ? c.customer : c.customer?.id)).filter(Boolean),
+  )];
+  let emailByCustomer = {};
+  if (customerIds.length > 0) {
+    const { rows } = await query(
+      `SELECT stripe_customer_id, email FROM users WHERE stripe_customer_id = ANY($1::text[])`,
+      [customerIds],
+    );
+    emailByCustomer = Object.fromEntries(rows.map((r) => [r.stripe_customer_id, r.email]));
+  }
+
+  // amount en la unidad más pequeña de la divisa (céntimos), sin dividir —
+  // el frontend (fmtAmount) es el único sitio que lo convierte a euros para
+  // mostrarlo. Dividir aquí Y en el frontend duplicaba la división,
+  // mostrando p. ej. un cobro real de 9,99€ como "0,10€".
+  return charges.data
+    .map((c) => {
+      const customerId = typeof c.customer === 'string' ? c.customer : c.customer?.id ?? null;
+      return {
+        id: c.id,
+        amount: c.amount,
+        currency: c.currency,
+        status: c.status,
+        email: emailByCustomer[customerId] ?? c.billing_details?.email ?? c.receipt_email ?? null,
+        refunded: c.refunded,
+        created: new Date(c.created * 1000).toISOString(),
+      };
+    })
+    // Un cargo que no se puede atribuir a nadie identificable no aporta
+    // nada en un listado pensado para gestión — se descarta en vez de
+    // mostrarlo con un "—" inexplicable.
+    .filter((p) => p.email !== null)
+    .slice(0, limit);
+}
+
 // --- Historial de pagos (desde Stripe) -------------------------------
 adminRouter.get(
   '/payments',
   asyncHandler(async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit ?? '50', 10), 100);
-    // Pedimos más de la cuenta porque luego descartamos los que no se
-    // puedan identificar (sin email) — así el listado sigue teniendo
-    // `limit` filas útiles en vez de ir mermando según cuántos se filtren.
-    const charges = await stripe.charges.list({ limit: Math.min(limit * 2, 100) });
-
-    // billing_details.email de Stripe casi nunca viene relleno en cobros
-    // automáticos de renovación (solo es fiable en altas nuevas vía
-    // Checkout) — cruzamos por customer_id contra nuestra propia tabla de
-    // usuarios, que sí tiene el email de cualquier suscriptor nuestro,
-    // haya tenido éxito el cobro o no.
-    const customerIds = [...new Set(
-      charges.data.map((c) => (typeof c.customer === 'string' ? c.customer : c.customer?.id)).filter(Boolean),
-    )];
-    let emailByCustomer = {};
-    if (customerIds.length > 0) {
-      const { rows } = await query(
-        `SELECT stripe_customer_id, email FROM users WHERE stripe_customer_id = ANY($1::text[])`,
-        [customerIds],
-      );
-      emailByCustomer = Object.fromEntries(rows.map((r) => [r.stripe_customer_id, r.email]));
-    }
-
-    // amount en la unidad más pequeña de la divisa (céntimos), sin dividir
-    // — el frontend (fmtAmount) es el único sitio que lo convierte a euros
-    // para mostrarlo. Dividir aquí Y en el frontend duplicaba la división,
-    // mostrando p. ej. un cobro real de 9,99€ como "0,10€".
-    const payments = charges.data
-      .map((c) => {
-        const customerId = typeof c.customer === 'string' ? c.customer : c.customer?.id ?? null;
-        return {
-          id: c.id,
-          amount: c.amount,
-          currency: c.currency,
-          status: c.status,
-          email: emailByCustomer[customerId] ?? c.billing_details?.email ?? c.receipt_email ?? null,
-          refunded: c.refunded,
-          created: new Date(c.created * 1000).toISOString(),
-        };
-      })
-      // Un cargo que no se puede atribuir a nadie identificable no aporta
-      // nada en un listado pensado para gestión — se descarta en vez de
-      // mostrarlo con un "—" inexplicable.
-      .filter((p) => p.email !== null)
-      .slice(0, limit);
+    const payments = await fetchRecentPayments(limit);
     res.json({ payments });
   }),
 );

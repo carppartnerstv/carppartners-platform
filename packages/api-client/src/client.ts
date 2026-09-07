@@ -14,6 +14,8 @@ import type {
   WatchlistItem,
   AuthResponse,
   DashboardStats,
+  RecentMembers,
+  RecentPayments,
   LaunchMetrics,
   RecentActivity,
   AdminUser,
@@ -449,6 +451,14 @@ export class ApiClient {
 
   async getAdminDashboard(): Promise<DashboardStats> {
     return this.request('GET', '/admin/dashboard');
+  }
+
+  async getAdminRecentMembers(): Promise<RecentMembers> {
+    return this.request('GET', '/admin/dashboard/recent-members');
+  }
+
+  async getAdminRecentPayments(): Promise<RecentPayments> {
+    return this.request('GET', '/admin/dashboard/recent-payments');
   }
 
   async getAdminLaunchMetrics(): Promise<LaunchMetrics> {

@@ -193,6 +193,33 @@ export interface DashboardStats {
   mrr: number;
 }
 
+export interface RecentMembersDay {
+  date: string;
+  count: number;
+}
+
+export interface RecentMember {
+  email: string;
+  name: string | null;
+  plan: string | null;
+  createdAt: string;
+}
+
+export interface RecentMembers {
+  series: RecentMembersDay[];
+  recent: RecentMember[];
+}
+
+export interface RecentPaymentsByPlan {
+  monthly: number;
+  annual: number;
+}
+
+export interface RecentPayments {
+  byPlan: RecentPaymentsByPlan;
+  recent: Payment[];
+}
+
 export interface LaunchMetrics {
   funnel: {
     migrated: number;

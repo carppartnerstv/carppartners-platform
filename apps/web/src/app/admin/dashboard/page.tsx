@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { DashboardStats } from '@carp-partners/api-client';
+import type { DashboardStats, RecentMembers, RecentPayments } from '@carp-partners/api-client';
 
 // ─── Tarjeta de métrica ───────────────────────────────────────────────────────
 
@@ -55,6 +55,173 @@ function SkeletonCard() {
       </div>
       <div className="h-8 w-20 rounded bg-admin-border-soft" />
     </div>
+  );
+}
+
+// ─── Widgets "recientes" (equivalente a los del panel de ARMember) ───────────
+
+const PLAN_LABELS: Record<string, string> = { monthly: 'Mensual', annual: 'Anual', courtesy: 'Cortesía' };
+
+function fmtShortDate(iso: string) {
+  return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+}
+
+function fmtAmount(amount: number, currency: string) {
+  return (amount / 100).toLocaleString('es-ES', { style: 'currency', currency: currency.toUpperCase() });
+}
+
+// Gráfico de líneas hecho a mano (sin librería, para un solo sparkline no
+// merece la pena una dependencia nueva). preserveAspectRatio="none" +
+// w-full estira el viewBox al ancho real del contenedor.
+function MembersSparkline({ data }: { data: RecentMembers['series'] }) {
+  const w = 600, h = 90, pad = 6;
+  const max = Math.max(1, ...data.map((d) => d.count));
+  const step = data.length > 1 ? (w - pad * 2) / (data.length - 1) : 0;
+  const points = data.map((d, i) => {
+    const x = pad + i * step;
+    const y = h - pad - (d.count / max) * (h - pad * 2);
+    return { x, y, count: d.count };
+  });
+  const polyline = points.map((p) => `${p.x},${p.y}`).join(' ');
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full h-20">
+      <polyline points={polyline} fill="none" stroke="#cf4a35" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+      {points.map((p, i) => p.count > 0 && (
+        <circle key={data[i].date} cx={p.x} cy={p.y} r={3} fill="#cf4a35" />
+      ))}
+    </svg>
+  );
+}
+
+function PlanBars({ byPlan }: { byPlan: RecentPayments['byPlan'] }) {
+  const bars = [
+    { label: 'Mensual', value: byPlan.monthly },
+    { label: 'Anual', value: byPlan.annual },
+  ];
+  const max = Math.max(1, byPlan.monthly, byPlan.annual);
+  return (
+    <div className="flex items-end gap-6 h-20 px-2">
+      {bars.map((b) => (
+        <div key={b.label} className="flex flex-col items-center gap-1.5 flex-1">
+          <span className="text-xs font-semibold text-admin-text">{b.value}</span>
+          <div
+            className="w-full max-w-12 rounded-t bg-brand-bright"
+            style={{ height: `${Math.max(4, (b.value / max) * 56)}px` }}
+          />
+          <span className="text-[11px] text-admin-text-muted">{b.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function WidgetCard({ title, sub, href, children }: { title: string; sub: string; href: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-admin-card border border-admin-border bg-admin-surface shadow-admin-card p-5">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <p className="font-display text-sm font-bold text-admin-text">{title}</p>
+          <p className="text-admin-text-tertiary text-xs mt-0.5">{sub}</p>
+        </div>
+        <Link href={href} className="text-brand-bright text-xs font-semibold hover:underline shrink-0">
+          Ver todos
+        </Link>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function RecentMembersWidget() {
+  const [data, setData] = useState<RecentMembers | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    apiClient.getAdminRecentMembers()
+      .then(setData)
+      .catch((e) => setError(e instanceof ApiError ? e.message : 'Error al cargar'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <WidgetCard title="Miembros recientes" sub="Altas nuevas (o re-altas) de los últimos 30 días" href="/admin/suscriptores">
+      {loading ? (
+        <div className="h-20 animate-pulse bg-admin-border-soft rounded" />
+      ) : error || !data ? (
+        <p className="text-admin-text-tertiary text-sm py-6 text-center">{error || 'Sin datos'}</p>
+      ) : (
+        <>
+          <MembersSparkline data={data.series} />
+          <ul className="mt-4 space-y-2.5 max-h-52 overflow-y-auto">
+            {data.recent.length === 0 && (
+              <li className="text-admin-text-tertiary text-sm text-center py-4">Todavía no hay suscripciones.</li>
+            )}
+            {data.recent.map((m, i) => (
+              <li key={`${m.email}-${i}`} className="flex items-center justify-between gap-3 text-sm">
+                <div className="min-w-0">
+                  <p className="text-admin-text font-medium truncate">{m.name || m.email}</p>
+                  <p className="text-admin-text-tertiary text-xs truncate">{m.email}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-admin-text-secondary text-xs">{PLAN_LABELS[m.plan ?? ''] ?? m.plan ?? '—'}</p>
+                  <p className="text-admin-text-tertiary text-[11px]">{fmtShortDate(m.createdAt)}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </WidgetCard>
+  );
+}
+
+function RecentPaymentsWidget() {
+  const [data, setData] = useState<RecentPayments | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    apiClient.getAdminRecentPayments()
+      .then(setData)
+      .catch((e) => setError(e instanceof ApiError ? e.message : 'Error al cargar'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <WidgetCard title="Pagos recientes" sub="Altas por plan (30 días) y últimos cobros de Stripe" href="/admin/pagos">
+      {loading ? (
+        <div className="h-20 animate-pulse bg-admin-border-soft rounded" />
+      ) : error || !data ? (
+        <p className="text-admin-text-tertiary text-sm py-6 text-center">{error || 'Sin datos'}</p>
+      ) : (
+        <>
+          <PlanBars byPlan={data.byPlan} />
+          <ul className="mt-4 space-y-2.5 max-h-52 overflow-y-auto">
+            {data.recent.length === 0 && (
+              <li className="text-admin-text-tertiary text-sm text-center py-4">Todavía no hay cobros.</li>
+            )}
+            {data.recent.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-3 text-sm">
+                <div className="min-w-0">
+                  <p className="text-admin-text-secondary truncate">{p.email}</p>
+                  <p className="text-admin-text-tertiary text-[11px]">{fmtShortDate(p.created)}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className={['font-semibold tabular-nums', p.status === 'succeeded' ? 'text-admin-text' : 'text-admin-text-muted'].join(' ')}>
+                    {fmtAmount(p.amount, p.currency)}
+                  </p>
+                  {p.status !== 'succeeded' && (
+                    <p className="text-[11px] text-[#c0392b]">{p.status === 'failed' ? 'Fallido' : p.status}</p>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </WidgetCard>
   );
 }
 
@@ -159,6 +326,12 @@ export default function AdminDashboardPage() {
             />
           </>
         ) : null}
+      </div>
+
+      {/* Miembros y pagos recientes */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <RecentMembersWidget />
+        <RecentPaymentsWidget />
       </div>
 
       {/* Nota pie */}
