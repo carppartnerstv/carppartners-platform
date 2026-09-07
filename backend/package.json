@@ -20,6 +20,7 @@
     "bridge-schedule-subs": "node ../scripts/bridge-schedule-subscriptions.js",
     "reconcile-webhook-gap": "node ../scripts/reconcile-webhook-gap.js",
     "relink-duplicate-customers": "node ../scripts/relink-duplicate-customers.js",
+    "find-stale-customer-links": "node ../scripts/find-stale-customer-links.js",
     "test": "node --test tests/"
   },
   "dependencies": {
