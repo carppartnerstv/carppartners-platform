@@ -191,7 +191,7 @@ function RecentMembersWidget() {
   }, []);
 
   return (
-    <WidgetCard title="Miembros recientes" sub="Altas nuevas (o re-altas) de los últimos 2 meses" href="/admin/suscriptores">
+    <WidgetCard title="Miembros recientes" sub="Personas nuevas en los últimos 2 meses (no cuenta renovaciones)" href="/admin/suscriptores">
       {loading ? (
         <div className="h-32 animate-pulse bg-admin-border-soft rounded" />
       ) : error || !data ? (
@@ -243,7 +243,7 @@ function RecentPaymentsWidget() {
   ];
 
   return (
-    <WidgetCard title="Pagos recientes" sub="Altas acumuladas por plan (2 meses) y últimos cobros de Stripe" href="/admin/pagos">
+    <WidgetCard title="Pagos recientes" sub="Personas nuevas acumuladas por plan (2 meses) y últimos cobros de Stripe" href="/admin/pagos">
       {loading ? (
         <div className="h-32 animate-pulse bg-admin-border-soft rounded" />
       ) : error || !data ? (

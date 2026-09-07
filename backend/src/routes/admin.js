@@ -167,26 +167,34 @@ adminRouter.get(
 const RECENT_WINDOW_DAYS = 59;
 
 // GET /admin/dashboard/recent-members — equivalente al widget "Miembros
-// recientes" del panel de ARMember en WordPress: una fila de suscripción
-// nueva por cada alta (incluye re-altas tras cancelar, igual que contaba
-// ARMember) en los últimos 2 meses, para tener un vistazo rápido sin salir
-// de nuestro panel mientras WordPress siga en paralelo.
+// recientes" del panel de ARMember en WordPress. Cuenta users.created_at
+// (cuándo apareció la PERSONA por primera vez en nuestro sistema), NO
+// subscriptions.created_at — el sistema antiguo de WordPress crea una
+// Suscripción de Stripe NUEVA en cada renovación (no reutiliza la misma,
+// visto durante toda la incidencia de agosto), así que contar filas de
+// `subscriptions` inflaba brutalmente el número (cientos de "altas" que en
+// realidad eran renovaciones de la misma gente). users.created_at solo se
+// fija una vez por persona (ON CONFLICT (email) DO UPDATE en
+// migrate-stripe.js no lo toca), así que es inmune a ese problema.
 adminRouter.get(
   '/dashboard/recent-members',
   asyncHandler(async (_req, res) => {
     const { rows: series } = await query(
-      `SELECT to_char(d::date, 'YYYY-MM-DD') AS date, COUNT(s.id)::int AS count
+      `SELECT to_char(d::date, 'YYYY-MM-DD') AS date, COUNT(u.id)::int AS count
          FROM generate_series(current_date - interval '${RECENT_WINDOW_DAYS} days', current_date, interval '1 day') d
-         LEFT JOIN subscriptions s ON s.created_at::date = d::date
+         LEFT JOIN users u ON u.created_at::date = d::date AND u.role <> 'admin'
         GROUP BY d
         ORDER BY d`,
     );
 
     const { rows: recent } = await query(
-      `SELECT u.email, u.name, s.plan, s.created_at
-         FROM subscriptions s
-         JOIN users u ON u.id = s.user_id
-        ORDER BY s.created_at DESC
+      `SELECT u.email, u.name, s.plan, u.created_at
+         FROM users u
+         LEFT JOIN LATERAL (
+           SELECT plan FROM subscriptions WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1
+         ) s ON true
+        WHERE u.role <> 'admin'
+        ORDER BY u.created_at DESC
         LIMIT 10`,
     );
 
@@ -197,25 +205,29 @@ adminRouter.get(
   }),
 );
 
-// GET /admin/dashboard/recent-payments — equivalente al widget "Pagos
-// recientes" de ARMember: en el original, la gráfica es una LÍNEA que
-// acumula el total de altas del Plan Estándar (los mismos suscriptores que
-// el widget de "Miembros recientes", vistos por el lado del pago) — no un
-// desglose en barras. Reproducimos eso: dos líneas acumuladas (mensual y
-// anual) sobre la misma ventana de 2 meses, calculadas con una suma
-// acumulada (SUM() OVER) directamente en SQL. Se añade la vista previa de
-// los últimos cobros reales (reutiliza fetchRecentPayments, misma fuente
-// que /admin/payments).
+// GET /admin/dashboard/recent-payments — mismo criterio que arriba
+// (users.created_at, no subscriptions.created_at, por la misma razón: una
+// renovación de WordPress no debe contar como alta nueva). En el original
+// de ARMember, la gráfica es una LÍNEA que acumula el total de altas del
+// Plan Estándar (los mismos suscriptores que el widget de "Miembros
+// recientes", vistos por el lado del pago) — no un desglose en barras.
+// Reproducimos eso: dos líneas acumuladas (mensual y anual, según el plan
+// ACTUAL de cada uno) sobre la misma ventana de 2 meses, con SUM() OVER.
+// Se añade la vista previa de los últimos cobros reales (reutiliza
+// fetchRecentPayments, misma fuente que /admin/payments).
 adminRouter.get(
   '/dashboard/recent-payments',
   asyncHandler(async (_req, res) => {
     const { rows: series } = await query(
       `WITH daily AS (
          SELECT d::date AS date,
-                COUNT(s.id) FILTER (WHERE s.plan = 'monthly')::int AS monthly,
-                COUNT(s.id) FILTER (WHERE s.plan = 'annual')::int AS annual
+                COUNT(u.id) FILTER (WHERE s.plan = 'monthly')::int AS monthly,
+                COUNT(u.id) FILTER (WHERE s.plan = 'annual')::int AS annual
            FROM generate_series(current_date - interval '${RECENT_WINDOW_DAYS} days', current_date, interval '1 day') d
-           LEFT JOIN subscriptions s ON s.created_at::date = d::date
+           LEFT JOIN users u ON u.created_at::date = d::date AND u.role <> 'admin'
+           LEFT JOIN LATERAL (
+             SELECT plan FROM subscriptions WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1
+           ) s ON true
           GROUP BY d
        )
        SELECT to_char(date, 'YYYY-MM-DD') AS date,
