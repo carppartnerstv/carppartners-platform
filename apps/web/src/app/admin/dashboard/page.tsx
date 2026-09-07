@@ -82,9 +82,45 @@ function niceMax(raw: number, ticks = 4) {
   return Math.ceil(raw / niceStep) * niceStep;
 }
 
+// Caja de tooltip dibujada dentro del propio SVG (evita tener que
+// sincronizar coordenadas SVG con un div HTML flotante). Anclada arriba del
+// gráfico y desplazándose en X con el cursor, con clamp para no salirse del
+// viewBox por los bordes.
+function ChartTooltip({
+  x, chartWidth, date, lines,
+}: {
+  x: number;
+  chartWidth: number;
+  date: string;
+  lines: { label: string; color: string; value: number }[];
+}) {
+  const boxW = 128;
+  const boxH = 20 + lines.length * 14;
+  const boxX = Math.min(Math.max(x - boxW / 2, 4), chartWidth - boxW - 4);
+  const boxY = 4;
+  return (
+    <g pointerEvents="none">
+      <rect x={boxX} y={boxY} width={boxW} height={boxH} rx={5} fill="#1c2024" opacity={0.94} />
+      <text x={boxX + 9} y={boxY + 14} fontSize={9.5} fill="#fff" fontWeight={700}>
+        {fmtShortDate(date)}
+      </text>
+      {lines.map((l, i) => (
+        <g key={l.label}>
+          <circle cx={boxX + 11} cy={boxY + 24 + i * 14} r={2.5} fill={l.color} />
+          <text x={boxX + 18} y={boxY + 27.5 + i * 14} fontSize={9} fill="#fff">
+            {l.label}: {l.value}
+          </text>
+        </g>
+      ))}
+    </g>
+  );
+}
+
 // Gráfico de líneas con los dos ejes (como el panel de ARMember), hecho a
 // mano en SVG — para dos gráficos tan simples no compensa añadir una
-// librería nueva. Admite una o varias series (para el desglose por plan).
+// librería nueva. Admite una o varias series (para el desglose por plan) y
+// es interactivo: al pasar el cursor por un vértice muestra la fecha y el
+// valor de cada serie en ese punto.
 function AxisLineChart({
   dates, series, height = 130,
 }: {
@@ -92,6 +128,7 @@ function AxisLineChart({
   series: { label: string; color: string; values: number[] }[];
   height?: number;
 }) {
+  const [hover, setHover] = useState<number | null>(null);
   const w = 640, h = height;
   const padLeft = 26, padRight = 8, padTop = 8, padBottom = 30;
   const plotW = w - padLeft - padRight;
@@ -105,11 +142,11 @@ function AxisLineChart({
   const stepX = n > 1 ? plotW / (n - 1) : 0;
   const xFor = (i: number) => padLeft + i * stepX;
   const yFor = (v: number) => padTop + plotH - (v / yMax) * plotH;
-  // No amontonar las fechas del eje X: una etiqueta cada ~6 puntos (2 meses ≈ 10 etiquetas).
+  // No amontonar las fechas del eje X: una etiqueta cada ~3 puntos (1 mes ≈ 10 etiquetas).
   const xTickEvery = Math.max(1, Math.round(n / 10));
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height }}>
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height }} onMouseLeave={() => setHover(null)}>
       {yTicks.map((v) => (
         <g key={v}>
           <line x1={padLeft} x2={w - padRight} y1={yFor(v)} y2={yFor(v)} stroke="#eef0f2" strokeWidth={1} />
@@ -144,6 +181,34 @@ function AxisLineChart({
           strokeLinecap="round"
         />
       ))}
+
+      {/* Franjas invisibles, una por punto, para detectar sobre qué vértice está el cursor. */}
+      {dates.map((_, i) => (
+        <rect
+          key={`hit-${dates[i]}`}
+          x={xFor(i) - (stepX || plotW) / 2}
+          y={padTop}
+          width={stepX || plotW}
+          height={plotH}
+          fill="transparent"
+          onMouseEnter={() => setHover(i)}
+        />
+      ))}
+
+      {hover !== null && (
+        <g pointerEvents="none">
+          <line x1={xFor(hover)} x2={xFor(hover)} y1={padTop} y2={h - padBottom} stroke="#c7ccd1" strokeWidth={1} strokeDasharray="3 3" />
+          {series.map((s) => (
+            <circle key={s.label} cx={xFor(hover)} cy={yFor(s.values[hover])} r={3.5} fill={s.color} stroke="#fff" strokeWidth={1.5} />
+          ))}
+          <ChartTooltip
+            x={xFor(hover)}
+            chartWidth={w}
+            date={dates[hover]}
+            lines={series.map((s) => ({ label: s.label, color: s.color, value: s.values[hover] }))}
+          />
+        </g>
+      )}
     </svg>
   );
 }
@@ -191,7 +256,7 @@ function RecentMembersWidget() {
   }, []);
 
   return (
-    <WidgetCard title="Miembros recientes" sub="Personas nuevas en los últimos 2 meses (no cuenta renovaciones)" href="/admin/suscriptores">
+    <WidgetCard title="Miembros recientes" sub="Personas nuevas en el último mes (no cuenta renovaciones)" href="/admin/suscriptores">
       {loading ? (
         <div className="h-32 animate-pulse bg-admin-border-soft rounded" />
       ) : error || !data ? (
@@ -243,7 +308,7 @@ function RecentPaymentsWidget() {
   ];
 
   return (
-    <WidgetCard title="Pagos recientes" sub="Personas nuevas acumuladas por plan (2 meses) y últimos cobros de Stripe" href="/admin/pagos">
+    <WidgetCard title="Pagos recientes" sub="Personas nuevas acumuladas por plan (1 mes) y últimos cobros de Stripe" href="/admin/pagos">
       {loading ? (
         <div className="h-32 animate-pulse bg-admin-border-soft rounded" />
       ) : error || !data ? (
