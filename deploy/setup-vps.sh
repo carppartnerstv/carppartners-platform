@@ -67,6 +67,12 @@ if [ -f "${APP_DIR}/deploy/nginx/${DOMAIN}.conf" ]; then
   nginx -t && systemctl reload nginx
 fi
 
+echo "==> Cron: bridge de Subscription Schedules pendientes (semanal)"
+if [ -f "${APP_DIR}/deploy/cron/carp-bridge-schedule-subs" ]; then
+  cp "${APP_DIR}/deploy/cron/carp-bridge-schedule-subs" /etc/cron.d/carp-bridge-schedule-subs
+  chmod 644 /etc/cron.d/carp-bridge-schedule-subs
+fi
+
 cat <<EOF
 
 =====================================================================

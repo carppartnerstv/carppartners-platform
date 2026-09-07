@@ -1,0 +1,22 @@
+# /etc/cron.d/carp-bridge-schedule-subs
+#
+# Corre bridge-schedule-subscriptions.js --send una vez por semana. Es el
+# único hueco que el fallback del webhook (upsertSubscriptionFromStripe) no
+# puede autocurar: una Subscription Schedule creada por WordPress/ARMember
+# no genera NINGÚN evento de Stripe hasta que se activa de verdad (~1 mes
+# después de crearse), así que no hay nada que el webhook pueda reaccionar
+# mientras tanto — solo revisándolo aparte se detecta.
+#
+# El script es idempotente y solo toca usuarios con una Subscription
+# Schedule pendiente y ninguna fila de suscripción todavía (ver el propio
+# script para el detalle). Log en /var/log/carp/bridge-schedule-subs.log —
+# conviene revisarlo de vez en cuando por si empieza a fallar algo.
+#
+# Instalación (no se aplica solo — copiar a /etc/cron.d/ tras cada cambio):
+#   cp deploy/cron/carp-bridge-schedule-subs /etc/cron.d/carp-bridge-schedule-subs
+#   chmod 644 /etc/cron.d/carp-bridge-schedule-subs
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# min hora dia-mes mes dia-semana usuario   comando
+0    4    *        *   1           root     cd /var/www/carp-partners-tv/backend && npm run bridge-schedule-subs -- --send >> /var/log/carp/bridge-schedule-subs.log 2>&1
