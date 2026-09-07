@@ -78,7 +78,13 @@ async function main() {
       const email = customer && !customer.deleted ? customer.email : user.email;
       if (!email) continue;
 
-      const others = await stripe.customers.list({ email, limit: 10 });
+      // customers.list({email}) es una comparación EXACTA y sensible a
+      // mayúsculas en Stripe — si el Customer duplicado se creó con otra
+      // capitalización del mismo email (visto en la práctica: WordPress no
+      // siempre normaliza), list() no lo encuentra. search() sí es
+      // insensible a mayúsculas.
+      const escaped = email.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      const others = await stripe.customers.search({ query: `email:'${escaped}'`, limit: 10 });
       const duplicates = others.data.filter((c) => c.id !== user.stripe_customer_id);
       if (duplicates.length === 0) continue;
 
