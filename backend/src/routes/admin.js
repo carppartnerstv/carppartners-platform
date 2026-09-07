@@ -162,17 +162,21 @@ adminRouter.get(
   }),
 );
 
+// Ventana de ambos widgets "recientes" del dashboard — 2 meses (60 días,
+// hoy incluido), como pidió el usuario tras ver el equivalente en ARMember.
+const RECENT_WINDOW_DAYS = 59;
+
 // GET /admin/dashboard/recent-members — equivalente al widget "Miembros
 // recientes" del panel de ARMember en WordPress: una fila de suscripción
 // nueva por cada alta (incluye re-altas tras cancelar, igual que contaba
-// ARMember) en los últimos 30 días, para tener un vistazo rápido sin salir
+// ARMember) en los últimos 2 meses, para tener un vistazo rápido sin salir
 // de nuestro panel mientras WordPress siga en paralelo.
 adminRouter.get(
   '/dashboard/recent-members',
   asyncHandler(async (_req, res) => {
     const { rows: series } = await query(
       `SELECT to_char(d::date, 'YYYY-MM-DD') AS date, COUNT(s.id)::int AS count
-         FROM generate_series(current_date - interval '29 days', current_date, interval '1 day') d
+         FROM generate_series(current_date - interval '${RECENT_WINDOW_DAYS} days', current_date, interval '1 day') d
          LEFT JOIN subscriptions s ON s.created_at::date = d::date
         GROUP BY d
         ORDER BY d`,
@@ -194,25 +198,39 @@ adminRouter.get(
 );
 
 // GET /admin/dashboard/recent-payments — equivalente al widget "Pagos
-// recientes" de ARMember: desglose por plan de las altas de los últimos 30
-// días (desde nuestra propia tabla, sin gastar llamadas a Stripe) + una
-// vista previa de los últimos cobros reales (reutiliza fetchRecentPayments,
-// misma fuente que /admin/payments).
+// recientes" de ARMember: en el original, la gráfica es una LÍNEA que
+// acumula el total de altas del Plan Estándar (los mismos suscriptores que
+// el widget de "Miembros recientes", vistos por el lado del pago) — no un
+// desglose en barras. Reproducimos eso: dos líneas acumuladas (mensual y
+// anual) sobre la misma ventana de 2 meses, calculadas con una suma
+// acumulada (SUM() OVER) directamente en SQL. Se añade la vista previa de
+// los últimos cobros reales (reutiliza fetchRecentPayments, misma fuente
+// que /admin/payments).
 adminRouter.get(
   '/dashboard/recent-payments',
   asyncHandler(async (_req, res) => {
-    const { rows: byPlanRows } = await query(
-      `SELECT COALESCE(plan, 'sin_plan') AS plan, COUNT(*)::int AS n
-         FROM subscriptions
-        WHERE created_at >= now() - interval '30 days'
-        GROUP BY plan`,
+    const { rows: series } = await query(
+      `WITH daily AS (
+         SELECT d::date AS date,
+                COUNT(s.id) FILTER (WHERE s.plan = 'monthly')::int AS monthly,
+                COUNT(s.id) FILTER (WHERE s.plan = 'annual')::int AS annual
+           FROM generate_series(current_date - interval '${RECENT_WINDOW_DAYS} days', current_date, interval '1 day') d
+           LEFT JOIN subscriptions s ON s.created_at::date = d::date
+          GROUP BY d
+       )
+       SELECT to_char(date, 'YYYY-MM-DD') AS date,
+              SUM(monthly) OVER (ORDER BY date)::int AS monthly,
+              SUM(annual) OVER (ORDER BY date)::int AS annual
+         FROM daily
+        ORDER BY date`,
     );
-    const byPlan = { monthly: 0, annual: 0 };
-    byPlanRows.forEach((r) => { if (r.plan === 'monthly' || r.plan === 'annual') byPlan[r.plan] = r.n; });
 
     const recent = await fetchRecentPayments(8);
 
-    res.json({ byPlan, recent });
+    res.json({
+      series: series.map((r) => ({ date: r.date, monthly: r.monthly, annual: r.annual })),
+      recent,
+    });
   }),
 );
 

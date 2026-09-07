@@ -210,13 +210,16 @@ export interface RecentMembers {
   recent: RecentMember[];
 }
 
-export interface RecentPaymentsByPlan {
+export interface RecentPaymentsDay {
+  date: string;
+  /** Acumulado (no diario) de altas del plan mensual hasta esta fecha. */
   monthly: number;
+  /** Acumulado (no diario) de altas del plan anual hasta esta fecha. */
   annual: number;
 }
 
 export interface RecentPayments {
-  byPlan: RecentPaymentsByPlan;
+  series: RecentPaymentsDay[];
   recent: Payment[];
 }
 

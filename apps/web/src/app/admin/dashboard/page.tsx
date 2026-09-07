@@ -70,47 +70,92 @@ function fmtAmount(amount: number, currency: string) {
   return (amount / 100).toLocaleString('es-ES', { style: 'currency', currency: currency.toUpperCase() });
 }
 
-// Gráfico de líneas hecho a mano (sin librería, para un solo sparkline no
-// merece la pena una dependencia nueva). preserveAspectRatio="none" +
-// w-full estira el viewBox al ancho real del contenedor.
-function MembersSparkline({ data }: { data: RecentMembers['series'] }) {
-  const w = 600, h = 90, pad = 6;
-  const max = Math.max(1, ...data.map((d) => d.count));
-  const step = data.length > 1 ? (w - pad * 2) / (data.length - 1) : 0;
-  const points = data.map((d, i) => {
-    const x = pad + i * step;
-    const y = h - pad - (d.count / max) * (h - pad * 2);
-    return { x, y, count: d.count };
-  });
-  const polyline = points.map((p) => `${p.x},${p.y}`).join(' ');
+// Redondea el máximo del eje Y a un número "bonito" (1/2/5 × potencia de
+// 10) para que las líneas de rejilla caigan en valores enteros legibles,
+// en vez de escalar exactamente al máximo real de los datos.
+function niceMax(raw: number, ticks = 4) {
+  if (raw <= 0) return ticks;
+  const rawStep = raw / ticks;
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const norm = rawStep / magnitude;
+  const niceStep = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * magnitude;
+  return Math.ceil(raw / niceStep) * niceStep;
+}
+
+// Gráfico de líneas con los dos ejes (como el panel de ARMember), hecho a
+// mano en SVG — para dos gráficos tan simples no compensa añadir una
+// librería nueva. Admite una o varias series (para el desglose por plan).
+function AxisLineChart({
+  dates, series, height = 130,
+}: {
+  dates: string[];
+  series: { label: string; color: string; values: number[] }[];
+  height?: number;
+}) {
+  const w = 640, h = height;
+  const padLeft = 26, padRight = 8, padTop = 8, padBottom = 30;
+  const plotW = w - padLeft - padRight;
+  const plotH = h - padTop - padBottom;
+
+  const rawMax = Math.max(1, ...series.flatMap((s) => s.values));
+  const yMax = niceMax(rawMax);
+  const yTicks = [0, 1, 2, 3, 4].map((i) => Math.round((yMax / 4) * i));
+
+  const n = dates.length;
+  const stepX = n > 1 ? plotW / (n - 1) : 0;
+  const xFor = (i: number) => padLeft + i * stepX;
+  const yFor = (v: number) => padTop + plotH - (v / yMax) * plotH;
+  // No amontonar las fechas del eje X: una etiqueta cada ~6 puntos (2 meses ≈ 10 etiquetas).
+  const xTickEvery = Math.max(1, Math.round(n / 10));
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full h-20">
-      <polyline points={polyline} fill="none" stroke="#cf4a35" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
-      {points.map((p, i) => p.count > 0 && (
-        <circle key={data[i].date} cx={p.x} cy={p.y} r={3} fill="#cf4a35" />
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height }}>
+      {yTicks.map((v) => (
+        <g key={v}>
+          <line x1={padLeft} x2={w - padRight} y1={yFor(v)} y2={yFor(v)} stroke="#eef0f2" strokeWidth={1} />
+          <text x={padLeft - 5} y={yFor(v)} textAnchor="end" dominantBaseline="middle" fontSize={9} fill="#9aa0a6">
+            {v}
+          </text>
+        </g>
+      ))}
+      <line x1={padLeft} x2={padLeft} y1={padTop} y2={h - padBottom} stroke="#e7e9ec" strokeWidth={1} />
+      <line x1={padLeft} x2={w - padRight} y1={h - padBottom} y2={h - padBottom} stroke="#e7e9ec" strokeWidth={1} />
+      {dates.map((d, i) => i % xTickEvery === 0 && (
+        <text
+          key={d}
+          x={xFor(i)}
+          y={h - padBottom + 12}
+          textAnchor="end"
+          fontSize={8.5}
+          fill="#9aa0a6"
+          transform={`rotate(-40 ${xFor(i)} ${h - padBottom + 12})`}
+        >
+          {fmtShortDate(d)}
+        </text>
+      ))}
+      {series.map((s) => (
+        <polyline
+          key={s.label}
+          points={s.values.map((v, i) => `${xFor(i)},${yFor(v)}`).join(' ')}
+          fill="none"
+          stroke={s.color}
+          strokeWidth={2.25}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
       ))}
     </svg>
   );
 }
 
-function PlanBars({ byPlan }: { byPlan: RecentPayments['byPlan'] }) {
-  const bars = [
-    { label: 'Mensual', value: byPlan.monthly },
-    { label: 'Anual', value: byPlan.annual },
-  ];
-  const max = Math.max(1, byPlan.monthly, byPlan.annual);
+function ChartLegend({ series }: { series: { label: string; color: string }[] }) {
   return (
-    <div className="flex items-end gap-6 h-20 px-2">
-      {bars.map((b) => (
-        <div key={b.label} className="flex flex-col items-center gap-1.5 flex-1">
-          <span className="text-xs font-semibold text-admin-text">{b.value}</span>
-          <div
-            className="w-full max-w-12 rounded-t bg-brand-bright"
-            style={{ height: `${Math.max(4, (b.value / max) * 56)}px` }}
-          />
-          <span className="text-[11px] text-admin-text-muted">{b.label}</span>
-        </div>
+    <div className="flex items-center gap-4 mb-1">
+      {series.map((s) => (
+        <span key={s.label} className="flex items-center gap-1.5 text-[11px] text-admin-text-secondary">
+          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: s.color }} />
+          {s.label}
+        </span>
       ))}
     </div>
   );
@@ -146,14 +191,17 @@ function RecentMembersWidget() {
   }, []);
 
   return (
-    <WidgetCard title="Miembros recientes" sub="Altas nuevas (o re-altas) de los últimos 30 días" href="/admin/suscriptores">
+    <WidgetCard title="Miembros recientes" sub="Altas nuevas (o re-altas) de los últimos 2 meses" href="/admin/suscriptores">
       {loading ? (
-        <div className="h-20 animate-pulse bg-admin-border-soft rounded" />
+        <div className="h-32 animate-pulse bg-admin-border-soft rounded" />
       ) : error || !data ? (
         <p className="text-admin-text-tertiary text-sm py-6 text-center">{error || 'Sin datos'}</p>
       ) : (
         <>
-          <MembersSparkline data={data.series} />
+          <AxisLineChart
+            dates={data.series.map((d) => d.date)}
+            series={[{ label: 'Miembros', color: '#cf4a35', values: data.series.map((d) => d.count) }]}
+          />
           <ul className="mt-4 space-y-2.5 max-h-52 overflow-y-auto">
             {data.recent.length === 0 && (
               <li className="text-admin-text-tertiary text-sm text-center py-4">Todavía no hay suscripciones.</li>
@@ -189,15 +237,27 @@ function RecentPaymentsWidget() {
       .finally(() => setLoading(false));
   }, []);
 
+  const legendSeries = [
+    { label: 'Mensual', color: '#cf4a35' },
+    { label: 'Anual', color: '#2f6f76' },
+  ];
+
   return (
-    <WidgetCard title="Pagos recientes" sub="Altas por plan (30 días) y últimos cobros de Stripe" href="/admin/pagos">
+    <WidgetCard title="Pagos recientes" sub="Altas acumuladas por plan (2 meses) y últimos cobros de Stripe" href="/admin/pagos">
       {loading ? (
-        <div className="h-20 animate-pulse bg-admin-border-soft rounded" />
+        <div className="h-32 animate-pulse bg-admin-border-soft rounded" />
       ) : error || !data ? (
         <p className="text-admin-text-tertiary text-sm py-6 text-center">{error || 'Sin datos'}</p>
       ) : (
         <>
-          <PlanBars byPlan={data.byPlan} />
+          <ChartLegend series={legendSeries} />
+          <AxisLineChart
+            dates={data.series.map((d) => d.date)}
+            series={[
+              { label: 'Mensual', color: '#cf4a35', values: data.series.map((d) => d.monthly) },
+              { label: 'Anual', color: '#2f6f76', values: data.series.map((d) => d.annual) },
+            ]}
+          />
           <ul className="mt-4 space-y-2.5 max-h-52 overflow-y-auto">
             {data.recent.length === 0 && (
               <li className="text-admin-text-tertiary text-sm text-center py-4">Todavía no hay cobros.</li>
