@@ -1,6 +1,6 @@
 // scripts/find-stale-customer-links.js
 //
-// Reconciliación de solo lectura, SIN ventana de fechas — a diferencia de
+// Reconciliación SIN ventana de fechas — a diferencia de
 // reconcile-webhook-gap.js (que solo mira el apagón del 21-24 ago), este
 // script revisa a CUALQUIER usuario que hoy no tenga acceso vigente en
 // nuestra plataforma, y comprueba si en Stripe existe otro Customer con su
@@ -9,19 +9,25 @@
 // Motivo: WordPress/ARMember (que sigue activo en paralelo a esta
 // plataforma) crea un Customer de Stripe NUEVO cada vez que alguien se
 // da de alta — incluida una persona que ya había sido cliente antes y
-// cancela y vuelve a suscribirse. ARMember lo trata como el mismo
-// suscriptor (mismo historial de membresía), pero en Stripe son dos
-// Customer distintos, y nuestro webhook solo sabe resolver por
-// stripe_customer_id — así que la persona paga y sigue "cancelada" en
-// nuestra plataforma. Caso real que motivó este script:
+// cancela y vuelve a suscribirse, o incluso en cada renovación mensual.
+// ARMember lo trata como el mismo suscriptor (mismo historial de
+// membresía), pero en Stripe son Customer distintos, y nuestro webhook
+// solo sabe resolver por stripe_customer_id — así que la persona paga y
+// pierde acceso en nuestra plataforma en cuanto expira la última fila que
+// sí teníamos enlazada. Caso real que motivó este script:
 // zamoracabrillana2000@gmail.com (cus_TGdFmvYjxCEBIi antiguo/cancelado,
 // cus_V0oQGXmA5DaqkF nuevo/activo desde 4/08/2026 vía WordPress).
 //
-// NO escribe nada. Solo imprime un informe — el arreglo de verdad
-// (relink-duplicate-customers.js, o un arreglo estructural del webhook)
-// se decide después de ver el alcance real.
+// Por defecto (dry-run) solo imprime un informe. Con --send, SOLO corrige
+// los casos que dan acceso AHORA MISMO en Stripe (los urgentes) —
+// re-enlaza users.stripe_customer_id al Customer correcto e importa esa
+// suscripción. Los casos sin acceso vigente en ninguno de los duplicados
+// se quedan solo listados, para revisión aparte (no son urgentes: nadie
+// está pagando sin acceso por esos).
 //
-// Uso: node scripts/find-stale-customer-links.js
+// Uso:
+//   node scripts/find-stale-customer-links.js            # dry-run
+//   node scripts/find-stale-customer-links.js --send      # corrige los urgentes
 
 import dotenv from 'dotenv';
 import path from 'path';
@@ -34,6 +40,7 @@ dotenv.config({ path: path.join(__dirname, '../backend/.env') });
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const SEND = process.argv.includes('--send');
 
 // Mismo criterio que requireSubscription (auth.js): con esto NO hay acceso.
 const ACCESS_GRANTING_DB_STATUSES = ['active', 'trialing', 'past_due'];
@@ -43,7 +50,57 @@ function fmtDate(unixSeconds) {
   return unixSeconds ? new Date(unixSeconds * 1000).toISOString().slice(0, 10) : '?';
 }
 
+// Mismas funciones que relink-duplicate-customers.js (copiadas, no
+// importadas, para no depender de rutas relativas frágiles entre
+// scripts/ y backend/ — mismo patrón ya usado en ese script).
+function planFromPrice(price) {
+  const productId = typeof price?.product === 'string' ? price.product : price?.product?.id;
+  if (productId && productId === process.env.STRIPE_PRODUCT_MONTHLY) return 'monthly';
+  if (productId && productId === process.env.STRIPE_PRODUCT_ANNUAL) return 'annual';
+  const priceId = price?.id;
+  if (priceId && priceId === process.env.STRIPE_PRICE_MONTHLY) return 'monthly';
+  if (priceId && priceId === process.env.STRIPE_PRICE_ANNUAL) return 'annual';
+  return null;
+}
+
+function mapStripeStatus(stripeStatus) {
+  switch (stripeStatus) {
+    case 'active': return 'active';
+    case 'trialing': return 'trialing';
+    case 'past_due':
+    case 'unpaid': return 'past_due';
+    case 'canceled': return 'cancelled';
+    default: return 'incomplete';
+  }
+}
+
+async function upsertSubscriptionRow(userId, sub) {
+  const price = sub.items?.data?.[0]?.price ?? null;
+  const plan = planFromPrice(price);
+  const status = mapStripeStatus(sub.status);
+  await pool.query(
+    `INSERT INTO subscriptions
+        (user_id, stripe_sub_id, plan, status, period_start, period_end, cancelled_at, cancel_at_period_end)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+     ON CONFLICT (stripe_sub_id) DO UPDATE SET
+        plan = EXCLUDED.plan, status = EXCLUDED.status,
+        period_start = EXCLUDED.period_start, period_end = EXCLUDED.period_end,
+        cancelled_at = EXCLUDED.cancelled_at, cancel_at_period_end = EXCLUDED.cancel_at_period_end`,
+    [
+      userId, sub.id, plan, status,
+      sub.current_period_start ? new Date(sub.current_period_start * 1000) : null,
+      sub.current_period_end ? new Date(sub.current_period_end * 1000) : null,
+      sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
+      !!sub.cancel_at_period_end,
+    ],
+  );
+}
+
 async function main() {
+  console.log(SEND
+    ? '*** MODO ESCRITURA REAL (--send) — solo corrige los casos que dan acceso ahora mismo ***'
+    : 'Modo DRY-RUN (no se escribe nada — usa --send para corregir los casos urgentes)');
+
   // Usuarios con customer_id pero que HOY no tendrían acceso vigente según
   // requireSubscription (sin suscripción, o con una que ya no da acceso).
   // Mismo SUB_LATERAL que usa el panel admin (admin.js), para que el
@@ -68,7 +125,7 @@ async function main() {
 
   console.log(`Revisando ${candidates.length} usuarios sin acceso vigente que sí tienen stripe_customer_id...\n`);
 
-  let checked = 0, found = 0, failed = 0;
+  let checked = 0, found = 0, fixed = 0, failed = 0;
   const stale = [];
 
   for (const user of candidates) {
@@ -88,18 +145,36 @@ async function main() {
       const duplicates = others.data.filter((c) => c.id !== user.stripe_customer_id);
       if (duplicates.length === 0) continue;
 
+      // Entre TODOS los Customer duplicados y TODAS sus suscripciones,
+      // buscamos la mejor: preferimos una que dé acceso ahora mismo: si
+      // hay varias, la más reciente; si ninguna da acceso, la más
+      // reciente de todas (aunque esté cancelada), para que el historial
+      // importado sea correcto igualmente.
+      let best = null; // { dup, sub }
       for (const dup of duplicates) {
         const subs = await stripe.subscriptions.list({ customer: dup.id, status: 'all', limit: 10 });
-        const bestSub = subs.data.find((s) => ACCESS_GRANTING_STRIPE_STATUSES.includes(s.status))
-          ?? subs.data.sort((a, b) => b.created - a.created)[0];
-        if (!bestSub) continue;
+        for (const sub of subs.data) {
+          if (!best) { best = { dup, sub }; continue; }
+          const subGrants = ACCESS_GRANTING_STRIPE_STATUSES.includes(sub.status);
+          const bestGrants = ACCESS_GRANTING_STRIPE_STATUSES.includes(best.sub.status);
+          if (subGrants && !bestGrants) best = { dup, sub };
+          else if (subGrants === bestGrants && sub.created > best.sub.created) best = { dup, sub };
+        }
+      }
+      if (!best) continue;
 
-        const grantsAccessNow = ACCESS_GRANTING_STRIPE_STATUSES.includes(bestSub.status);
-        console.log(`${grantsAccessNow ? '🔴' : '⚪'} ${email}`);
-        console.log(`   BD hoy: ${user.stripe_customer_id} — status=${user.db_status ?? '(sin fila)'}, period_end=${user.db_period_end ?? '-'}`);
-        console.log(`   Stripe también tiene: ${dup.id} (cliente desde ${fmtDate(dup.created)}) — ${bestSub.id} (${bestSub.status}, creada ${fmtDate(bestSub.created)})${grantsAccessNow ? '  ← DA ACCESO AHORA MISMO' : ''}`);
-        stale.push({ email, dbCustomerId: user.stripe_customer_id, otherCustomerId: dup.id, subId: bestSub.id, subStatus: bestSub.status, grantsAccessNow });
-        found++;
+      const grantsAccessNow = ACCESS_GRANTING_STRIPE_STATUSES.includes(best.sub.status);
+      console.log(`${grantsAccessNow ? '🔴' : '⚪'} ${email}`);
+      console.log(`   BD hoy: ${user.stripe_customer_id} — status=${user.db_status ?? '(sin fila)'}, period_end=${user.db_period_end ?? '-'}`);
+      console.log(`   Stripe también tiene: ${best.dup.id} (cliente desde ${fmtDate(best.dup.created)}) — ${best.sub.id} (${best.sub.status}, creada ${fmtDate(best.sub.created)})${grantsAccessNow ? '  ← DA ACCESO AHORA MISMO' : ''}`);
+      found++;
+      stale.push({ email, grantsAccessNow });
+
+      if (SEND && grantsAccessNow) {
+        await pool.query('UPDATE users SET stripe_customer_id = $1 WHERE id = $2', [best.dup.id, user.id]);
+        await upsertSubscriptionRow(user.id, best.sub);
+        console.log(`   🔧 corregido`);
+        fixed++;
       }
     } catch (err) {
       failed++;
@@ -111,6 +186,7 @@ async function main() {
   console.log(`Usuarios revisados: ${checked}`);
   console.log(`Casos con Customer duplicado y suscripción real: ${found}`);
   console.log(`  De los cuales dan acceso AHORA MISMO en Stripe (usuarios pagando sin acceso en la plataforma): ${stale.filter((s) => s.grantsAccessNow).length}`);
+  if (SEND) console.log(`Corregidos: ${fixed}`);
   console.log(`Fallidos: ${failed}`);
 
   await pool.end();
