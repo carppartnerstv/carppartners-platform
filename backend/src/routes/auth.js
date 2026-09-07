@@ -37,9 +37,13 @@ import { asyncHandler, badRequest, unauthorized, HttpError } from '../utils/erro
 import { requireAuth } from '../middleware/auth.js';
 import { authSensitiveLimiter } from '../middleware/rateLimit.js';
 import { sendMail } from '../services/mail.js';
-import { welcomeEmail, passwordResetEmail } from '../services/mailTemplates.js';
+import { welcomeEmail, passwordResetEmail, setPasswordEmail } from '../services/mailTemplates.js';
 
 const FORGOT_PASSWORD_TTL_MS = 30 * 60 * 1000; // 30 minutos
+// Mismo TTL que usa migrate-stripe.js / admin.js para el enlace de
+// "establece tu contraseña" — reutilizado aquí para el reenvío automático
+// en login (ver más abajo).
+const SET_PASSWORD_TTL_DAYS = 14;
 
 // ─── Subida de la foto de perfil propia (mismo patrón que el avatar de crew,
 // pero en su propia carpeta: backend/uploads/avatars/) ───────────────────────
@@ -138,15 +142,43 @@ authRouter.post(
     const { email, password } = parse(credsSchema.pick({ email: true, password: true }), req.body);
 
     const user = await queryOne(
-      `SELECT id, email, name, role, avatar_url, stripe_customer_id, password_hash
+      `SELECT id, email, name, role, avatar_url, stripe_customer_id, password_hash,
+              password_set_token, password_set_expires
          FROM users WHERE email = $1`,
       [email.toLowerCase()],
     );
 
-    // Mensaje genérico para no revelar si el email existe.
-    if (!user || !user.password_hash) {
+    // Mensaje genérico para no revelar si el email existe — salvo el caso de
+    // abajo (cuenta migrada de WordPress/creada por el webhook/admin sin
+    // contraseña), donde SÍ merece la pena distinguirlo: si no, la persona
+    // prueba "su" contraseña varias veces pensando que se equivoca, cuando
+    // en realidad nunca ha tenido ninguna en esta plataforma.
+    if (!user) {
       throw unauthorized('Email o contraseña incorrectos', 'BAD_CREDENTIALS');
     }
+
+    if (!user.password_hash) {
+      // Reutiliza el token si sigue vigente (no lo regeneramos en cada
+      // intento fallido de login — invalidaría un enlace que la persona ya
+      // tuviera abierto en el correo). Solo genera uno nuevo si no había o
+      // había caducado.
+      let token = user.password_set_token;
+      const stillValid = user.password_set_expires && new Date(user.password_set_expires) > new Date();
+      if (!token || !stillValid) {
+        token = crypto.randomBytes(32).toString('hex');
+        const expires = new Date(Date.now() + SET_PASSWORD_TTL_DAYS * 86_400_000);
+        await query('UPDATE users SET password_set_token = $1, password_set_expires = $2 WHERE id = $3', [token, expires, user.id]);
+      }
+      const setUrl = `${config.publicWebUrl}/set-password?token=${token}`;
+      // Fire-and-forget, igual que el resto de emails transaccionales — un
+      // SMTP lento no debe retrasar la respuesta al cliente.
+      sendMail({ to: user.email, ...setPasswordEmail({ name: user.name, setUrl }) });
+      throw unauthorized(
+        'Esta cuenta aún no tiene contraseña en la nueva plataforma — te hemos enviado un enlace para crearla.',
+        'PASSWORD_NOT_SET',
+      );
+    }
+
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) throw unauthorized('Email o contraseña incorrectos', 'BAD_CREDENTIALS');
 
@@ -159,6 +191,8 @@ authRouter.post(
     );
 
     delete user.password_hash;
+    delete user.password_set_token;
+    delete user.password_set_expires;
     const tokens = await issueTokens(user);
     res.json({ user, ...tokens });
   }),

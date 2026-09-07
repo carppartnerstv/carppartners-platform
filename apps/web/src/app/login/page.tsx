@@ -41,6 +41,7 @@ function LoginContent() {
   const [showPass, setShowPass]   = useState(false);
   const [remember, setRemember]   = useState(true);
   const [apiError, setApiError]   = useState('');
+  const [apiErrorCode, setApiErrorCode] = useState('');
   const [loading, setLoading]     = useState(false);
   const [lastAction, setLastAction] = useState<'register' | null>(null);
   const [resending, setResending] = useState(false);
@@ -54,11 +55,12 @@ function LoginContent() {
     else router.replace(lastAction === 'register' ? '/planes?bienvenido=1' : '/planes');
   }, [status, user, hasSubscription, router, lastAction]);
 
-  const go = (s: Screen) => { setScreen(s); setFocus(''); setApiError(''); setResent(false); };
+  const go = (s: Screen) => { setScreen(s); setFocus(''); setApiError(''); setApiErrorCode(''); setResent(false); };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setApiError('');
+    setApiErrorCode('');
 
     // Validación manual (sin tooltips nativos del browser)
     if (screen === 'register' && !name.trim()) {
@@ -79,6 +81,7 @@ function LoginContent() {
       }
     } catch (err) {
       setApiError(err instanceof ApiError ? err.message : 'Ha ocurrido un error inesperado.');
+      setApiErrorCode(err instanceof ApiError ? err.code : '');
     } finally {
       setLoading(false);
     }
@@ -310,8 +313,13 @@ function LoginContent() {
                 </div>
               )}
 
-              {/* Error */}
-              {apiError && <ErrorBanner message={apiError} />}
+              {/* Error — PASSWORD_NOT_SET no es un error de credenciales
+                  (la persona nunca ha tenido contraseña en la nueva
+                  plataforma, típico de cuentas migradas de WordPress), así
+                  que se muestra distinto: tono informativo, no de alarma. */}
+              {apiError && (apiErrorCode === 'PASSWORD_NOT_SET'
+                ? <InfoBanner message={apiError} />
+                : <ErrorBanner message={apiError} />)}
 
               {/* CTA */}
               <button
@@ -487,6 +495,18 @@ function ErrorBanner({ message }: { message: string }) {
       className="mb-4 px-3 py-2.5 rounded-lg text-[13px] leading-snug"
       style={{ background: 'rgba(192,57,43,0.12)', border: '1px solid rgba(192,57,43,0.3)', color: '#ff8a80' }}
     >
+      {message}
+    </div>
+  );
+}
+
+function InfoBanner({ message }: { message: string }) {
+  return (
+    <div
+      className="mb-4 px-3 py-2.5 rounded-lg text-[13px] leading-snug flex items-start gap-2"
+      style={{ background: 'rgba(216,166,74,0.16)', border: '1px solid rgba(216,166,74,0.35)', color: '#e3bd72' }}
+    >
+      <i className="ti ti-mail-check text-[16px] shrink-0 mt-[1px]" />
       {message}
     </div>
   );
