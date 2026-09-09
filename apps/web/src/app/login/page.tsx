@@ -4,12 +4,19 @@ import React, { Suspense, useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Mailcheck from 'mailcheck';
 import { useSession } from '@/context/SessionContext';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type Screen = 'login' | 'register' | 'forgot' | 'sent';
+
+// Validación de formato básica (no pretende ser 100% RFC 5322 — nadie la
+// implementa bien y el propio type="email" del input ya ayuda; esto es solo
+// para poder dar un mensaje específico en vez del genérico "correo
+// obligatorio" cuando el formato es claramente inválido).
+const EMAIL_FORMAT_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ─── Fuerza de contraseña ─────────────────────────────────────────────────────
 
@@ -35,6 +42,8 @@ function LoginContent() {
   );
   const [name, setName]           = useState('');
   const [email, setEmail]         = useState('');
+  const [emailConfirm, setEmailConfirm] = useState('');
+  const [emailSuggestion, setEmailSuggestion] = useState<string | null>(null);
   const [pass, setPass]           = useState('');
   const [sentEmail, setSentEmail] = useState('');
   const [focus, setFocus]         = useState('');
@@ -68,6 +77,14 @@ function LoginContent() {
       return;
     }
     if (!email.trim()) { setApiError('El correo es obligatorio.'); return; }
+    if (!EMAIL_FORMAT_RE.test(email.trim())) {
+      setApiError('El formato del correo electrónico no es válido.');
+      return;
+    }
+    if (screen === 'register' && email.trim().toLowerCase() !== emailConfirm.trim().toLowerCase()) {
+      setApiError('Los dos correos no coinciden. Revísalos e inténtalo de nuevo.');
+      return;
+    }
     if (!pass) { setApiError('La contraseña es obligatoria.'); return; }
 
     setLoading(true);
@@ -85,6 +102,19 @@ function LoginContent() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Sugerencia de dominio mal escrito (gmial.com, gmail.con, hotmial.com…)
+  // al salir del campo de email en el registro — no bloqueante, solo un
+  // aviso con un clic para aceptar la corrección.
+  const handleEmailBlur = () => {
+    setFocus('');
+    if (screen !== 'register' || !email.trim()) { setEmailSuggestion(null); return; }
+    Mailcheck.run({
+      email: email.trim(),
+      suggested: (suggestion: { full: string }) => setEmailSuggestion(suggestion.full),
+      empty: () => setEmailSuggestion(null),
+    });
   };
 
   const handleSendReset = async (e: React.FormEvent) => {
@@ -227,18 +257,52 @@ function LoginContent() {
               )}
 
               {/* Email */}
-              <FieldWrap label="Correo electrónico" icon="mail" borderColor={border('email')} focused={focus === 'email'}>
+              <FieldWrap label="Correo electrónico" icon="mail" borderColor={border('email')} focused={focus === 'email'} noMargin={screen === 'register' && !!emailSuggestion}>
                 <input
                   type="email"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={e => { setEmail(e.target.value); setEmailSuggestion(null); }}
                   onFocus={() => setFocus('email')}
-                  onBlur={() => setFocus('')}
+                  onBlur={handleEmailBlur}
                   placeholder="tu@correo.com"
                   autoFocus={screen === 'login'}
                   style={inputStyle}
                 />
               </FieldWrap>
+
+              {/* Sugerencia de dominio mal escrito — no bloquea, un clic la aplica */}
+              {emailSuggestion && (
+                <div className="mt-1.5 mb-[18px]" style={{ fontSize: 12.5, color: '#9aa9a3' }}>
+                  ¿Quisiste decir{' '}
+                  <button
+                    type="button"
+                    onClick={() => { setEmail(emailSuggestion); setEmailSuggestion(null); }}
+                    className="font-semibold hover:underline"
+                    style={{ color: '#e3bd72', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  >
+                    {emailSuggestion}
+                  </button>
+                  ?
+                </div>
+              )}
+
+              {/* Confirmar email (solo register) — sin pegar, para forzar a
+                  volver a teclearlo y detectar de verdad un error de tecleo
+                  (si se pudiera pegar, se copiaría el mismo error). */}
+              {screen === 'register' && (
+                <FieldWrap label="Confirmar correo electrónico" icon="mail" borderColor={border('emailConfirm')} focused={focus === 'emailConfirm'}>
+                  <input
+                    type="email"
+                    value={emailConfirm}
+                    onChange={e => setEmailConfirm(e.target.value)}
+                    onFocus={() => setFocus('emailConfirm')}
+                    onBlur={() => setFocus('')}
+                    onPaste={e => e.preventDefault()}
+                    placeholder="Repite tu correo"
+                    style={inputStyle}
+                  />
+                </FieldWrap>
+              )}
 
               {/* Contraseña */}
               <FieldWrap

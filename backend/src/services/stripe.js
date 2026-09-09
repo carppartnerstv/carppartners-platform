@@ -68,20 +68,48 @@ export async function createPortalSession(stripeCustomerId, returnUrl) {
 }
 
 /**
+ * Busca un Customer existente en Stripe por email, sin crear nada.
+ * Combina dos formas de buscar porque cada una falla en un caso distinto:
+ *   - list({email}) es inmediatamente consistente pero exige coincidencia
+ *     EXACTA de mayúsculas — un Customer creado por WordPress con otra
+ *     capitalización del mismo email no aparecería.
+ *   - search() es insensible a mayúsculas pero NO es inmediatamente
+ *     consistente (Stripe tarda un poco en indexar un Customer recién
+ *     creado) — un alta hecha en el mismo instante podría no encontrarse.
+ * Entre los dos cubren tanto "ya existía desde hace tiempo con otra
+ * capitalización" como "se acaba de crear ahora mismo".
+ */
+async function findStripeCustomerByEmail(email) {
+  const exact = await stripe.customers.list({ email, limit: 1 });
+  if (exact.data[0]) return exact.data[0];
+
+  const escaped = email.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const found = await stripe.customers.search({ query: `email:'${escaped}'`, limit: 1 });
+  return found.data[0] ?? null;
+}
+
+/**
  * Devuelve el stripe_customer_id del usuario, creándolo en Stripe (y
  * guardándolo en nuestra BD) si todavía no tiene uno. Tiene que existir
  * ANTES de crear la Checkout Session: es lo que permite al webhook
  * (upsertSubscriptionFromStripe) resolver qué usuario nuestro corresponde
  * a la suscripción que llega de Stripe.
+ *
+ * Antes de crear un Customer nuevo, busca si Stripe ya tiene uno con este
+ * email — evita crear un duplicado cuando alguien cancela y vuelve a
+ * suscribirse más tarde (o cualquier otro camino por el que ya exista un
+ * Customer con este email sin que nuestro stripe_customer_id lo sepa).
  */
 export async function getOrCreateStripeCustomer(user) {
   if (user.stripe_customer_id) return user.stripe_customer_id;
 
-  const customer = await stripe.customers.create({
-    email: user.email,
-    name: user.name ?? undefined,
-    metadata: { userId: user.id },
-  });
+  const existing = await findStripeCustomerByEmail(user.email);
+  const customer = existing
+    ?? await stripe.customers.create({
+      email: user.email,
+      name: user.name ?? undefined,
+      metadata: { userId: user.id },
+    });
 
   await query('UPDATE users SET stripe_customer_id = $1 WHERE id = $2', [customer.id, user.id]);
   return customer.id;
