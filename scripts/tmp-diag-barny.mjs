@@ -25,6 +25,15 @@ console.log('4) De esos, distintos al nuestro:', duplicates.length);
 for (const dup of duplicates) {
   const subs = await stripe.subscriptions.list({ customer: dup.id, status: 'all', limit: 10 });
   console.log(`   Suscripciones de ${dup.id}:`, subs.data.map((s) => `${s.id}(${s.status}, creada ${new Date(s.created * 1000).toISOString().slice(0,10)})`));
+
+  const schedules = await stripe.subscriptionSchedules.list({ customer: dup.id, limit: 10 });
+  console.log(`   Subscription Schedules de ${dup.id}:`, schedules.data.map((sc) => ({
+    id: sc.id, status: sc.status, subscription: sc.subscription,
+    phases: sc.phases?.map((p) => ({ start: new Date(p.start_date * 1000).toISOString().slice(0,10), price: p.items?.[0]?.price })),
+  })));
+
+  const charges = await stripe.charges.list({ customer: dup.id, limit: 10 });
+  console.log(`   Cargos de ${dup.id}:`, charges.data.map((c) => `${c.id}(${c.status}, ${c.amount/100}${c.currency}, ${new Date(c.created*1000).toISOString().slice(0,10)})`));
 }
 
 process.exit(0);
