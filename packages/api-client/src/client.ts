@@ -22,6 +22,7 @@ import type {
   AdminUserDetail,
   AdminCreateUserInput,
   AdminCreatedUser,
+  AdminUserBasic,
   CourtesySubscriptionInput,
   AdminSubscription,
   UserStatusCounts,
@@ -486,6 +487,10 @@ export class ApiClient {
 
   async getAdminUserDetail(id: string): Promise<AdminUserDetail> {
     return this.request('GET', `/admin/users/${id}/detail`);
+  }
+
+  async updateAdminUserEmail(id: string, email: string): Promise<{ user: AdminUserBasic }> {
+    return this.request('PUT', `/admin/users/${id}`, { body: { email } });
   }
 
   async getAdminPayments(params?: { limit?: number }): Promise<{ payments: Payment[] }> {

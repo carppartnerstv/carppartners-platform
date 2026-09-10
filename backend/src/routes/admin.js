@@ -612,6 +612,45 @@ adminRouter.get(
   }),
 );
 
+// PUT /admin/users/:id  { email } — corrige el email de un suscriptor (p.
+// ej. un error de tecleo en el registro que le deja sin recibir el correo
+// de activación). Actualiza también el email en el Customer de Stripe (si
+// tiene stripe_customer_id) para que no se desincronice — el fallback del
+// webhook (upsertSubscriptionFromStripe, re-enlace/creación automática por
+// email) depende de que el email en Stripe y en nuestra BD coincidan; si
+// Stripe falla al actualizar, no bloquea el cambio en nuestra BD, que es
+// lo que de verdad importa para el login — solo se registra el aviso.
+const updateUserEmailSchema = z.object({ email: z.string().email() });
+
+adminRouter.put(
+  '/users/:id',
+  asyncHandler(async (req, res) => {
+    const parsed = updateUserEmailSchema.safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message ?? 'Email inválido', 'VALIDATION');
+    const email = parsed.data.email.toLowerCase();
+
+    const target = await queryOne('SELECT id, stripe_customer_id FROM users WHERE id = $1', [req.params.id]);
+    if (!target) throw notFound('Usuario no encontrado', 'USER_NOT_FOUND');
+
+    const taken = await queryOne('SELECT id FROM users WHERE email = $1 AND id <> $2', [email, target.id]);
+    if (taken) throw badRequest('Ese email ya está en uso por otro usuario', 'EMAIL_TAKEN');
+
+    const user = await queryOne(
+      `UPDATE users SET email = $1 WHERE id = $2
+       RETURNING id, email, name, role, avatar_url, stripe_customer_id`,
+      [email, target.id],
+    );
+
+    if (target.stripe_customer_id) {
+      await stripe.customers.update(target.stripe_customer_id, { email }).catch((err) => {
+        console.error(`[admin] No se pudo actualizar el email en Stripe (${target.stripe_customer_id}):`, err.message);
+      });
+    }
+
+    res.json({ user });
+  }),
+);
+
 // =====================================================================
 // Alta manual de suscriptores + suscripciones de cortesía (sin Stripe).
 // Pensado para familiares, sorteos, etc. Nunca tocan stripe_sub_id.

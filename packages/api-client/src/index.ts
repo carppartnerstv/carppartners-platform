@@ -28,6 +28,7 @@ export type {
   AdminUserLoginHistoryItem,
   AdminCreateUserInput,
   AdminCreatedUser,
+  AdminUserBasic,
   CourtesySubscriptionInput,
   AdminSubscription,
   UserStatusCounts,

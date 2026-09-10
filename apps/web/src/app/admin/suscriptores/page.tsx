@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Mailcheck from 'mailcheck';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import { Button, Pagination } from '@carp-partners/ui';
 import type { AdminUser, AdminUserDetail, UserStatusCounts, CourtesySubscriptionInput } from '@carp-partners/api-client';
@@ -9,6 +10,9 @@ import { AdminModal } from '@/components/admin/AdminModal';
 import { useToast } from '@/context/ToastContext';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+// Misma validación que el formulario de login/registro público.
+const EMAIL_FORMAT_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function fmtDate(iso: string | null | undefined) {
   if (!iso) return '—';
@@ -458,19 +462,119 @@ function Th({ children, right }: { children: React.ReactNode; right?: boolean })
   );
 }
 
+// Formulario inline para corregir el email de un suscriptor (p. ej. un
+// error de tecleo en el registro que le deja sin recibir el correo de
+// activación) — mismas medidas anti-error que el formulario público de
+// registro: campo de confirmación (sin pegar, para forzar a re-teclear) y
+// sugerencia de dominio mal escrito con mailcheck, ambas no bloqueantes.
+function EditEmailForm({
+  userId, currentEmail, onSaved, onCancel,
+}: {
+  userId: string;
+  currentEmail: string;
+  onSaved: (newEmail: string) => void;
+  onCancel: () => void;
+}) {
+  const { toast } = useToast();
+  const [email, setEmail] = useState(currentEmail);
+  const [emailConfirm, setEmailConfirm] = useState('');
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleBlur = () => {
+    setSuggestion(null);
+    if (!email.trim()) return;
+    Mailcheck.run({
+      email: email.trim(),
+      suggested: (s: { full: string }) => setSuggestion(s.full),
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    const trimmed = email.trim();
+    if (!EMAIL_FORMAT_RE.test(trimmed)) { setError('El formato del correo electrónico no es válido.'); return; }
+    if (trimmed.toLowerCase() !== emailConfirm.trim().toLowerCase()) {
+      setError('Los dos correos no coinciden. Revísalos e inténtalo de nuevo.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiClient.updateAdminUserEmail(userId, trimmed);
+      toast('success', `Email actualizado a "${trimmed}"`);
+      onSaved(trimmed);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'No se pudo actualizar el email');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-2.5 bg-admin-bg border border-admin-border rounded-lg p-3.5">
+      <div>
+        <label className="block text-[11px] font-semibold text-admin-text-muted uppercase tracking-wide mb-1">Nuevo email</label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => { setEmail(e.target.value); setSuggestion(null); }}
+          onBlur={handleBlur}
+          autoFocus
+          className="w-full px-2.5 py-1.5 rounded border border-admin-input-border text-sm text-admin-text bg-white focus:outline-none focus:ring-2 focus:ring-brand-bright/25"
+        />
+        {suggestion && (
+          <p className="mt-1 text-[11.5px] text-admin-text-secondary">
+            ¿Quisiste decir{' '}
+            <button
+              type="button"
+              onClick={() => { setEmail(suggestion); setSuggestion(null); }}
+              className="font-semibold text-brand-bright hover:underline"
+            >
+              {suggestion}
+            </button>?
+          </p>
+        )}
+      </div>
+      <div>
+        <label className="block text-[11px] font-semibold text-admin-text-muted uppercase tracking-wide mb-1">Confirmar nuevo email</label>
+        <input
+          type="email"
+          value={emailConfirm}
+          onChange={(e) => setEmailConfirm(e.target.value)}
+          onPaste={(e) => e.preventDefault()}
+          placeholder="Repite el correo"
+          className="w-full px-2.5 py-1.5 rounded border border-admin-input-border text-sm text-admin-text bg-white focus:outline-none focus:ring-2 focus:ring-brand-bright/25"
+        />
+      </div>
+      {error && <p className="text-[#c0392b] text-xs">{error}</p>}
+      <div className="flex items-center gap-2 pt-0.5">
+        <Button theme="light" variant="primary" size="sm" type="submit" disabled={saving}>
+          {saving ? 'Guardando…' : 'Guardar'}
+        </Button>
+        <Button theme="light" variant="secondary" size="sm" type="button" onClick={onCancel} disabled={saving}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 // Popup lateral con el historial completo de un suscriptor concreto: TODAS
 // sus filas de subscriptions (no solo la vigente, a diferencia de la tabla
 // principal), sus cargos reales de Stripe, y su último inicio de sesión —
 // no hay tabla de histórico de sesiones, solo el último momento registrado
 // (users.last_login_at), así que se muestra tal cual, sin inventar más.
-function SubscriberDetailModal({ userId, onClose }: { userId: string | null; onClose: () => void }) {
+function SubscriberDetailModal({ userId, onClose, onUpdated }: { userId: string | null; onClose: () => void; onUpdated: () => void }) {
   const [detail, setDetail]   = useState<AdminUserDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
+  const [editingEmail, setEditingEmail] = useState(false);
 
   useEffect(() => {
     if (!userId) { setDetail(null); return; }
-    setDetail(null); setLoading(true); setError('');
+    setDetail(null); setLoading(true); setError(''); setEditingEmail(false);
     apiClient.getAdminUserDetail(userId)
       .then(setDetail)
       .catch((e) => setError(e instanceof ApiError ? e.message : 'No se pudo cargar el detalle'))
@@ -486,7 +590,30 @@ function SubscriberDetailModal({ userId, onClose }: { userId: string | null; onC
       ) : detail ? (
         <div className="space-y-6">
           <div>
-            <p className="text-admin-text font-semibold text-[15px]">{detail.user.email}</p>
+            {editingEmail ? (
+              <EditEmailForm
+                userId={detail.user.id}
+                currentEmail={detail.user.email}
+                onCancel={() => setEditingEmail(false)}
+                onSaved={(newEmail) => {
+                  setDetail({ ...detail, user: { ...detail.user, email: newEmail } });
+                  setEditingEmail(false);
+                  onUpdated();
+                }}
+              />
+            ) : (
+              <div className="flex items-center gap-2">
+                <p className="text-admin-text font-semibold text-[15px]">{detail.user.email}</p>
+                <button
+                  type="button"
+                  onClick={() => setEditingEmail(true)}
+                  title="Editar email"
+                  className="text-admin-text-tertiary hover:text-brand-bright transition-colors"
+                >
+                  <i className="ti ti-pencil text-[15px]" />
+                </button>
+              </div>
+            )}
             {detail.user.name && <p className="text-admin-text-muted text-xs mt-0.5">{detail.user.name}</p>}
           </div>
 
@@ -814,6 +941,7 @@ export default function AdminSuscriptoresPage() {
       <SubscriberDetailModal
         userId={detailUserId}
         onClose={() => setDetailUserId(null)}
+        onUpdated={refresh}
       />
     </div>
   );

@@ -339,6 +339,15 @@ export interface AdminCreatedUser {
   created_at: string;
 }
 
+export interface AdminUserBasic {
+  id: string;
+  email: string;
+  name: string | null;
+  role: 'user' | 'admin';
+  avatar_url: string | null;
+  stripe_customer_id: string | null;
+}
+
 // Exactamente una de las tres opciones.
 export type CourtesySubscriptionInput =
   | { durationMonths: number; endDate?: never; indefinite?: never }
