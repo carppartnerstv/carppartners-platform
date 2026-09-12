@@ -16,6 +16,8 @@ import type {
   DashboardStats,
   RecentMembers,
   RecentPayments,
+  PlaysToday,
+  LoginHistoryResponse,
   LaunchMetrics,
   RecentActivity,
   AdminUser,
@@ -462,12 +464,20 @@ export class ApiClient {
     return this.request('GET', '/admin/dashboard/recent-payments');
   }
 
+  async getAdminPlaysToday(): Promise<PlaysToday> {
+    return this.request('GET', '/admin/dashboard/plays-today');
+  }
+
   async getAdminLaunchMetrics(): Promise<LaunchMetrics> {
     return this.request('GET', '/admin/launch-metrics');
   }
 
   async getAdminRecentActivity(minutes?: number): Promise<RecentActivity> {
     return this.request('GET', '/admin/launch-metrics/recent-activity', { query: { minutes } });
+  }
+
+  async getAdminLoginHistory(): Promise<LoginHistoryResponse> {
+    return this.request('GET', '/admin/launch-metrics/login-history');
   }
 
   async getAdminUserStats(): Promise<{ counts: UserStatusCounts }> {

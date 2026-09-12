@@ -189,8 +189,25 @@ export interface DashboardStats {
   activeSubscribers: number;
   publishedVideos: number;
   scheduledVideos: number;
-  playsToday: number;
   mrr: number;
+}
+
+export interface PlaysTodayHour {
+  hour: number;
+  count: number;
+}
+
+export interface PlaysTodayRecentItem {
+  watchedAt: string;
+  title: string;
+  email: string;
+  name: string | null;
+}
+
+export interface PlaysToday {
+  total: number;
+  hourly: PlaysTodayHour[];
+  recent: PlaysTodayRecentItem[];
 }
 
 export interface RecentMembersDay {
@@ -247,6 +264,16 @@ export interface RecentActivity {
   /** Total real — puede ser mayor que users.length si se supera el límite de 200 filas */
   total: number;
   users: { email: string; name: string | null; last_login_at: string }[];
+}
+
+export interface LoginHistoryEntry {
+  loggedInAt: string;
+  email: string;
+  name: string | null;
+}
+
+export interface LoginHistoryResponse {
+  logins: LoginHistoryEntry[];
 }
 
 export interface UserStatusCounts {

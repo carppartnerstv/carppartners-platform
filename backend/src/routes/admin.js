@@ -141,9 +141,6 @@ adminRouter.get(
       `SELECT COUNT(*)::int AS n FROM videos v
         WHERE v.published = true AND v.published_at IS NOT NULL AND v.published_at > now()`,
     );
-    const playsToday = await queryOne(
-      `SELECT COUNT(*)::int AS n FROM watch_history WHERE last_watched_at >= current_date`,
-    );
     // MRR aproximado: mensual 9,99 €, anual 89,99 € (7,50 €/mes equiv.)
     const mrr = await queryOne(
       `SELECT
@@ -156,8 +153,50 @@ adminRouter.get(
       activeSubscribers: activeSubs.n,
       publishedVideos: publishedVideos.n,
       scheduledVideos: scheduledVideos.n,
-      playsToday: playsToday.n,
       mrr: Number(mrr.mrr),
+    });
+  }),
+);
+
+// "Medianoche de hoy en Madrid", como timestamptz absoluto — NO se usa
+// current_date ni current_timestamp::date a secas: el servidor corre en
+// Etc/UTC, así que ambos calculan la medianoche en UTC, no en Madrid (~2h
+// de desfase en verano/CEST). Esta expresión da el resultado correcto sin
+// depender de qué timezone tenga configurada la sesión de Postgres.
+const MADRID_TODAY_START_SQL = `(date_trunc('day', now() AT TIME ZONE 'Europe/Madrid') AT TIME ZONE 'Europe/Madrid')`;
+
+// GET /admin/dashboard/plays-today — desglose por hora (0-23, hora de
+// Madrid) de la actividad de visionado de hoy + listado de detalle. OJO:
+// watch_history es un UPSERT por (user_id, video_id) — progreso, no un log
+// de reproducciones — así que esto cuenta "vídeos con actividad hoy", no
+// cada pulsación de play. Suficientemente preciso para el uso que se le da
+// (pulso de actividad diaria), pero no es un contador de eventos exacto.
+adminRouter.get(
+  '/dashboard/plays-today',
+  asyncHandler(async (_req, res) => {
+    const { rows: hourlyRows } = await query(
+      `SELECT EXTRACT(HOUR FROM (last_watched_at AT TIME ZONE 'Europe/Madrid'))::int AS hour, COUNT(*)::int AS count
+         FROM watch_history
+        WHERE last_watched_at >= ${MADRID_TODAY_START_SQL}
+        GROUP BY hour`,
+    );
+    const byHour = Object.fromEntries(hourlyRows.map((r) => [r.hour, r.count]));
+    const hourly = Array.from({ length: 24 }, (_, hour) => ({ hour, count: byHour[hour] ?? 0 }));
+
+    const { rows: recent } = await query(
+      `SELECT wh.last_watched_at, v.title, u.email, u.name
+         FROM watch_history wh
+         JOIN videos v ON v.id = wh.video_id
+         JOIN users u ON u.id = wh.user_id
+        WHERE wh.last_watched_at >= ${MADRID_TODAY_START_SQL}
+        ORDER BY wh.last_watched_at DESC
+        LIMIT 100`,
+    );
+
+    res.json({
+      total: hourly.reduce((sum, h) => sum + h.count, 0),
+      hourly,
+      recent: recent.map((r) => ({ watchedAt: r.last_watched_at, title: r.title, email: r.email, name: r.name })),
     });
   }),
 );
@@ -360,11 +399,14 @@ adminRouter.get(
 
 // GET /admin/launch-metrics/recent-activity?minutes=30 — quién ha iniciado
 // sesión en los últimos N minutos (ventana configurable desde el panel).
-// Señal exacta (users.last_login_at), no un proxy — excluye admins.
+// Señal exacta (users.last_login_at), no un proxy — excluye admins. Tope
+// subido a 10080 (7 días) — con 1440 (24h) de tope, la vista salía casi
+// vacía casi siempre por el poco tráfico y había que ir a ampliarla a mano
+// cada vez que se entraba a mirar el panel.
 adminRouter.get(
   '/launch-metrics/recent-activity',
   asyncHandler(async (req, res) => {
-    const minutes = Math.min(Math.max(parseInt(req.query.minutes ?? '30', 10) || 30, 1), 1440);
+    const minutes = Math.min(Math.max(parseInt(req.query.minutes ?? '30', 10) || 30, 1), 10080);
 
     const countRow = await queryOne(
       `SELECT COUNT(*)::int AS n FROM users
@@ -380,6 +422,25 @@ adminRouter.get(
     );
 
     res.json({ minutes, total: countRow.n, users: rows });
+  }),
+);
+
+// GET /admin/launch-metrics/login-history — últimos 100 inicios de sesión
+// reales (login_history, historial completo — a diferencia de
+// users.last_login_at, que solo guarda el último). Excluye admins, igual
+// que el resto de este panel.
+adminRouter.get(
+  '/launch-metrics/login-history',
+  asyncHandler(async (_req, res) => {
+    const { rows } = await query(
+      `SELECT lh.logged_in_at, u.email, u.name
+         FROM login_history lh
+         JOIN users u ON u.id = lh.user_id
+        WHERE u.role <> 'admin'
+        ORDER BY lh.logged_in_at DESC
+        LIMIT 100`,
+    );
+    res.json({ logins: rows.map((r) => ({ loggedInAt: r.logged_in_at, email: r.email, name: r.name })) });
   }),
 );
 

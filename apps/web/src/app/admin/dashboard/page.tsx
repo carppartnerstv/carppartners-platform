@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { DashboardStats, RecentMembers, RecentPayments } from '@carp-partners/api-client';
+import type { DashboardStats, RecentMembers, RecentPayments, PlaysToday } from '@carp-partners/api-client';
 
 // ─── Tarjeta de métrica ───────────────────────────────────────────────────────
 
@@ -87,11 +87,11 @@ function niceMax(raw: number, ticks = 4) {
 // gráfico y desplazándose en X con el cursor, con clamp para no salirse del
 // viewBox por los bordes.
 function ChartTooltip({
-  x, chartWidth, date, lines,
+  x, chartWidth, label, lines,
 }: {
   x: number;
   chartWidth: number;
-  date: string;
+  label: string;
   lines: { label: string; color: string; value: number }[];
 }) {
   const boxW = 128;
@@ -102,7 +102,7 @@ function ChartTooltip({
     <g pointerEvents="none">
       <rect x={boxX} y={boxY} width={boxW} height={boxH} rx={5} fill="#1c2024" opacity={0.94} />
       <text x={boxX + 9} y={boxY + 14} fontSize={9.5} fill="#fff" fontWeight={700}>
-        {fmtShortDate(date)}
+        {label}
       </text>
       {lines.map((l, i) => (
         <g key={l.label}>
@@ -204,7 +204,7 @@ function AxisLineChart({
           <ChartTooltip
             x={xFor(hover)}
             chartWidth={w}
-            date={dates[hover]}
+            label={fmtShortDate(dates[hover])}
             lines={series.map((s) => ({ label: s.label, color: s.color, value: s.values[hover] }))}
           />
         </g>
@@ -350,6 +350,129 @@ function RecentPaymentsWidget() {
   );
 }
 
+// ─── Reproducciones hoy: barras por hora + listado de detalle ────────────────
+
+function fmtHourTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+}
+
+// Gráfico de barras por hora (0-23h, hora de Madrid) — mismo estilo y misma
+// lógica de tooltip que AxisLineChart, adaptada a barras.
+function HourlyBarChart({ hourly }: { hourly: PlaysToday['hourly'] }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const w = 640, h = 140;
+  const padLeft = 26, padRight = 8, padTop = 8, padBottom = 22;
+  const plotW = w - padLeft - padRight;
+  const plotH = h - padTop - padBottom;
+
+  const yMax = niceMax(Math.max(1, ...hourly.map((d) => d.count)));
+  const yTicks = [0, 1, 2, 3, 4].map((i) => Math.round((yMax / 4) * i));
+
+  const slotW = plotW / 24;
+  const barW = Math.max(1, slotW - 2);
+  const xFor = (i: number) => padLeft + i * slotW;
+  const yFor = (v: number) => padTop + plotH - (v / yMax) * plotH;
+  const baseY = padTop + plotH;
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: h }} onMouseLeave={() => setHover(null)}>
+      {yTicks.map((v) => (
+        <g key={v}>
+          <line x1={padLeft} x2={w - padRight} y1={yFor(v)} y2={yFor(v)} stroke="#eef0f2" strokeWidth={1} />
+          <text x={padLeft - 5} y={yFor(v)} textAnchor="end" dominantBaseline="middle" fontSize={9} fill="#9aa0a6">
+            {v}
+          </text>
+        </g>
+      ))}
+      <line x1={padLeft} x2={w - padRight} y1={baseY} y2={baseY} stroke="#e7e9ec" strokeWidth={1} />
+      {hourly.map((d, i) => i % 3 === 0 && (
+        <text key={d.hour} x={xFor(i) + barW / 2} y={h - padBottom + 12} textAnchor="middle" fontSize={8.5} fill="#9aa0a6">
+          {d.hour}h
+        </text>
+      ))}
+      {hourly.map((d, i) => (
+        <rect
+          key={d.hour}
+          x={xFor(i)}
+          y={yFor(d.count)}
+          width={barW}
+          height={Math.max(0, baseY - yFor(d.count))}
+          rx={1.5}
+          fill={hover === i ? '#68140b' : '#cf4a35'}
+          onMouseEnter={() => setHover(i)}
+        />
+      ))}
+      {hover !== null && (
+        <ChartTooltip
+          x={xFor(hover) + barW / 2}
+          chartWidth={w}
+          label={`${String(hourly[hover].hour).padStart(2, '0')}:00 - ${String(hourly[hover].hour).padStart(2, '0')}:59`}
+          lines={[{ label: 'Reproducciones', color: '#cf4a35', value: hourly[hover].count }]}
+        />
+      )}
+    </svg>
+  );
+}
+
+function PlaysTodayWidget() {
+  const [data, setData] = useState<PlaysToday | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    apiClient.getAdminPlaysToday()
+      .then(setData)
+      .catch((e) => setError(e instanceof ApiError ? e.message : 'Error al cargar'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="rounded-admin-card border border-admin-border bg-admin-surface shadow-admin-card p-5">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <p className="font-display text-sm font-bold text-admin-text">Reproducciones hoy</p>
+          <p className="text-admin-text-tertiary text-xs mt-0.5">
+            Por hora (Madrid) — vídeos con progreso registrado, no cada pulsación de play
+          </p>
+        </div>
+        {data && (
+          <p className="font-display text-[1.75rem] font-bold text-admin-text leading-none shrink-0">
+            {data.total.toLocaleString('es-ES')}
+          </p>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="h-36 animate-pulse bg-admin-border-soft rounded" />
+      ) : error || !data ? (
+        <p className="text-admin-text-tertiary text-sm py-6 text-center">{error || 'Sin datos'}</p>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-5">
+          <HourlyBarChart hourly={data.hourly} />
+          <div>
+            <p className="text-[11px] font-semibold text-admin-text-muted uppercase tracking-wide mb-2">Detalle de hoy</p>
+            {data.recent.length === 0 ? (
+              <p className="text-admin-text-tertiary text-sm text-center py-8">Todavía no hay reproducciones hoy.</p>
+            ) : (
+              <ul className="divide-y divide-admin-border-soft max-h-[200px] overflow-y-auto">
+                {data.recent.map((r, i) => (
+                  <li key={i} className="py-1.5 flex items-center justify-between gap-3 text-sm">
+                    <div className="min-w-0">
+                      <p className="text-admin-text truncate">{r.title}</p>
+                      <p className="text-admin-text-tertiary text-xs truncate">{r.name || r.email}</p>
+                    </div>
+                    <span className="shrink-0 text-admin-text-secondary text-xs tabular-nums">{fmtHourTime(r.watchedAt)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
@@ -383,9 +506,9 @@ export default function AdminDashboardPage() {
       )}
 
       {/* Grid de métricas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {loading ? (
-          Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
+          Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
         ) : stats ? (
           <>
             <MetricCard
@@ -426,19 +549,6 @@ export default function AdminDashboardPage() {
               }
             />
             <MetricCard
-              label="Reproducciones hoy"
-              value={stats.playsToday.toLocaleString('es-ES')}
-              sub={`Desde las 00:00 de hoy`}
-              icon={
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              }
-            />
-            <MetricCard
               label="MRR"
               value={stats.mrr.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
               sub="Ingresos recurrentes mensuales (aprox.)"
@@ -452,6 +562,9 @@ export default function AdminDashboardPage() {
           </>
         ) : null}
       </div>
+
+      {/* Reproducciones de hoy */}
+      <PlaysTodayWidget />
 
       {/* Miembros y pagos recientes */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
