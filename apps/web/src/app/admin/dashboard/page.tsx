@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { DashboardStats, RecentMembers, RecentPayments, PlaysToday } from '@carp-partners/api-client';
+import type { DashboardStats, RecentMembers, RecentPayments, PlaysToday, LoginHistoryResponse } from '@carp-partners/api-client';
 
 // ─── Tarjeta de métrica ───────────────────────────────────────────────────────
 
@@ -226,7 +226,7 @@ function ChartLegend({ series }: { series: { label: string; color: string }[] })
   );
 }
 
-function WidgetCard({ title, sub, href, children }: { title: string; sub: string; href: string; children: React.ReactNode }) {
+function WidgetCard({ title, sub, href, children }: { title: string; sub: string; href?: string; children: React.ReactNode }) {
   return (
     <div className="rounded-admin-card border border-admin-border bg-admin-surface shadow-admin-card p-5">
       <div className="flex items-start justify-between mb-4">
@@ -234,9 +234,11 @@ function WidgetCard({ title, sub, href, children }: { title: string; sub: string
           <p className="font-display text-sm font-bold text-admin-text">{title}</p>
           <p className="text-admin-text-tertiary text-xs mt-0.5">{sub}</p>
         </div>
-        <Link href={href} className="text-brand-bright text-xs font-semibold hover:underline shrink-0">
-          Ver todos
-        </Link>
+        {href && (
+          <Link href={href} className="text-brand-bright text-xs font-semibold hover:underline shrink-0">
+            Ver todos
+          </Link>
+        )}
       </div>
       {children}
     </div>
@@ -345,6 +347,49 @@ function RecentPaymentsWidget() {
             ))}
           </ul>
         </>
+      )}
+    </WidgetCard>
+  );
+}
+
+// Últimos 100 inicios de sesión reales (login_history) — a diferencia de la
+// "Actividad reciente" de /admin/metricas-lanzamiento (ventana de tiempo
+// sobre users.last_login_at, solo el último por persona), esto es un log
+// completo: la misma persona puede aparecer varias veces.
+function LoginHistoryWidget() {
+  const [data, setData] = useState<LoginHistoryResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    apiClient.getAdminLoginHistory()
+      .then(setData)
+      .catch((e) => setError(e instanceof ApiError ? e.message : 'Error al cargar'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <WidgetCard title="Historial de accesos" sub="Últimos 100 inicios de sesión">
+      {loading ? (
+        <div className="h-52 animate-pulse bg-admin-border-soft rounded" />
+      ) : error || !data ? (
+        <p className="text-admin-text-tertiary text-sm py-6 text-center">{error || 'Sin datos'}</p>
+      ) : data.logins.length === 0 ? (
+        <p className="text-admin-text-tertiary text-sm text-center py-6">Todavía no hay inicios de sesión registrados.</p>
+      ) : (
+        <ul className="divide-y divide-admin-border-soft max-h-52 overflow-y-auto">
+          {data.logins.map((l, i) => (
+            <li key={i} className="flex items-center justify-between gap-3 text-sm py-2">
+              <div className="min-w-0">
+                <p className="text-admin-text truncate">{l.name || l.email}</p>
+                <p className="text-admin-text-tertiary text-xs truncate">{l.email}</p>
+              </div>
+              <span className="shrink-0 text-admin-text-secondary text-xs tabular-nums">
+                {new Date(l.loggedInAt).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
     </WidgetCard>
   );
@@ -566,10 +611,11 @@ export default function AdminDashboardPage() {
       {/* Reproducciones de hoy */}
       <PlaysTodayWidget />
 
-      {/* Miembros y pagos recientes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Miembros, pagos e inicios de sesión recientes */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         <RecentMembersWidget />
         <RecentPaymentsWidget />
+        <LoginHistoryWidget />
       </div>
 
       {/* Nota pie */}

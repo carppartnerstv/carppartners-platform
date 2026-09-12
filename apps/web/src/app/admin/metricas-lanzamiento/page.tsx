@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { LaunchMetrics, RecentActivity, LoginHistoryResponse } from '@carp-partners/api-client';
+import type { LaunchMetrics, RecentActivity } from '@carp-partners/api-client';
 
 // ─── Utilidades ─────────────────────────────────────────────────────────────
 
@@ -228,57 +228,6 @@ function SectionSkeleton({ heightClass = 'h-40' }: { heightClass?: string }) {
   return <div className={`rounded-admin-card border border-admin-border bg-admin-surface shadow-admin-card animate-pulse ${heightClass}`} />;
 }
 
-// Últimos 100 inicios de sesión reales (login_history) — a diferencia de
-// "Actividad reciente" (que filtra por ventana de tiempo sobre
-// users.last_login_at, solo el último por persona), esto es un log
-// completo: la misma persona puede aparecer varias veces. Altura fija +
-// scroll interno para no descuadrar el grid del panel, igual que el resto
-// de tarjetas de esta página.
-function LoginHistoryCard() {
-  const [data, setData] = useState<LoginHistoryResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    apiClient.getAdminLoginHistory()
-      .then(setData)
-      .catch((e) => setError(e instanceof ApiError ? e.message : 'Error al cargar el historial de accesos'))
-      .finally(() => setLoading(false));
-  }, []);
-
-  return (
-    <div>
-      <h2 className="font-display text-[15px] font-bold text-admin-text mb-3">Historial de accesos</h2>
-      {loading ? (
-        <SectionSkeleton heightClass="h-[280px]" />
-      ) : error ? (
-        <div className="bg-[#fdecea] border border-[#f7cfc9] rounded-md px-4 py-3 text-[#c0392b] text-sm">{error}</div>
-      ) : data ? (
-        <div className="rounded-admin-card border border-admin-border bg-admin-surface shadow-admin-card p-5">
-          <p className="text-admin-text-tertiary text-xs mb-3">Últimos {data.logins.length} inicios de sesión.</p>
-          {data.logins.length === 0 ? (
-            <p className="text-admin-text-tertiary text-sm py-4 text-center">Todavía no hay inicios de sesión registrados.</p>
-          ) : (
-            <ul className="divide-y divide-admin-border-soft max-h-[280px] overflow-y-auto">
-              {data.logins.map((l, i) => (
-                <li key={i} className="py-2 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[13px] text-admin-text truncate">{l.email}</p>
-                    {l.name && <p className="text-admin-text-muted text-xs truncate">{l.name}</p>}
-                  </div>
-                  <span className="shrink-0 text-[12px] text-admin-text-secondary tabular-nums">
-                    {new Date(l.loggedInAt).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 // ─── Página ─────────────────────────────────────────────────────────────────
 
 export default function LaunchMetricsPage() {
@@ -450,11 +399,6 @@ export default function LaunchMetricsPage() {
               onMinutesChange={setRecentMinutes}
               onRefresh={() => loadRecent(recentMinutes)}
             />
-          </div>
-
-          {/* Historial de accesos — log completo (login_history), no solo el último por persona */}
-          <div className="mt-6">
-            <LoginHistoryCard />
           </div>
         </div>
       </div>
