@@ -492,7 +492,7 @@ function PlaysTodayWidget() {
       ) : error || !data ? (
         <p className="text-admin-text-tertiary text-sm py-6 text-center">{error || 'Sin datos'}</p>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-5">
+        <div className="space-y-5">
           <HourlyBarChart hourly={data.hourly} />
           <div>
             <p className="text-[11px] font-semibold text-admin-text-muted uppercase tracking-wide mb-2">Detalle de hoy</p>
@@ -608,14 +608,16 @@ export default function AdminDashboardPage() {
         ) : null}
       </div>
 
-      {/* Reproducciones de hoy */}
-      <PlaysTodayWidget />
+      {/* Reproducciones de hoy + historial de accesos — 2 por fila */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <PlaysTodayWidget />
+        <LoginHistoryWidget />
+      </div>
 
-      {/* Miembros, pagos e inicios de sesión recientes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+      {/* Miembros y pagos recientes — 2 por fila, mismas dimensiones que la fila de arriba */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <RecentMembersWidget />
         <RecentPaymentsWidget />
-        <LoginHistoryWidget />
       </div>
 
       {/* Nota pie */}
