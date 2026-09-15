@@ -233,8 +233,8 @@ function ChartLegend({ series }: { series: { label: string; color: string }[] })
 // arregla justo eso, sin tocar la altura de la tarjeta en sí.
 function WidgetCard({ title, sub, href, children }: { title: string; sub: string; href?: string; children: React.ReactNode }) {
   return (
-    <div className="h-full flex flex-col rounded-admin-card border border-admin-border bg-admin-surface shadow-admin-card p-5">
-      <div className="flex items-start justify-between mb-4 shrink-0">
+    <div className="rounded-admin-card border border-admin-border bg-admin-surface shadow-admin-card p-5">
+      <div className="flex items-start justify-between mb-4">
         <div>
           <p className="font-display text-sm font-bold text-admin-text">{title}</p>
           <p className="text-admin-text-tertiary text-xs mt-0.5">{sub}</p>
@@ -245,7 +245,7 @@ function WidgetCard({ title, sub, href, children }: { title: string; sub: string
           </Link>
         )}
       </div>
-      <div className="flex-1 min-h-0 flex flex-col">{children}</div>
+      {children}
     </div>
   );
 }
@@ -274,7 +274,7 @@ function RecentMembersWidget() {
             dates={data.series.map((d) => d.date)}
             series={[{ label: 'Miembros', color: '#cf4a35', values: data.series.map((d) => d.count) }]}
           />
-          <ul className="mt-4 space-y-2.5 flex-1 min-h-0 overflow-y-auto">
+          <ul className="mt-4 space-y-2.5 max-h-80 overflow-y-auto">
             {data.recent.length === 0 && (
               <li className="text-admin-text-tertiary text-sm text-center py-4">Todavía no hay suscripciones.</li>
             )}
@@ -330,7 +330,7 @@ function RecentPaymentsWidget() {
               { label: 'Anual', color: '#2f6f76', values: data.series.map((d) => d.annual) },
             ]}
           />
-          <ul className="mt-4 space-y-2.5 flex-1 min-h-0 overflow-y-auto">
+          <ul className="mt-4 space-y-2.5 max-h-80 overflow-y-auto">
             {data.recent.length === 0 && (
               <li className="text-admin-text-tertiary text-sm text-center py-4">Todavía no hay cobros.</li>
             )}
@@ -376,13 +376,13 @@ function LoginHistoryWidget() {
   return (
     <WidgetCard title="Historial de accesos" sub="Últimos 100 inicios de sesión">
       {loading ? (
-        <div className="h-52 animate-pulse bg-admin-border-soft rounded" />
+        <div className="h-80 animate-pulse bg-admin-border-soft rounded" />
       ) : error || !data ? (
         <p className="text-admin-text-tertiary text-sm py-6 text-center">{error || 'Sin datos'}</p>
       ) : data.logins.length === 0 ? (
         <p className="text-admin-text-tertiary text-sm text-center py-6">Todavía no hay inicios de sesión registrados.</p>
       ) : (
-        <ul className="divide-y divide-admin-border-soft flex-1 min-h-0 overflow-y-auto">
+        <ul className="divide-y divide-admin-border-soft max-h-80 overflow-y-auto">
           {data.logins.map((l, i) => (
             <li key={i} className="flex items-center justify-between gap-3 text-sm py-2">
               <div className="min-w-0">
