@@ -28,6 +28,19 @@ function fmtDateTime(iso: string | null | undefined) {
   });
 }
 
+// Duración de la sesión (heartbeat periódico mientras la pestaña está
+// visible) — null si fue tan corta que no llegó a mandarse ninguno, o si
+// es de antes de tener esta funcionalidad.
+function fmtSessionDuration(loggedInAt: string, lastSeenAt: string | null): string {
+  if (!lastSeenAt) return '—';
+  const min = Math.max(0, Math.round((new Date(lastSeenAt).getTime() - new Date(loggedInAt).getTime()) / 60000));
+  if (min < 1) return '<1 min';
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${h} h${m ? ` ${m} min` : ''}`;
+}
+
 const STATUS_LABELS: Record<string, string> = {
   active:    'Activo',
   trialing:  'Prueba',
@@ -667,10 +680,11 @@ function SubscriberDetailModal({ userId, onClose, onUpdated }: { userId: string 
             {detail.loginHistory.length === 0 ? (
               <p className="text-admin-text-tertiary text-xs">Nunca ha iniciado sesión.</p>
             ) : (
-              <DetailTable head={<><Th>Fecha</Th><Th>País</Th><Th>IP</Th><Th>Navegador</Th></>}>
+              <DetailTable head={<><Th>Fecha</Th><Th>Duración</Th><Th>País</Th><Th>IP</Th><Th>Navegador</Th></>}>
                 {detail.loginHistory.map((l, i) => (
                   <tr key={i}>
                     <td className="px-3 py-2 text-admin-text-secondary tabular-nums whitespace-nowrap">{fmtDateTime(l.loggedInAt)}</td>
+                    <td className="px-3 py-2 text-admin-text-secondary tabular-nums whitespace-nowrap">{fmtSessionDuration(l.loggedInAt, l.lastSeenAt)}</td>
                     <td className="px-3 py-2 text-admin-text-secondary whitespace-nowrap">{l.country ?? '—'}</td>
                     <td className="px-3 py-2 text-admin-text-secondary tabular-nums whitespace-nowrap">{l.ipAddress ?? '—'}</td>
                     <td className="px-3 py-2 text-admin-text-tertiary whitespace-nowrap" title={l.userAgent ?? undefined}>

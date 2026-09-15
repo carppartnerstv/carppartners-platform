@@ -361,6 +361,18 @@ function RecentPaymentsWidget() {
 // "Actividad reciente" de /admin/metricas-lanzamiento (ventana de tiempo
 // sobre users.last_login_at, solo el último por persona), esto es un log
 // completo: la misma persona puede aparecer varias veces.
+// Duración de la sesión — null si fue tan corta que no llegó a mandarse
+// ningún heartbeat, o si es de antes de tenerlo (ver SessionContext).
+function fmtSessionDuration(loggedInAt: string, lastSeenAt: string | null): string | null {
+  if (!lastSeenAt) return null;
+  const min = Math.max(0, Math.round((new Date(lastSeenAt).getTime() - new Date(loggedInAt).getTime()) / 60000));
+  if (min < 1) return '<1 min';
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${h} h${m ? ` ${m} min` : ''}`;
+}
+
 function LoginHistoryWidget() {
   const [data, setData] = useState<LoginHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -383,17 +395,23 @@ function LoginHistoryWidget() {
         <p className="text-admin-text-tertiary text-sm text-center py-6">Todavía no hay inicios de sesión registrados.</p>
       ) : (
         <ul className="divide-y divide-admin-border-soft max-h-80 overflow-y-auto">
-          {data.logins.map((l, i) => (
-            <li key={i} className="flex items-center justify-between gap-3 text-sm py-2">
-              <div className="min-w-0">
-                <p className="text-admin-text truncate">{l.name || l.email}</p>
-                <p className="text-admin-text-tertiary text-xs truncate">{l.email}</p>
-              </div>
-              <span className="shrink-0 text-admin-text-secondary text-xs tabular-nums">
-                {new Date(l.loggedInAt).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-              </span>
-            </li>
-          ))}
+          {data.logins.map((l, i) => {
+            const duration = fmtSessionDuration(l.loggedInAt, l.lastSeenAt);
+            return (
+              <li key={i} className="flex items-center justify-between gap-3 text-sm py-2">
+                <div className="min-w-0">
+                  <p className="text-admin-text truncate">{l.name || l.email}</p>
+                  <p className="text-admin-text-tertiary text-xs truncate">{l.email}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-admin-text-secondary text-xs tabular-nums">
+                    {new Date(l.loggedInAt).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                  <p className="text-admin-text-tertiary text-[11px] tabular-nums">{duration ? `Conectado ${duration}` : 'Duración desconocida'}</p>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </WidgetCard>

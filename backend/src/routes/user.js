@@ -6,6 +6,7 @@
 //   POST   /watchlist/:videoId       añadir a favoritos
 //   DELETE /watchlist/:videoId       quitar de favoritos
 //   POST   /push-tokens              registra token FCM
+//   POST   /activity/heartbeat       "sigo aquí" — para medir duración de sesión
 //   POST   /billing/checkout         sesión de Stripe Checkout (alta de plan)
 //   POST   /billing/portal           sesión Customer Portal de Stripe
 //   GET    /billing/payment-method   tarjeta de la suscripción actual (para /perfil)
@@ -132,6 +133,30 @@ userRouter.post(
       [req.user.id, parsed.data.token, parsed.data.platform],
     );
     res.status(201).json({ ok: true });
+  }),
+);
+
+// --- Heartbeat de sesión ("cuánto tiempo ha estado conectado") -------
+// El frontend lo llama cada ~60s mientras la pestaña está visible (no en
+// segundo plano). Actualiza login_history.last_seen_at de la fila MÁS
+// RECIENTE de este usuario (no hay un id de sesión propio en el cliente
+// que enlazar) — así, restando logged_in_at, se puede calcular cuánto
+// duró la sesión sin depender del logout, que casi nadie pulsa de verdad.
+userRouter.post(
+  '/activity/heartbeat',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await query(
+      `UPDATE login_history SET last_seen_at = now()
+        WHERE id = (
+          SELECT id FROM login_history
+           WHERE user_id = $1
+           ORDER BY logged_in_at DESC
+           LIMIT 1
+        )`,
+      [req.user.id],
+    );
+    res.status(204).end();
   }),
 );
 

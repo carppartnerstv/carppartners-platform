@@ -433,14 +433,21 @@ adminRouter.get(
   '/launch-metrics/login-history',
   asyncHandler(async (_req, res) => {
     const { rows } = await query(
-      `SELECT lh.logged_in_at, u.email, u.name
+      `SELECT lh.logged_in_at, lh.last_seen_at, u.email, u.name
          FROM login_history lh
          JOIN users u ON u.id = lh.user_id
         WHERE u.role <> 'admin'
         ORDER BY lh.logged_in_at DESC
         LIMIT 100`,
     );
-    res.json({ logins: rows.map((r) => ({ loggedInAt: r.logged_in_at, email: r.email, name: r.name })) });
+    res.json({
+      logins: rows.map((r) => ({
+        loggedInAt: r.logged_in_at,
+        lastSeenAt: r.last_seen_at,
+        email: r.email,
+        name: r.name,
+      })),
+    });
   }),
 );
 
@@ -601,7 +608,7 @@ adminRouter.get(
     );
 
     const { rows: loginHistory } = await query(
-      `SELECT logged_in_at, ip_address, user_agent
+      `SELECT logged_in_at, last_seen_at, ip_address, user_agent
          FROM login_history WHERE user_id = $1
         ORDER BY logged_in_at DESC LIMIT 20`,
       [user.id],
@@ -663,6 +670,7 @@ adminRouter.get(
         }
         return {
           loggedInAt: l.logged_in_at,
+          lastSeenAt: l.last_seen_at,
           ipAddress: l.ip_address,
           userAgent: l.user_agent,
           browser,

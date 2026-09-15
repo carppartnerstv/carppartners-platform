@@ -436,6 +436,13 @@ export class ApiClient {
     return this.request('POST', '/push-tokens', { body: { token, platform } });
   }
 
+  // ─── Actividad de sesión ─────────────────────────────────────────────────────
+
+  /** "Sigo aquí" — llamado periódicamente mientras la pestaña está visible, para poder calcular cuánto dura una sesión real. */
+  async sendHeartbeat(): Promise<void> {
+    await this.request('POST', '/activity/heartbeat');
+  }
+
   // ─── Billing ───────────────────────────────────────────────────────────────
 
   async createCheckoutSession(plan: 'monthly' | 'annual'): Promise<{ url: string }> {

@@ -88,6 +88,27 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return me;
   }, []);
 
+  // Heartbeat de sesión — solo mientras la pestaña está visible (no en
+  // segundo plano), para que "tiempo conectado" refleje compromiso real y
+  // no una pestaña olvidada abierta. Permite calcular la duración de la
+  // sesión en el panel admin (login_history.logged_in_at -> last_seen_at)
+  // sin depender del logout, que casi nadie pulsa de verdad.
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+
+    const ping = () => {
+      if (document.visibilityState === 'visible') apiClient.sendHeartbeat().catch(() => {});
+    };
+    ping(); // inmediato al autenticar, para sesiones cortas
+    const interval = setInterval(ping, 60_000);
+    document.addEventListener('visibilitychange', ping);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', ping);
+    };
+  }, [status]);
+
   // Mismo criterio que requireSubscription en el backend: period_end NULL =
   // sin caducidad, si no, tiene que ser una fecha futura. No basta con el
   // status — si no, una cortesía o un plan de pago caducado seguiría dando

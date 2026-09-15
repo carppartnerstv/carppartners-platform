@@ -268,6 +268,8 @@ export interface RecentActivity {
 
 export interface LoginHistoryEntry {
   loggedInAt: string;
+  /** Última señal de actividad (heartbeat) de esa sesión — null si la sesión fue muy corta o es anterior a esta funcionalidad. */
+  lastSeenAt: string | null;
   email: string;
   name: string | null;
 }
@@ -327,6 +329,8 @@ export interface AdminUserPaymentHistoryItem {
 
 export interface AdminUserLoginHistoryItem {
   loggedInAt: string;
+  /** Última señal de actividad (heartbeat) de esa sesión — null si la sesión fue muy corta o es anterior a esta funcionalidad. */
+  lastSeenAt: string | null;
   ipAddress: string | null;
   userAgent: string | null;
   /** Navegador legible, p. ej. "Chrome (128.0.0.0)" — derivado del user-agent */
