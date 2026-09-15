@@ -731,6 +731,7 @@ const PAGE_SIZE = 25;
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export default function AdminSuscriptoresPage() {
+  const { toast } = useToast();
   const searchParams = useSearchParams();
   const [users, setUsers]     = useState<AdminUser[]>([]);
   const [total, setTotal]     = useState(0);
@@ -755,6 +756,23 @@ export default function AdminSuscriptoresPage() {
   const [showCreate, setShowCreate]       = useState(false);
   const [courtesyUser, setCourtesyUser]   = useState<AdminUser | null>(null);
   const [detailUserId, setDetailUserId]   = useState<string | null>(null);
+  const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
+
+  // Recordatorio manual de "te falta elegir plan" (pestaña "Sin plan").
+  // Actualiza la fila en memoria al terminar, para que "Recordatorio
+  // enviado" se refleje sin tener que recargar todo el listado.
+  const handleSendReminder = async (u: AdminUser) => {
+    setSendingReminderId(u.id);
+    try {
+      const { sentAt } = await apiClient.sendPaymentReminder(u.id);
+      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, reminder_sent_at: sentAt } : x)));
+      toast('success', `Recordatorio enviado a "${u.email}"`);
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'No se pudo enviar el recordatorio');
+    } finally {
+      setSendingReminderId(null);
+    }
+  };
 
   // Carga contadores al montar
   useEffect(() => {
@@ -928,6 +946,23 @@ export default function AdminSuscriptoresPage() {
                     >
                       <i className="ti ti-gift text-[18px]" />
                     </button>
+                    {tab === 'no_plan' && (
+                      <button
+                        onClick={() => handleSendReminder(u)}
+                        disabled={sendingReminderId === u.id}
+                        title={u.reminder_sent_at
+                          ? `Recordatorio enviado el ${fmtDate(u.reminder_sent_at)} — volver a enviar`
+                          : 'Enviar recordatorio de "te falta elegir plan"'}
+                        className={[
+                          'p-1.5 rounded transition-colors disabled:opacity-50',
+                          u.reminder_sent_at
+                            ? 'text-[#3e9d6b] hover:bg-admin-hover'
+                            : 'text-admin-text-secondary hover:text-admin-text hover:bg-admin-hover',
+                        ].join(' ')}
+                      >
+                        <i className={`ti ${sendingReminderId === u.id ? 'ti-loader-2 animate-spin' : 'ti-mail-forward'} text-[18px]`} />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

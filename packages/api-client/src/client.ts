@@ -522,6 +522,10 @@ export class ApiClient {
     return this.request('POST', `/admin/users/${userId}/courtesy-subscription`, { body: data });
   }
 
+  async sendPaymentReminder(userId: string): Promise<{ sentAt: string }> {
+    return this.request('POST', `/admin/users/${userId}/payment-reminder`);
+  }
+
   async createAdminVideo(video: AdminVideoInput): Promise<{ video: Video }> {
     return this.request('POST', '/admin/videos', { body: video });
   }

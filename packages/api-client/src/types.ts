@@ -302,6 +302,8 @@ export interface AdminUser {
   status: string | null;
   period_end: string | null;
   source: 'stripe' | 'courtesy' | null;
+  /** Último envío del recordatorio de "sin plan" (POST .../payment-reminder), null si nunca se envió. */
+  reminder_sent_at: string | null;
 }
 
 export interface AdminUserSubscriptionHistoryItem {

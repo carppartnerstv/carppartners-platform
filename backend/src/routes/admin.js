@@ -5,6 +5,7 @@
 //   GET    /admin/users          listado de suscriptores con filtros
 //   POST   /admin/users          alta manual de suscriptor (sin Stripe)
 //   POST   /admin/users/:id/courtesy-subscription  otorga/extiende cortesía
+//   POST   /admin/users/:id/payment-reminder  recordatorio manual (sin plan)
 //   GET    /admin/payments       historial de pagos (desde Stripe)
 //   POST   /admin/videos         crea vídeo en catálogo
 //   PUT    /admin/videos/:id     edita metadatos
@@ -24,7 +25,7 @@ import { asyncHandler, badRequest, notFound, HttpError } from '../utils/errors.j
 import { stripe } from '../services/stripe.js';
 import { getVideoMetadata } from '../services/vimeo.js';
 import { sendMail } from '../services/mail.js';
-import { setPasswordEmail } from '../services/mailTemplates.js';
+import { setPasswordEmail, completeSignupReminderEmail } from '../services/mailTemplates.js';
 import { config } from '../config/index.js';
 import sanitizeHtml from 'sanitize-html';
 import { UAParser } from 'ua-parser-js';
@@ -572,8 +573,13 @@ adminRouter.get(
     // coincida con lo mostrado.
     const { rows } = await query(
       `SELECT u.id, u.email, u.name, COALESCE(u.stripe_created_at, u.created_at) AS created_at,
-              s.plan, s.status, s.period_end, s.source
+              s.plan, s.status, s.period_end, s.source, ecl.sent_at AS reminder_sent_at
          FROM users u ${SUB_LATERAL}
+         LEFT JOIN LATERAL (
+           SELECT sent_at FROM email_campaign_log
+            WHERE user_id = u.id AND campaign = 'payment_reminder'
+            LIMIT 1
+         ) ecl ON true
         ${where}
         ORDER BY ${sortCol} ${sortDir} NULLS LAST
         LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -826,6 +832,34 @@ adminRouter.post(
         );
 
     res.status(existing ? 200 : 201).json({ subscription });
+  }),
+);
+
+// POST /admin/users/:id/payment-reminder — envío MANUAL (un clic desde el
+// panel, pestaña "Sin plan" de /admin/suscriptores) del recordatorio de
+// "te falta elegir plan". Se registra en email_campaign_log (misma tabla
+// que usa scripts/send-launch-campaign.js) con campaign='payment_reminder'
+// — UPSERT porque, a diferencia de esa campaña puntual, este si se puede
+// reenviar más de una vez a la misma persona; solo actualiza sent_at.
+adminRouter.post(
+  '/users/:id/payment-reminder',
+  asyncHandler(async (req, res) => {
+    const user = await queryOne('SELECT id, email, name FROM users WHERE id = $1', [req.params.id]);
+    if (!user) throw notFound('Usuario no encontrado', 'USER_NOT_FOUND');
+
+    const plansUrl = `${config.publicWebUrl}/planes`;
+    const result = await sendMail({ to: user.email, ...completeSignupReminderEmail({ name: user.name, plansUrl }) });
+    if (!result.sent) throw new HttpError(502, 'No se pudo enviar el correo (SMTP no disponible)', 'MAIL_FAILED');
+
+    const { sent_at: sentAt } = await queryOne(
+      `INSERT INTO email_campaign_log (user_id, campaign)
+       VALUES ($1, 'payment_reminder')
+       ON CONFLICT (user_id, campaign) DO UPDATE SET sent_at = now()
+       RETURNING sent_at`,
+      [user.id],
+    );
+
+    res.json({ sentAt });
   }),
 );
 

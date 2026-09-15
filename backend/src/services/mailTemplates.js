@@ -186,6 +186,32 @@ export function winbackNonSubscriberEmail({ name }) {
   };
 }
 
+// Recordatorio manual, disparado desde /admin/suscriptores (pestaña "Sin
+// plan") para alguien que se registró en la plataforma pero nunca llegó a
+// elegir plan/pagar en Stripe — a diferencia de winbackNonSubscriberEmail
+// (campaña masiva de lanzamiento, "descubre la plataforma nueva"), aquí ya
+// sabe que existe la plataforma: solo le falta el último paso, así que el
+// enlace va directo a /planes, no a la portada.
+export function completeSignupReminderEmail({ name, plansUrl }) {
+  const greeting = greetingLine(name);
+  const html = renderEmailLayout({
+    previewText: 'Te falta un paso para activar tu cuenta.',
+    eyebrow: 'Te falta un paso',
+    heading: 'Termina de activar tu cuenta',
+    bodyText1: `${greeting} vimos que te registraste en Carp Partners TV, pero todavía no has elegido un plan — así que tu cuenta está creada pero sin acceso al contenido.`,
+    bodyText2: 'Elegir plan lleva menos de un minuto, con pago seguro a través de Stripe.',
+    button: { label: 'Elegir mi plan', url: plansUrl },
+    linkFallback: { label: 'Si el botón no funciona, copia y pega este enlace en tu navegador:', url: plansUrl },
+    signOffLine1: 'Te esperamos al otro lado,',
+    signOffLine2: 'El equipo de Carp Partners TV',
+  });
+  return {
+    subject: 'Te falta un paso para activar tu cuenta — Carp Partners TV',
+    html,
+    text: `${greeting}\n\nVimos que te registraste en Carp Partners TV, pero todavía no has elegido un plan — así que tu cuenta está creada pero sin acceso al contenido.\n\nElegir plan lleva menos de un minuto, con pago seguro a través de Stripe:\n${plansUrl}\n\nTe esperamos al otro lado,\nEl equipo de Carp Partners TV`,
+  };
+}
+
 export function emailVerificationEmail({ name, verifyUrl }) {
   const greeting = greetingLine(name);
   const html = renderEmailLayout({
