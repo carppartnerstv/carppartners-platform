@@ -1,6 +1,5 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import Constants from 'expo-constants';
 import { ApiClient, type TokenStorage } from '@carp-partners/api-client';
 
 const REFRESH_TOKEN_KEY = 'cp_refresh_token';
@@ -47,13 +46,11 @@ class SecureTokenStorage implements TokenStorage {
   }
 }
 
-// Base URL del backend: en un dev build normal, `expo.extra.apiUrl` de
-// app.json/app.config; con fallback al backend local (mismo puerto que usa
-// el resto del monorepo). NEXT_PUBLIC_API_URL (el fallback interno del
-// api-client) no existe en el entorno de Expo, así que hay que inyectarla
-// aquí explícitamente.
-const baseUrl =
-  (Constants.expoConfig?.extra?.apiUrl as string | undefined) ||
-  'http://localhost:3001';
+// Base URL del backend: EXPO_PUBLIC_API_URL (soporte nativo de Expo para
+// variables de entorno desde SDK 49 — se lee de .env / .env.local al
+// arrancar Metro, sin dependencias extra). NEXT_PUBLIC_API_URL (el
+// fallback interno del api-client, pensado para Next.js) no existe en el
+// entorno de Expo, así que hay que inyectar esta explícitamente.
+const baseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
 
 export const apiClient = new ApiClient({ baseUrl, storage: new SecureTokenStorage() });
