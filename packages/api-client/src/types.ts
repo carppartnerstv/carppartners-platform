@@ -306,6 +306,22 @@ export interface AdminUser {
   reminder_sent_at: string | null;
 }
 
+export interface PaymentReminderEntry {
+  id: string;
+  email: string;
+  name: string | null;
+  reminderSentAt: string;
+  /** True si se suscribió DESPUÉS de recibir el recordatorio. */
+  converted: boolean;
+  subscribedAt: string | null;
+  plan: string | null;
+  status: string | null;
+}
+
+export interface PaymentRemindersResponse {
+  reminders: PaymentReminderEntry[];
+}
+
 export interface AdminUserSubscriptionHistoryItem {
   id: string;
   source: 'stripe' | 'courtesy';

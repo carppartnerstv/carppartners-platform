@@ -27,6 +27,8 @@ export type {
   LaunchMetrics,
   RecentActivity,
   AdminUser,
+  PaymentReminderEntry,
+  PaymentRemindersResponse,
   AdminUserDetail,
   AdminUserSubscriptionHistoryItem,
   AdminUserPaymentHistoryItem,

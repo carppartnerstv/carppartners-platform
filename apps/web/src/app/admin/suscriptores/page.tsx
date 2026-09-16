@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Mailcheck from 'mailcheck';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import { Button, Pagination } from '@carp-partners/ui';
-import type { AdminUser, AdminUserDetail, UserStatusCounts, CourtesySubscriptionInput } from '@carp-partners/api-client';
+import type { AdminUser, AdminUserDetail, UserStatusCounts, CourtesySubscriptionInput, PaymentReminderEntry } from '@carp-partners/api-client';
 import { AdminModal } from '@/components/admin/AdminModal';
 import { useToast } from '@/context/ToastContext';
 
@@ -579,6 +579,67 @@ function EditEmailForm({
 // principal), sus cargos reales de Stripe, y su último inicio de sesión —
 // no hay tabla de histórico de sesiones, solo el último momento registrado
 // (users.last_login_at), así que se muestra tal cual, sin inventar más.
+// Informe de conversión: a quién se le ha mandado el recordatorio de "sin
+// plan" (desde el botón de la fila) y si se suscribió después. No depende
+// de la pestaña activa — incluye también a quien ya se suscribió y por eso
+// ha desaparecido de "Sin plan".
+function PaymentRemindersModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [data, setData] = useState<PaymentReminderEntry[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setData(null); setLoading(true); setError('');
+    apiClient.getPaymentReminders()
+      .then((res) => setData(res.reminders))
+      .catch((e) => setError(e instanceof ApiError ? e.message : 'No se pudo cargar el informe'))
+      .finally(() => setLoading(false));
+  }, [open]);
+
+  const converted = data?.filter((r) => r.converted).length ?? 0;
+
+  return (
+    <AdminModal theme="light" title="Recordatorios enviados" open={open} onClose={onClose} maxWidth="max-w-2xl">
+      {loading ? (
+        <p className="text-admin-text-tertiary text-sm py-10 text-center">Cargando…</p>
+      ) : error ? (
+        <p className="text-[#c0392b] text-sm bg-[#fdecea] border border-[#f7cfc9] rounded px-3 py-2">{error}</p>
+      ) : data ? (
+        data.length === 0 ? (
+          <p className="text-admin-text-tertiary text-sm py-10 text-center">Todavía no se ha enviado ningún recordatorio.</p>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-admin-text-secondary text-sm">
+              <span className="font-semibold text-admin-text">{converted}</span> de <span className="font-semibold text-admin-text">{data.length}</span> se han suscrito después de recibir el recordatorio.
+            </p>
+            <DetailTable head={<><Th>Email</Th><Th>Enviado</Th><Th>Resultado</Th></>}>
+              {data.map((r) => (
+                <tr key={r.id}>
+                  <td className="px-3 py-2 text-admin-text whitespace-nowrap">
+                    {r.name || r.email}
+                    {r.name && <span className="block text-admin-text-tertiary text-[11px]">{r.email}</span>}
+                  </td>
+                  <td className="px-3 py-2 text-admin-text-secondary tabular-nums whitespace-nowrap">{fmtDate(r.reminderSentAt)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {r.converted ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-[#e7f6ed] text-[#1a8a4a]">
+                        Se suscribió el {fmtDate(r.subscribedAt)}
+                      </span>
+                    ) : (
+                      <span className="text-admin-text-tertiary text-xs">Sin suscribirse todavía</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </DetailTable>
+          </div>
+        )
+      ) : null}
+    </AdminModal>
+  );
+}
+
 function SubscriberDetailModal({ userId, onClose, onUpdated }: { userId: string | null; onClose: () => void; onUpdated: () => void }) {
   const [detail, setDetail]   = useState<AdminUserDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -754,6 +815,7 @@ export default function AdminSuscriptoresPage() {
   const [order, setOrder] = useState<SortOrder>('desc');
 
   const [showCreate, setShowCreate]       = useState(false);
+  const [showReminders, setShowReminders] = useState(false);
   const [courtesyUser, setCourtesyUser]   = useState<AdminUser | null>(null);
   const [detailUserId, setDetailUserId]   = useState<string | null>(null);
   const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
@@ -823,12 +885,18 @@ export default function AdminSuscriptoresPage() {
           <h1 className="font-display text-[22px] font-bold text-admin-text">Suscriptores</h1>
           <p className="text-admin-text-secondary text-sm mt-0.5">Usuarios registrados y estado de su suscripción</p>
         </div>
-        <Button theme="light" variant="primary" size="sm" onClick={() => setShowCreate(true)}>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Crear suscriptor
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button theme="light" variant="secondary" size="sm" onClick={() => setShowReminders(true)}>
+            <i className="ti ti-mail-forward text-[16px]" />
+            Recordatorios enviados
+          </Button>
+          <Button theme="light" variant="primary" size="sm" onClick={() => setShowCreate(true)}>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Crear suscriptor
+          </Button>
+        </div>
       </div>
 
       {/* Pestañas de estado */}
@@ -981,6 +1049,10 @@ export default function AdminSuscriptoresPage() {
         open={showCreate}
         onClose={() => setShowCreate(false)}
         onCreated={refresh}
+      />
+      <PaymentRemindersModal
+        open={showReminders}
+        onClose={() => setShowReminders(false)}
       />
       <CourtesyModal
         user={courtesyUser}

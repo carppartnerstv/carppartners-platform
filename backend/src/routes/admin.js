@@ -6,6 +6,7 @@
 //   POST   /admin/users          alta manual de suscriptor (sin Stripe)
 //   POST   /admin/users/:id/courtesy-subscription  otorga/extiende cortesía
 //   POST   /admin/users/:id/payment-reminder  recordatorio manual (sin plan)
+//   GET    /admin/payment-reminders  a quién y si se suscribió después
 //   GET    /admin/payments       historial de pagos (desde Stripe)
 //   POST   /admin/videos         crea vídeo en catálogo
 //   PUT    /admin/videos/:id     edita metadatos
@@ -860,6 +861,45 @@ adminRouter.post(
     );
 
     res.json({ sentAt });
+  }),
+);
+
+// GET /admin/payment-reminders — a quién se le ha mandado el recordatorio de
+// "sin plan" y qué pasó después: cruza email_campaign_log con la
+// suscripción MÁS RECIENTE de cada uno. "converted" exige que esa
+// suscripción se creara DESPUÉS del envío — esta audiencia parte siempre de
+// "sin ninguna suscripción" (solo se manda desde la pestaña Sin plan), así
+// que en la práctica cualquier suscripción que tengan ya sería posterior,
+// pero la condición se deja explícita por si alguna vez se reenvía a
+// alguien que ya hubiera convertido entretanto.
+adminRouter.get(
+  '/payment-reminders',
+  asyncHandler(async (_req, res) => {
+    const { rows } = await query(
+      `SELECT u.id, u.email, u.name, ecl.sent_at AS reminder_sent_at,
+              s.plan, s.status, s.created_at AS subscribed_at
+         FROM email_campaign_log ecl
+         JOIN users u ON u.id = ecl.user_id
+         LEFT JOIN LATERAL (
+           SELECT plan, status, created_at FROM subscriptions
+            WHERE user_id = u.id
+            ORDER BY created_at DESC LIMIT 1
+         ) s ON true
+        WHERE ecl.campaign = 'payment_reminder'
+        ORDER BY ecl.sent_at DESC`,
+    );
+    res.json({
+      reminders: rows.map((r) => ({
+        id: r.id,
+        email: r.email,
+        name: r.name,
+        reminderSentAt: r.reminder_sent_at,
+        converted: !!r.subscribed_at && new Date(r.subscribed_at) > new Date(r.reminder_sent_at),
+        subscribedAt: r.subscribed_at,
+        plan: r.plan,
+        status: r.status,
+      })),
+    });
   }),
 );
 

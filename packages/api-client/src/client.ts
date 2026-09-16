@@ -21,6 +21,7 @@ import type {
   LaunchMetrics,
   RecentActivity,
   AdminUser,
+  PaymentRemindersResponse,
   AdminUserDetail,
   AdminCreateUserInput,
   AdminCreatedUser,
@@ -524,6 +525,10 @@ export class ApiClient {
 
   async sendPaymentReminder(userId: string): Promise<{ sentAt: string }> {
     return this.request('POST', `/admin/users/${userId}/payment-reminder`);
+  }
+
+  async getPaymentReminders(): Promise<PaymentRemindersResponse> {
+    return this.request('GET', '/admin/payment-reminders');
   }
 
   async createAdminVideo(video: AdminVideoInput): Promise<{ video: Video }> {
