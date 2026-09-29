@@ -9,12 +9,14 @@ import { colors, textStyles, spacing } from '../../theme';
 import { Spinner, GridCard, EmptyState } from '../../components/ui';
 import type { VideoCardItem } from '../../components/ui';
 import { apiClient } from '../../lib/apiClient';
+import { useSession } from '../../context/SessionContext';
 import { formatDurationShort } from '../../lib/format';
 import { useResetScrollOnFocus } from '../../hooks/useResetScrollOnFocus';
 
 const CONTENT_BOTTOM_PADDING = 96;
 
 export default function ListScreen() {
+  const { refresh } = useSession();
   const router = useRouter();
   const listRef = useRef<FlatList>(null);
   useResetScrollOnFocus(useCallback(() => listRef.current?.scrollToOffset({ offset: 0, animated: false }), []));
@@ -26,7 +28,7 @@ export default function ListScreen() {
     apiClient.getWatchlist()
       .then(({ items }) => setItems(items))
       .catch((err) => {
-        if (err instanceof ApiError && err.code === 'SUBSCRIPTION_REQUIRED') { /* sin pantalla de planes en la app todavía */ }
+        if (err instanceof ApiError && err.code === 'SUBSCRIPTION_REQUIRED') refresh().catch(() => {}); // el guardián de rutas (_layout) lleva a no-subscription
       })
       .finally(() => setLoading(false));
   }, []);

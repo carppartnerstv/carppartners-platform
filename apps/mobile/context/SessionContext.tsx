@@ -10,7 +10,6 @@ interface SessionContextValue {
   subscription: Subscription | null;
   status: SessionStatus;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => Promise<void>;
   /** Actualiza el usuario en memoria tras editar el perfil (nombre/avatar) */
   setUser: (user: User) => void;
@@ -56,14 +55,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setStatus('authenticated');
   }, []);
 
-  const register = useCallback(async (email: string, password: string, name?: string) => {
-    await apiClient.register(email, password, name);
-    const me = await apiClient.getMe();
-    setUser(me.user);
-    setSubscription(me.subscription);
-    setStatus('authenticated');
-  }, []);
-
   const logout = useCallback(async () => {
     await apiClient.logout();
     setUser(null);
@@ -86,7 +77,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     (subscription.status === 'active' || subscription.status === 'trialing' || subscription.status === 'past_due');
 
   return (
-    <SessionContext.Provider value={{ user, subscription, status, login, register, logout, setUser, hasSubscription, refresh }}>
+    <SessionContext.Provider value={{ user, subscription, status, login, logout, setUser, hasSubscription, refresh }}>
       {children}
     </SessionContext.Provider>
   );

@@ -11,6 +11,7 @@ import { Spinner } from '../../components/ui';
 import { Row } from '../../components/ui/Row';
 import type { VideoCardItem } from '../../components/ui/VideoCard';
 import { apiClient } from '../../lib/apiClient';
+import { useSession } from '../../context/SessionContext';
 import { useResetScrollOnFocus } from '../../hooks/useResetScrollOnFocus';
 
 const CONTENT_BOTTOM_PADDING = 96;
@@ -21,6 +22,7 @@ interface CategoryRow {
 }
 
 export default function HomeScreen() {
+  const { refresh } = useSession();
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   useResetScrollOnFocus(useCallback(() => scrollRef.current?.scrollTo({ y: 0, animated: false }), []));
@@ -53,9 +55,9 @@ export default function HomeScreen() {
         if (cancelled) return;
         setRows(rowsData.filter((r) => r.series.length > 0));
       } catch (err) {
-        if (err instanceof ApiError && err.code === 'SUBSCRIPTION_REQUIRED') {
-          // Sin pantalla de planes en la app todavía — se gestiona desde la web.
-        }
+        // El guardián de rutas (_layout) lleva a no-subscription al ver que
+        // la sesión ya no tiene suscripción vigente.
+        if (err instanceof ApiError && err.code === 'SUBSCRIPTION_REQUIRED') refresh().catch(() => {});
       } finally {
         if (!cancelled) setLoading(false);
       }

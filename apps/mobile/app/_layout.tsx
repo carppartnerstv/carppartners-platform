@@ -49,9 +49,10 @@ export default function RootLayout() {
 
 // Separado del RootLayout para poder leer useSession() (necesita estar
 // dentro de <SessionProvider>) y decidir a qué grupo de rutas mandar al
-// usuario — login si no hay sesión, tabs si la hay.
+// usuario — login si no hay sesión, pantalla "sin suscripción" si la hay
+// pero no tiene suscripción vigente, tabs si tiene ambas cosas.
 function AppShell({ fontsReady }: { fontsReady: boolean }) {
-  const { status } = useSession();
+  const { status, hasSubscription } = useSession();
   const segments = useSegments();
   const router = useRouter();
 
@@ -66,12 +67,17 @@ function AppShell({ fontsReady }: { fontsReady: boolean }) {
   useEffect(() => {
     if (status === 'loading') return;
     const inAuthGroup = segments[0] === '(auth)';
+    const inNoSubscription = segments[0] === 'no-subscription';
     if (status === 'unauthenticated' && !inAuthGroup) {
       router.replace('/(auth)/login');
-    } else if (status === 'authenticated' && inAuthGroup) {
+    } else if (status === 'authenticated' && !hasSubscription && !inNoSubscription) {
+      // Reader App: sin suscripción vigente no hay contenido, y la app no
+      // vende nada — pantalla neutra (ver no-subscription.tsx).
+      router.replace('/no-subscription');
+    } else if (status === 'authenticated' && hasSubscription && (inAuthGroup || inNoSubscription)) {
       router.replace('/(tabs)');
     }
-  }, [status, segments, router]);
+  }, [status, hasSubscription, segments, router]);
 
   if (!fontsReady) return null;
 

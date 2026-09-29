@@ -92,14 +92,6 @@ export default function LoginScreen() {
             </Button>
           </View>
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>¿No tienes cuenta? </Text>
-            <Link href="/(auth)/register" asChild>
-              <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Text style={styles.footerLink}>Regístrate</Text>
-              </TouchableOpacity>
-            </Link>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -136,11 +128,4 @@ const styles = StyleSheet.create({
   forgotLink: { alignSelf: 'flex-end', marginTop: -4 },
   forgotText: { ...textStyles.bodySm, color: colors.textSecondary },
   error: { ...textStyles.bodySm, color: colors.error },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: spacing['2xl'],
-  },
-  footerText: { ...textStyles.bodySm, color: colors.textMuted },
-  footerLink: { ...textStyles.labelSm, color: colors.brandBright },
 });

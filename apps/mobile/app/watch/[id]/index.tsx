@@ -17,12 +17,14 @@ import { colors, textStyles, spacing, radii } from '../../../theme';
 import { Spinner, CardGrid, CastRow, RatingSheet } from '../../../components/ui';
 import type { VideoCardItem, RatingValue } from '../../../components/ui';
 import { apiClient } from '../../../lib/apiClient';
+import { useSession } from '../../../context/SessionContext';
 import { formatDurationLong } from '../../../lib/format';
 
 const RATING_TO_VALUE: Record<number, RatingValue> = { [-1]: 'down', 1: 'like', 2: 'love' };
 const VALUE_TO_RATING: Record<RatingValue, -1 | 1 | 2> = { down: -1, like: 1, love: 2 };
 
 export default function VideoDetailScreen() {
+  const { refresh } = useSession();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
@@ -65,9 +67,9 @@ export default function VideoDetailScreen() {
           setSeasonEpisodes([]);
         }
       } catch (err) {
-        if (err instanceof ApiError && err.code === 'SUBSCRIPTION_REQUIRED') {
-          // Sin pantalla de planes en la app todavía.
-        }
+        // El guardián de rutas (_layout) lleva a no-subscription al ver que
+        // la sesión ya no tiene suscripción vigente.
+        if (err instanceof ApiError && err.code === 'SUBSCRIPTION_REQUIRED') refresh().catch(() => {});
       } finally {
         if (!cancelled) setLoading(false);
       }

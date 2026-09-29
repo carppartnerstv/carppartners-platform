@@ -33,7 +33,7 @@ const PLAN_LABELS: Record<string, string> = { monthly: 'Mensual', annual: 'Anual
 const NOTIF_ROWS = [
   { key: 'estrenos', label: 'Nuevos estrenos', desc: 'Cuando se publique contenido nuevo' },
   { key: 'recomendaciones', label: 'Recomendaciones', desc: 'Sugerencias basadas en lo que ves' },
-  { key: 'promos', label: 'Ofertas y promociones', desc: 'Descuentos y novedades de planes' },
+  { key: 'promos', label: 'Novedades de Carp Partners', desc: 'Noticias y comunicaciones de la plataforma' },
   { key: 'push', label: 'Notificaciones push', desc: 'Avisos en tu móvil' },
 ] as const;
 

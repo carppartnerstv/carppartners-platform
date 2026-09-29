@@ -16,6 +16,7 @@ import { colors, textStyles, spacing, radii } from '../../theme';
 import { Spinner, GridCard, Avatar, Badge } from '../../components/ui';
 import type { VideoCardItem } from '../../components/ui';
 import { apiClient } from '../../lib/apiClient';
+import { useSession } from '../../context/SessionContext';
 import { ROLE_LABELS } from '../../lib/constants';
 import { useResetScrollOnFocus } from '../../hooks/useResetScrollOnFocus';
 
@@ -28,6 +29,7 @@ function normalize(s: string) {
 type Tab = 'all' | 'crew' | string;
 
 export default function ExploreScreen() {
+  const { refresh } = useSession();
   const router = useRouter();
   const listRef = useRef<FlatList>(null);
   useResetScrollOnFocus(useCallback(() => listRef.current?.scrollToOffset({ offset: 0, animated: false }), []));
@@ -62,7 +64,7 @@ export default function ExploreScreen() {
       .then(({ series }) => { if (!cancelled) setSeries(series); })
       .catch((err) => {
         if (cancelled) return;
-        if (err instanceof ApiError && err.code === 'SUBSCRIPTION_REQUIRED') { /* sin pantalla de planes en la app todavía */ }
+        if (err instanceof ApiError && err.code === 'SUBSCRIPTION_REQUIRED') refresh().catch(() => {}); // el guardián de rutas (_layout) lleva a no-subscription
       })
       .finally(() => { if (!cancelled) setSeriesLoading(false); });
     return () => { cancelled = true; };
