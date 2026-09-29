@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import type { ContactMessage } from '@carp-partners/api-client';
 import { Button, Pagination } from '@carp-partners/ui';
@@ -18,11 +19,14 @@ const PAGE_SIZE = 25;
 
 export default function AdminContactMessagesPage() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [total, setTotal]       = useState(0);
   const [unread, setUnread]     = useState(0);
   const [page, setPage]         = useState(0);
-  const [onlyUnread, setOnlyUnread] = useState(false);
+  // ?tab=unread abre directo en "No leídos" — usado por la tarjeta de
+  // "Mensajes sin leer" del dashboard (/admin/dashboard).
+  const [onlyUnread, setOnlyUnread] = useState(() => searchParams.get('tab') === 'unread');
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState('');
 

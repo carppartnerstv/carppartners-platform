@@ -617,13 +617,15 @@ export default function AdminDashboardPage() {
               }
             />
             <MetricCard
-              label="MRR"
-              value={stats.mrr.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
-              sub="Ingresos recurrentes mensuales (aprox.)"
+              label="Mensajes sin leer"
+              value={stats.unreadMessages.toLocaleString('es-ES')}
+              sub="Bandeja de contacto"
+              accent={stats.unreadMessages > 0}
+              href="/admin/mensajes?tab=unread"
               icon={
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               }
             />
@@ -642,14 +644,6 @@ export default function AdminDashboardPage() {
         <RecentMembersWidget />
         <RecentPaymentsWidget />
       </div>
-
-      {/* Nota pie */}
-      {!loading && !error && (
-        <p className="text-admin-text-tertiary text-xs">
-          El MRR es una estimación basada en 9,99 €/mes y 7,50 €/mes equivalente para suscripciones anuales.
-          Para datos precisos, consulta el dashboard de Stripe.
-        </p>
-      )}
     </div>
   );
 }

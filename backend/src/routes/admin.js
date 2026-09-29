@@ -143,19 +143,20 @@ adminRouter.get(
       `SELECT COUNT(*)::int AS n FROM videos v
         WHERE v.published = true AND v.published_at IS NOT NULL AND v.published_at > now()`,
     );
-    // MRR aproximado: mensual 9,99 €, anual 89,99 € (7,50 €/mes equiv.)
-    const mrr = await queryOne(
-      `SELECT
-         COALESCE(SUM(CASE WHEN plan = 'monthly' THEN 9.99
-                           WHEN plan = 'annual'  THEN 7.50 ELSE 0 END), 0)::numeric(10,2) AS mrr
-         FROM subscriptions WHERE status IN ('active','trialing')`,
+    // Misma definición que "unread" de GET /admin/contact-messages, para que
+    // el número coincida siempre con el de esa bandeja.
+    const unreadMessages = await queryOne(
+      `SELECT COUNT(*)::int AS n FROM contact_messages WHERE read_at IS NULL`,
     );
+    // MRR oculto por ahora (a petición) — mrr: eliminado de la query y de la
+    // respuesta. La lógica sigue en el historial de git si hay que
+    // recuperarla (commit previo a este).
 
     res.json({
       activeSubscribers: activeSubs.n,
       publishedVideos: publishedVideos.n,
       scheduledVideos: scheduledVideos.n,
-      mrr: Number(mrr.mrr),
+      unreadMessages: unreadMessages.n,
     });
   }),
 );

@@ -189,7 +189,7 @@ export interface DashboardStats {
   activeSubscribers: number;
   publishedVideos: number;
   scheduledVideos: number;
-  mrr: number;
+  unreadMessages: number;
 }
 
 export interface PlaysTodayHour {
