@@ -70,8 +70,9 @@ async function main() {
          LIMIT 1
       ) s ON true
      WHERE u.stripe_customer_id IS NOT NULL
-       AND NOT (
-         s.status = ANY($1::text[]) AND (s.period_end IS NULL OR s.period_end > now())
+       AND (
+         s.status IS NULL
+         OR NOT (s.status = ANY($1::text[]) AND (s.period_end IS NULL OR s.period_end > now()))
        )
      ORDER BY u.email
   `, [ACCESS_GRANTING_DB_STATUSES]);

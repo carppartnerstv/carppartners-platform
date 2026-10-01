@@ -25,6 +25,14 @@
 // se quedan solo listados, para revisión aparte (no son urgentes: nadie
 // está pagando sin acceso por esos).
 //
+// Incluye también a usuarios SIN ninguna fila de suscripción (los de la
+// pestaña "Sin plan") — antes se excluían por accidente: con
+// `s.status = ANY(...)` sobre un status NULL, Postgres da NULL, y
+// `NOT (NULL)` es NULL, no true, así que el WHERE los descartaba en
+// silencio. Caso real que lo reveló: vwpassat130@hotmail.com, con 6
+// Customer en Stripe, se suscribió en uno nuevo y el script no lo vio
+// porque no tenía ninguna suscripción previa en nuestra BD.
+//
 // Uso:
 //   node scripts/find-stale-customer-links.js            # dry-run
 //   node scripts/find-stale-customer-links.js --send      # corrige los urgentes
@@ -117,8 +125,9 @@ async function main() {
          LIMIT 1
       ) s ON true
      WHERE u.stripe_customer_id IS NOT NULL
-       AND NOT (
-         s.status = ANY($1::text[]) AND (s.period_end IS NULL OR s.period_end > now())
+       AND (
+         s.status IS NULL
+         OR NOT (s.status = ANY($1::text[]) AND (s.period_end IS NULL OR s.period_end > now()))
        )
      ORDER BY u.email
   `, [ACCESS_GRANTING_DB_STATUSES]);
