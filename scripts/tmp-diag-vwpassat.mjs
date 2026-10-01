@@ -30,9 +30,15 @@ if (email2 !== email) {
   others2.data.forEach((c) => console.log('   -', c.id, JSON.stringify(c.email), 'creado', new Date(c.created * 1000).toISOString()));
 }
 
-// Y con list() (exacto, sensible a mayúsculas) por comparar
-const viaList = await stripe.customers.list({ email, limit: 10 });
-console.log('5) customers.list() (exacto) encuentra', viaList.data.length, 'resultados:');
-viaList.data.forEach((c) => console.log('   -', c.id, JSON.stringify(c.email)));
+console.log('\n6) Detalle de cada uno de los 6 customers:');
+for (const c of others.data) {
+  const subs = await stripe.subscriptions.list({ customer: c.id, status: 'all', limit: 10 });
+  const schedules = await stripe.subscriptionSchedules.list({ customer: c.id, limit: 10 });
+  const charges = await stripe.charges.list({ customer: c.id, limit: 5 });
+  console.log(`   ${c.id} (creado ${new Date(c.created * 1000).toISOString().slice(0, 10)}):`);
+  console.log(`     suscripciones: ${subs.data.map((s) => `${s.id}(${s.status})`).join(', ') || 'ninguna'}`);
+  console.log(`     schedules: ${schedules.data.map((sc) => `${sc.id}(${sc.status})`).join(', ') || 'ninguna'}`);
+  console.log(`     cargos: ${charges.data.map((ch) => `${ch.id}(${ch.status}, ${ch.amount / 100}${ch.currency}, ${new Date(ch.created * 1000).toISOString().slice(0, 10)})`).join(', ') || 'ninguno'}`);
+}
 
 process.exit(0);
