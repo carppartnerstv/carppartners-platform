@@ -26,7 +26,7 @@ import { asyncHandler, badRequest, notFound, HttpError } from '../utils/errors.j
 import { stripe } from '../services/stripe.js';
 import { getVideoMetadata } from '../services/vimeo.js';
 import { sendMail } from '../services/mail.js';
-import { setPasswordEmail, completeSignupReminderEmail } from '../services/mailTemplates.js';
+import { setPasswordEmail, completeSignupReminderEmail, contactReplyEmail } from '../services/mailTemplates.js';
 import { config } from '../config/index.js';
 import sanitizeHtml from 'sanitize-html';
 import { UAParser } from 'ua-parser-js';
@@ -2188,6 +2188,43 @@ adminRouter.put(
       [parsed.data.read ? new Date() : null, req.params.id],
     );
     if (!message) throw notFound('Mensaje no encontrado', 'MESSAGE_NOT_FOUND');
+    res.json({ message });
+  }),
+);
+
+// POST /admin/contact-messages/:id/reply  { text }  — responde por email
+// desde el propio panel (en vez de mailto:), para no depender del cliente
+// de correo local del admin. Guarda replied_at/reply_text (solo la última
+// respuesta, no un historial) y marca el mensaje como leído de paso, si no
+// lo estaba ya.
+adminRouter.post(
+  '/contact-messages/:id/reply',
+  asyncHandler(async (req, res) => {
+    const schema = z.object({ text: z.string().trim().min(1, 'La respuesta no puede estar vacía') });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message, 'VALIDATION');
+
+    const original = await queryOne('SELECT * FROM contact_messages WHERE id = $1', [req.params.id]);
+    if (!original) throw notFound('Mensaje no encontrado', 'MESSAGE_NOT_FOUND');
+
+    const result = await sendMail({
+      to: original.email,
+      ...contactReplyEmail({
+        name: original.name,
+        subject: original.subject,
+        originalMessage: original.message,
+        replyText: parsed.data.text,
+      }),
+    });
+    if (!result.sent) throw new HttpError(502, 'No se pudo enviar el correo (SMTP no disponible)', 'MAIL_FAILED');
+
+    const message = await queryOne(
+      `UPDATE contact_messages
+          SET replied_at = now(), reply_text = $1, read_at = COALESCE(read_at, now())
+        WHERE id = $2
+      RETURNING *`,
+      [parsed.data.text, req.params.id],
+    );
     res.json({ message });
   }),
 );

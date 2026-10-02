@@ -212,6 +212,31 @@ export function completeSignupReminderEmail({ name, plansUrl }) {
   };
 }
 
+// Respuesta a un mensaje de /contacto, enviada desde /admin/mensajes en vez
+// de por mailto: — así queda registrada (contact_messages.replied_at /
+// reply_text) y el admin no tiene que salir del panel. Cita el mensaje
+// original (mismo bloque quoteText que ya usan contactAdminNotification y
+// contactAcknowledgmentEmail) para que la persona tenga contexto de a qué
+// se está respondiendo.
+export function contactReplyEmail({ name, subject, originalMessage, replyText }) {
+  const greeting = greetingLine(name);
+  const html = renderEmailLayout({
+    previewText: 'Respuesta a tu consulta.',
+    eyebrow: 'Respuesta de Carp Partners',
+    heading: `Hola${name ? `, ${name}` : ''}`,
+    bodyText1: replyText,
+    quoteLabel: subject ? `Tu mensaje original — ${subject}` : 'Tu mensaje original',
+    quoteText: originalMessage,
+    signOffLine1: 'Un saludo,',
+    signOffLine2: 'El equipo de Carp Partners TV',
+  });
+  return {
+    subject: subject ? `Re: ${subject} — Carp Partners TV` : 'Respuesta a tu consulta — Carp Partners TV',
+    html,
+    text: `${greeting}\n\n${replyText}\n\n---\nTu mensaje original:\n${originalMessage}\n\nUn saludo,\nEl equipo de Carp Partners TV`,
+  };
+}
+
 export function emailVerificationEmail({ name, verifyUrl }) {
   const greeting = greetingLine(name);
   const html = renderEmailLayout({

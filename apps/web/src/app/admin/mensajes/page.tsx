@@ -33,6 +33,8 @@ export default function AdminContactMessagesPage() {
   const [viewing, setViewing]   = useState<ContactMessage | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ContactMessage | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
 
   const load = useCallback(async (p: number, unreadOnly: boolean) => {
     setLoading(true); setError('');
@@ -54,6 +56,7 @@ export default function AdminContactMessagesPage() {
 
   const openMessage = async (m: ContactMessage) => {
     setViewing(m);
+    setReplyText('');
     if (!m.read_at) {
       try {
         await apiClient.markContactMessageRead(m.id, true);
@@ -75,6 +78,21 @@ export default function AdminContactMessagesPage() {
     } catch (e) {
       toast('error', e instanceof ApiError ? e.message : 'No se pudo actualizar');
     }
+  };
+
+  const handleReply = async () => {
+    if (!viewing || !replyText.trim() || sendingReply) return;
+    setSendingReply(true);
+    try {
+      const { message } = await apiClient.replyToContactMessage(viewing.id, replyText.trim());
+      setMessages(prev => prev.map(x => x.id === message.id ? message : x));
+      if (!viewing.read_at) setUnread(u => Math.max(0, u - 1));
+      setViewing(message);
+      setReplyText('');
+      toast('success', 'Respuesta enviada');
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'No se pudo enviar la respuesta');
+    } finally { setSendingReply(false); }
   };
 
   const handleDelete = async () => {
@@ -205,6 +223,33 @@ export default function AdminContactMessagesPage() {
                 {viewing.marketing_opt_in ? 'Acepta recibir información de actividades, servicios y productos' : 'No ha aceptado recibir comunicaciones'}
               </p>
             </div>
+            {viewing.replied_at && (
+              <div className="rounded-md border border-admin-border-soft bg-admin-bg px-3 py-2.5">
+                <p className="text-xs font-medium text-admin-text-secondary uppercase tracking-wide mb-1">
+                  Respondido el {fmtDate(viewing.replied_at)}
+                </p>
+                {viewing.reply_text && (
+                  <p className="text-admin-text-secondary text-sm whitespace-pre-wrap leading-relaxed">{viewing.reply_text}</p>
+                )}
+              </div>
+            )}
+
+            <div>
+              <p className="text-xs font-medium text-admin-text-secondary uppercase tracking-wide mb-1">
+                {viewing.replied_at ? 'Enviar otra respuesta' : 'Responder'}
+              </p>
+              <textarea
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                rows={5}
+                placeholder="Escribe tu respuesta…"
+                className="w-full rounded-md border border-admin-input-border bg-admin-surface text-admin-text text-sm p-3 resize-y focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
+              />
+              <p className="text-admin-text-tertiary text-xs mt-1">
+                Se enviará por email a {viewing.email}, citando su mensaje original.
+              </p>
+            </div>
+
             <div className="flex gap-3 pt-3 border-t border-admin-border-soft">
               <Button theme="light" variant="ghost" size="md" onClick={() => toggleRead(viewing)}>
                 Marcar como {viewing.read_at ? 'no leído' : 'leído'}
@@ -212,9 +257,17 @@ export default function AdminContactMessagesPage() {
               <Button theme="light" variant="ghost" size="md" onClick={() => setPendingDelete(viewing)}>
                 Eliminar
               </Button>
-              <a href={`mailto:${viewing.email}`} className="ml-auto">
-                <Button theme="light" variant="primary" size="md">Responder por email</Button>
-              </a>
+              <Button
+                theme="light"
+                variant="primary"
+                size="md"
+                className="ml-auto"
+                loading={sendingReply}
+                disabled={!replyText.trim()}
+                onClick={handleReply}
+              >
+                Enviar respuesta
+              </Button>
             </div>
           </div>
         )}

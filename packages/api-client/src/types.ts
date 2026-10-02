@@ -461,6 +461,8 @@ export interface ContactMessage {
   message: string;
   marketing_opt_in: boolean;
   read_at: string | null;
+  replied_at: string | null;
+  reply_text: string | null;
   created_at: string;
 }
 

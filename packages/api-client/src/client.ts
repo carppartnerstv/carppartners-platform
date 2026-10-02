@@ -760,6 +760,10 @@ export class ApiClient {
     return this.request('PUT', `/admin/contact-messages/${id}`, { body: { read } });
   }
 
+  async replyToContactMessage(id: string, text: string): Promise<{ message: ContactMessage }> {
+    return this.request('POST', `/admin/contact-messages/${id}/reply`, { body: { text } });
+  }
+
   async deleteAdminContactMessage(id: string): Promise<void> {
     return this.request('DELETE', `/admin/contact-messages/${id}`);
   }

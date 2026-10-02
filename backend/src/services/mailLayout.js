@@ -62,6 +62,15 @@ function nl2br(escaped) {
   return escaped.replace(/\n/g, '<br>');
 }
 
+// bodyText1 también pasa por nl2br (igual que quoteText) — ninguna
+// plantilla existente tiene saltos de línea en su texto (son strings de una
+// línea escritos en código), así que esto no cambia nada de lo ya enviado;
+// solo hace falta para contactReplyEmail, donde el texto SÍ puede traer
+// varios párrafos (lo escribe un admin en un textarea).
+function bodyParagraph(text) {
+  return nl2br(escapeHtml(text));
+}
+
 /**
  * @param {object} p
  * @param {string} p.eyebrow        Etiqueta corta sobre el título (p. ej. "Bienvenido a bordo")
@@ -169,7 +178,7 @@ export function renderEmailLayout(p) {
         <td style="padding:44px 44px 8px;text-align:center">
           <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:rgba(104,20,11,0.18);color:${BRAND_BRIGHT};font-family:${FONT_BODY};font-size:11.5px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:22px">${escapeHtml(p.eyebrow)}</div>
           <h1 style="font-family:${FONT_HEADING};font-weight:800;font-size:26px;line-height:1.25;letter-spacing:-0.01em;color:#ffffff;margin:0 0 16px">${escapeHtml(p.heading)}</h1>
-          <p style="font-family:${FONT_BODY};font-size:15px;line-height:1.7;color:${TEXT_BODY};margin:0;text-align:left">${escapeHtml(p.bodyText1)}</p>${bodyText2Block}${bodyText3Block}
+          <p style="font-family:${FONT_BODY};font-size:15px;line-height:1.7;color:${TEXT_BODY};margin:0;text-align:left">${bodyParagraph(p.bodyText1)}</p>${bodyText2Block}${bodyText3Block}
         </td>
       </tr>
       ${quoteBlock}

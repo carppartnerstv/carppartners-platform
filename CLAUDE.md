@@ -128,6 +128,7 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | DELETE | `/admin/pages/:slug/image` | JWT + admin | 204 — borra el archivo de disco y pone `og_image = NULL` |
 | GET | `/admin/contact-messages?read&limit&offset` | JWT + admin | `{messages, total, unread}` — bandeja de `POST /contact`; `read=true\|false` filtra por leído/no leído |
 | PUT | `/admin/contact-messages/:id` `{read: boolean}` | JWT + admin | `{message}` — marca leído/no leído (`read_at`) |
+| POST | `/admin/contact-messages/:id/reply` `{text}` | JWT + admin | `{message}` — responde por email desde el propio panel (`contactReplyEmail`, cita el mensaje original); guarda `replied_at`/`reply_text` (solo la última respuesta) y marca `read_at` de paso si no lo estaba |
 | DELETE | `/admin/contact-messages/:id` | JWT + admin | 204 |
 | GET | `/admin/crew` | JWT + admin | `{crew}` |
 | POST | `/admin/crew` `{name,slug,role?,bio?,avatarUrl?,orderIndex?}` | JWT + admin | `{member}` 201 |
@@ -445,13 +446,16 @@ manualmente desde `/admin/series` cuando el usuario lo decida, no por script.
 
 ## Formulario de contacto y bandeja admin
 
-- `contact_messages` (migración 011): `name, email, subject?, message, read_at, created_at`.
+- `contact_messages` (migración 011, + `replied_at`/`reply_text` en la 024):
+  `name, email, subject?, message, read_at, replied_at, reply_text, created_at`.
   `POST /contact` (público, rate-limited en `app.js`) guarda la fila y dispara
-  los dos emails de arriba; `read_at` empieza `NULL`.
+  los dos emails de arriba; `read_at`/`replied_at` empiezan `NULL`.
 - Panel admin `/admin/mensajes`: pestañas "Todos"/"No leídos", clic en una fila
   abre el detalle y lo marca leído automáticamente (`PUT /admin/contact-messages/:id`);
-  desde el detalle se puede volver a marcar no leído, eliminar, o responder
-  por email directo (`mailto:`).
+  desde el detalle se puede volver a marcar no leído, eliminar, o **responder
+  desde el propio panel** (`POST /admin/contact-messages/:id/reply`, envía
+  `contactReplyEmail` — cita el mensaje original) — ya no depende de
+  `mailto:`/el cliente de correo local del admin.
 
 ## Reglas para el agente
 
