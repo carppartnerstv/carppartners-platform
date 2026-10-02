@@ -218,20 +218,25 @@ export function completeSignupReminderEmail({ name, plansUrl }) {
 // original (mismo bloque quoteText que ya usan contactAdminNotification y
 // contactAcknowledgmentEmail) para que la persona tenga contexto de a qué
 // se está respondiendo.
-export function contactReplyEmail({ name, subject, originalMessage, replyText }) {
+// El asunto original lo escribe libremente quien rellena el formulario de
+// /contacto (campo de texto libre, no una categoría) — así que no es fiable
+// para reutilizarlo en el asunto de la respuesta ni en la etiqueta de la
+// cita (puede venir vacío, raro o en otro idioma). Se usa un asunto fijo en
+// vez de "Re: {lo que haya escrito}".
+export function contactReplyEmail({ name, originalMessage, replyText }) {
   const greeting = greetingLine(name);
   const html = renderEmailLayout({
     previewText: 'Respuesta a tu consulta.',
     eyebrow: 'Respuesta de Carp Partners',
     heading: `Hola${name ? `, ${name}` : ''}`,
     bodyText1: replyText,
-    quoteLabel: subject ? `Tu mensaje original — ${subject}` : 'Tu mensaje original',
+    quoteLabel: 'Tu mensaje original',
     quoteText: originalMessage,
     signOffLine1: 'Un saludo,',
     signOffLine2: 'El equipo de Carp Partners TV',
   });
   return {
-    subject: subject ? `Re: ${subject} — Carp Partners TV` : 'Respuesta a tu consulta — Carp Partners TV',
+    subject: 'RE: Consulta — Carp Partners TV',
     html,
     text: `${greeting}\n\n${replyText}\n\n---\nTu mensaje original:\n${originalMessage}\n\nUn saludo,\nEl equipo de Carp Partners TV`,
   };

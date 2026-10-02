@@ -2211,7 +2211,6 @@ adminRouter.post(
       to: original.email,
       ...contactReplyEmail({
         name: original.name,
-        subject: original.subject,
         originalMessage: original.message,
         replyText: parsed.data.text,
       }),
