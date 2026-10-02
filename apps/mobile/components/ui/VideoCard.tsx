@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface2,
   },
   scrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   newBadge: {
     position: 'absolute',

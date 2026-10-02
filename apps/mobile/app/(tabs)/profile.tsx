@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   historyList: { gap: 4 },
   historyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
   historyThumb: { width: 64, height: 40, borderRadius: 6, backgroundColor: colors.surface, overflow: 'hidden' },
-  historyPlayIcon: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  historyPlayIcon: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   historyTitle: { ...textStyles.bodySm, color: colors.textPrimary, fontFamily: 'Inter_600SemiBold' },
   historyWhen: { ...textStyles.bodyXs, color: colors.textFaint, marginTop: 2 },
   historyDur: { ...textStyles.bodyXs, color: colors.textMuted },

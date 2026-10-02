@@ -43,7 +43,8 @@
         {
           "photosPermission": "Carp Partners TV necesita acceso a tus fotos para que puedas cambiar tu foto de perfil."
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true
