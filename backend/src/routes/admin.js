@@ -622,6 +622,16 @@ adminRouter.get(
       [user.id],
     );
 
+    const { rows: watchHistory } = await query(
+      `SELECT v.id AS video_id, v.title, v.slug, h.progress_sec, h.completed, h.last_watched_at
+         FROM watch_history h
+         JOIN videos v ON v.id = h.video_id
+        WHERE h.user_id = $1
+        ORDER BY h.last_watched_at DESC
+        LIMIT 50`,
+      [user.id],
+    );
+
     let payments = [];
     if (user.stripe_customer_id) {
       try {
@@ -685,6 +695,14 @@ adminRouter.get(
           country,
         };
       }),
+      watchHistory: watchHistory.map((h) => ({
+        videoId: h.video_id,
+        title: h.title,
+        slug: h.slug,
+        progressSec: h.progress_sec,
+        completed: h.completed,
+        lastWatchedAt: h.last_watched_at,
+      })),
     });
   }),
 );

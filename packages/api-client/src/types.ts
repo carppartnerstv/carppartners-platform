@@ -357,6 +357,15 @@ export interface AdminUserLoginHistoryItem {
   country: string | null;
 }
 
+export interface AdminUserWatchHistoryItem {
+  videoId: string;
+  title: string;
+  slug: string;
+  progressSec: number;
+  completed: boolean;
+  lastWatchedAt: string;
+}
+
 export interface AdminUserDetail {
   user: {
     id: string;
@@ -370,6 +379,7 @@ export interface AdminUserDetail {
   subscriptions: AdminUserSubscriptionHistoryItem[];
   payments: AdminUserPaymentHistoryItem[];
   loginHistory: AdminUserLoginHistoryItem[];
+  watchHistory: AdminUserWatchHistoryItem[];
 }
 
 export interface AdminCreateUserInput {

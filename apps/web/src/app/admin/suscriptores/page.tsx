@@ -41,6 +41,16 @@ function fmtSessionDuration(loggedInAt: string, lastSeenAt: string | null): stri
   return `${h} h${m ? ` ${m} min` : ''}`;
 }
 
+// Progreso de reproducción (progress_sec) en formato "mm:ss" o "h:mm:ss".
+function fmtProgress(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  const mm = String(m).padStart(h ? 2 : 1, '0');
+  const ss = String(s).padStart(2, '0');
+  return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
 const STATUS_LABELS: Record<string, string> = {
   active:    'Activo',
   trialing:  'Prueba',
@@ -751,6 +761,24 @@ function SubscriberDetailModal({ userId, onClose, onUpdated }: { userId: string 
                     <td className="px-3 py-2 text-admin-text-tertiary whitespace-nowrap" title={l.userAgent ?? undefined}>
                       {l.browser ?? '—'}
                     </td>
+                  </tr>
+                ))}
+              </DetailTable>
+            )}
+          </div>
+
+          <div>
+            <h3 className="text-admin-text font-semibold text-sm mb-2">Historial de reproducción</h3>
+            {detail.watchHistory.length === 0 ? (
+              <p className="text-admin-text-tertiary text-xs">No ha visto ningún vídeo todavía.</p>
+            ) : (
+              <DetailTable head={<><Th>Título</Th><Th>Progreso</Th><Th>Completado</Th><Th>Última vez</Th></>}>
+                {detail.watchHistory.map((w) => (
+                  <tr key={w.videoId}>
+                    <td className="px-3 py-2 text-admin-text whitespace-nowrap">{w.title}</td>
+                    <td className="px-3 py-2 text-admin-text-secondary tabular-nums whitespace-nowrap">{fmtProgress(w.progressSec)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{w.completed ? 'Sí' : 'No'}</td>
+                    <td className="px-3 py-2 text-admin-text-tertiary tabular-nums whitespace-nowrap">{fmtDateTime(w.lastWatchedAt)}</td>
                   </tr>
                 ))}
               </DetailTable>
