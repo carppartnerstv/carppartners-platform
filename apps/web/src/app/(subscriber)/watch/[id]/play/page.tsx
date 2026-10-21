@@ -88,6 +88,17 @@ export default function PlayPage() {
   const [activeLevel, setActiveLevel] = useState(-1); // nivel que se está reproduciendo AHORA (informativo en Auto)
   const [qualityMenuOpen, setQualityMenuOpen] = useState(false);
 
+  // ── Chromecast (Google Cast Web Sender SDK, gratuito, sin cuenta ni app
+  // propia — usa el "Default Media Receiver" de Google) y AirPlay (nativo
+  // de Safari/iOS, sin SDK). Son excluyentes en la práctica: Safari no
+  // implementa el SDK de Cast, y solo WebKit implementa AirPlay — por eso
+  // basta con mostrar el botón que corresponda según lo que el navegador
+  // soporte, nunca los dos a la vez. Mientras no tengamos la app móvil,
+  // esto permite enviar el vídeo a la TV directamente desde el navegador. ──
+  const [castAvailable, setCastAvailable] = useState(false);
+  const [casting, setCasting] = useState(false);
+  const [airplayAvailable, setAirplayAvailable] = useState(false);
+
   // ── Guarda progreso ──────────────────────────────────────────────────────────
   const saveProgress = useCallback((videoId: string, completed = false) => {
     const el = videoRef.current;
@@ -262,6 +273,54 @@ export default function PlayPage() {
       el.removeEventListener('loadedmetadata', onLoadedMeta);
       el.removeEventListener('volumechange', onVolumeChange);
     };
+  }, []);
+
+  // ── Chromecast: carga del SDK (una sola vez, script oficial de Google) ──────
+  // No existe tipado npm oficial de este SDK — se expone en window.cast/
+  // window.chrome.cast, de ahí los `as any` puntuales en vez de instalar un
+  // paquete de tipos aparte solo para esto.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const w = window as any;
+
+    const setupContext = () => {
+      w.cast.framework.CastContext.getInstance().setOptions({
+        receiverApplicationId: w.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+        autoJoinPolicy: w.chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
+      });
+      setCastAvailable(true);
+    };
+
+    if (w.cast?.framework) { setupContext(); return; }
+
+    w.__onGCastApiAvailable = (isAvailable: boolean) => {
+      if (isAvailable) setupContext();
+    };
+
+    if (document.getElementById('gcast-sdk')) return;
+    const script = document.createElement('script');
+    script.id = 'gcast-sdk';
+    script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
+    document.head.appendChild(script);
+  }, []);
+
+  // Estado de la sesión de cast — se refleja en el icono del botón y en el
+  // overlay "Reproduciendo en tu Chromecast" sobre el vídeo.
+  useEffect(() => {
+    if (!castAvailable) return;
+    const w = window as any;
+    const context = w.cast.framework.CastContext.getInstance();
+    const onSessionStateChanged = (e: any) => {
+      const SessionState = w.cast.framework.SessionState;
+      setCasting(e.sessionState === SessionState.SESSION_STARTED || e.sessionState === SessionState.SESSION_RESUMED);
+    };
+    context.addEventListener(w.cast.framework.CastContextEventType.SESSION_STATE_CHANGED, onSessionStateChanged);
+    return () => context.removeEventListener(w.cast.framework.CastContextEventType.SESSION_STATE_CHANGED, onSessionStateChanged);
+  }, [castAvailable]);
+
+  // ── AirPlay: nativo de WebKit, sin SDK — solo feature-detection ─────────────
+  useEffect(() => {
+    setAirplayAvailable(typeof window !== 'undefined' && 'WebKitPlaybackTargetAvailabilityEvent' in window);
   }, []);
 
   // ── Fullscreen ────────────────────────────────────────────────────────────────
@@ -560,6 +619,45 @@ export default function PlayPage() {
     }
   };
 
+  // Abre el selector nativo de dispositivos Chromecast y, al conectar, le
+  // manda la misma URL HLS que reproduce el <video> local (el propio
+  // Chromecast la descodifica él solo, sin pasar por hls.js) — pausamos el
+  // vídeo local para no tener sonido por dos sitios a la vez. OJO: la URL
+  // caduca a la ~1h (ver GET /videos/:id/stream) — en una sesión de cast muy
+  // larga podría cortarse; riesgo aceptado por ahora, no hay recarga automática.
+  const startCast = async () => {
+    const w = window as any;
+    if (!w.cast || !streamUrl || !video) return;
+    const context = w.cast.framework.CastContext.getInstance();
+    try {
+      await context.requestSession();
+    } catch {
+      return; // el usuario cerró el selector de dispositivo sin elegir ninguno
+    }
+    const session = context.getCurrentSession();
+    if (!session) return;
+    const mediaInfo = new w.chrome.cast.media.MediaInfo(streamUrl, 'application/x-mpegurl');
+    mediaInfo.metadata = new w.chrome.cast.media.GenericMediaMetadata();
+    mediaInfo.metadata.title = video.title;
+    const request = new w.chrome.cast.media.LoadRequest(mediaInfo);
+    request.currentTime = videoRef.current?.currentTime ?? 0;
+    try {
+      await session.loadMedia(request);
+      videoRef.current?.pause();
+    } catch (err) {
+      console.error('[cast] No se pudo cargar el vídeo en el dispositivo', err);
+    }
+  };
+
+  const stopCast = () => {
+    const w = window as any;
+    w.cast?.framework?.CastContext.getInstance().getCurrentSession()?.endSession(true);
+  };
+
+  const showAirplayPicker = () => {
+    (videoRef.current as unknown as { webkitShowPlaybackTargetPicker?: () => void })?.webkitShowPlaybackTargetPicker?.();
+  };
+
   // levelIndex: -1 = Automática (vuelve al ABR de hls.js), o el índice real
   // del nivel dentro de hls.levels. Asignar currentLevel fuerza el cambio de
   // inmediato (puede causar un pequeño corte mientras carga el nuevo
@@ -710,8 +808,21 @@ export default function PlayPage() {
               izquierda/derecha retrocede/avanza 10s, como en YouTube/Netflix.
               Se mantiene el div para que el header y la barra de controles
               sigan anclados arriba/abajo con flex-col. */}
-          <div className="relative z-10 flex-1" onClick={handleVideoAreaClick}>
-            {playFlash && (
+          <div className="relative z-10 flex-1" onClick={casting ? undefined : handleVideoAreaClick}>
+            {casting && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center px-6">
+                <i className="ti ti-cast text-[48px] text-white/70" />
+                <p className="text-white text-[15px] font-semibold">Reproduciendo en tu Chromecast</p>
+                <button
+                  onClick={stopCast}
+                  className="px-4 py-2 rounded-md text-[13px] font-semibold text-white transition-opacity hover:opacity-85"
+                  style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)' }}
+                >
+                  Dejar de emitir
+                </button>
+              </div>
+            )}
+            {!casting && playFlash && (
               <div className="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none">
                 <div
                   className="w-[76px] h-[76px] rounded-full flex items-center justify-center"
@@ -956,6 +1067,28 @@ export default function PlayPage() {
                     </>
                   )}
                 </div>
+              )}
+              {/* Chromecast — solo si el SDK de Google cargó (Chrome/Edge
+                  de escritorio y Android; Safari no lo implementa). El
+                  icono cambia de color mientras hay sesión activa. */}
+              {castAvailable && (
+                <button
+                  onClick={casting ? stopCast : startCast}
+                  aria-label={casting ? 'Dejar de emitir a Chromecast' : 'Enviar a Chromecast'}
+                  className="hover:opacity-80"
+                >
+                  <i
+                    className="ti ti-cast text-[21px] sm:text-[24px]"
+                    style={casting ? { color: '#cf4a35' } : undefined}
+                  />
+                </button>
+              )}
+              {/* AirPlay — nativo de Safari/iOS, excluyente con Chromecast
+                  (solo uno de los dos SDK existe por navegador). */}
+              {airplayAvailable && (
+                <button onClick={showAirplayPicker} aria-label="Enviar por AirPlay" className="hover:opacity-80">
+                  <i className="ti ti-cast text-[21px] sm:text-[24px]" />
+                </button>
               )}
               {/* Con la Fullscreen API estándar (Android/escritorio), oculto
                   mientras forceRotate está activo: pedir fullscreen real

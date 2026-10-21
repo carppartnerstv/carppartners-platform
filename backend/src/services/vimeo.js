@@ -94,10 +94,27 @@ export async function getPlaybackUrl(vimeoId) {
   }
 
   return {
-    hlsUrl: hls,
+    hlsUrl: await resolvePlaybackRedirect(hls),
     // Los enlaces de reproducción de Vimeo caducan ~1h (Briefing 4.3)
     expiresInSec: 3600,
   };
+}
+
+// `play.hls.link` no es el manifest final: es un redirector 302 de
+// player.vimeo.com que apunta a la URL real firmada de vimeocdn.com. El
+// navegador sigue esa redirección sola y nunca se nota, pero algunos
+// clientes AirPlay/Chromecast de TVs (que piden la URL ellos mismos, sin
+// pasar por nuestro navegador) no la siguen bien y fallan al conectar.
+// Resolvemos el salto aquí, server-side, y entregamos ya la URL final —
+// transparente para el navegador, y evita ese fallo en TV.
+async function resolvePlaybackRedirect(url) {
+  try {
+    const res = await fetch(url, { redirect: 'manual' });
+    const location = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null;
+    return location || url;
+  } catch {
+    return url; // fail-soft: si algo va mal, nos quedamos con la URL original
+  }
 }
 
 /**
