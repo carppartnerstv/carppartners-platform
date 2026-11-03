@@ -711,7 +711,7 @@ function SubscriberEvolutionWidget() {
       ) : error || !data ? (
         <p className="text-admin-text-tertiary text-sm py-6 text-center">{error || 'Sin datos'}</p>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
           <div>
             <p className="text-[11px] font-semibold text-admin-text-muted uppercase tracking-wide mb-2">Total acumulado</p>
             <AxisLineChart
@@ -837,8 +837,12 @@ export default function AdminDashboardPage() {
         <RevenueWidget />
       </div>
 
-      {/* Evolución de suscriptores — ancho completo, tiene dos gráficos propios */}
-      <SubscriberEvolutionWidget />
+      {/* Evolución de suscriptores — 50% como el resto; el otro 50% queda
+          libre hasta que lleguen el reparto de planes y el top de series
+          (ahí se reorganiza esta fila entera). */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <SubscriberEvolutionWidget />
+      </div>
     </div>
   );
 }
