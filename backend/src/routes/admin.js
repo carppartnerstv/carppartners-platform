@@ -149,8 +149,8 @@ adminRouter.get(
       `SELECT COUNT(*)::int AS n FROM contact_messages WHERE read_at IS NULL`,
     );
     // MRR oculto por ahora (a petición) — mrr: eliminado de la query y de la
-    // respuesta. La lógica sigue en el historial de git si hay que
-    // recuperarla (commit previo a este).
+    // respuesta. La lógica (deduplicada con SUB_LATERAL, ver historial de
+    // git) sigue disponible si hay que recuperarla.
 
     res.json({
       activeSubscribers: activeSubs.n,
@@ -204,6 +204,148 @@ adminRouter.get(
   }),
 );
 
+// GET /admin/dashboard/subscriber-evolution — altas y bajas por mes (últimos
+// 12 meses) + evolución del total acumulado. "Altas" reutiliza
+// MEMBER_SINCE_SQL (mismo criterio que "Miembros recientes": la fecha real
+// de alta en Stripe, no subscriptions.created_at, por el mismo sesgo de
+// WordPress creando una Suscripción nueva en cada renovación — ver más
+// abajo). "Bajas" son usuarios cuya suscripción pasó a status='cancelled'
+// ese mes: cancelled_at se refresca al momento real de baja EFECTIVA en
+// markSubscriptionCancelled (services/subscriptions.js, dispara con
+// customer.subscription.deleted) — no se confunde con una cancelación
+// programada pero aún vigente, que se queda en status='active' con solo
+// cancel_at_period_end=true.
+//
+// El "total" no se puede reconstruir con exactitud histórica: `subscriptions`
+// solo guarda el periodo ACTUAL de cada suscripción (se sobreescribe en cada
+// renovación, no hay un log de cada ciclo) — por eso se calcula como
+// acumulado neto (altas - bajas) y se ancla al número real de HOY (misma
+// query que "Suscriptores activos" más arriba), para que el último punto
+// siempre coincida con esa tarjeta. Los meses más antiguos son una
+// aproximación razonable, no un recuento exacto mes a mes.
+//
+// Nota: "renovaciones" NO está aquí — no hay ningún evento de renovación
+// guardado hoy (ver el punto preparado-sin-implementar de
+// invoice.billing_reason='subscription_cycle' en routes/stripe.js); haría
+// falta una tabla de eventos nueva alimentada por el webhook para poder
+// mostrarlo con datos reales.
+const EVOLUTION_MONTHS = 11; // + el mes actual = 12 puntos
+
+adminRouter.get(
+  '/dashboard/subscriber-evolution',
+  asyncHandler(async (_req, res) => {
+    const { rows } = await query(
+      `WITH months AS (
+         SELECT generate_series(
+           date_trunc('month', current_date) - interval '${EVOLUTION_MONTHS} months',
+           date_trunc('month', current_date),
+           interval '1 month'
+         ) AS month_start
+       ),
+       altas AS (
+         SELECT date_trunc('month', ${MEMBER_SINCE_SQL}) AS month_start, COUNT(*)::int AS n
+           FROM users u
+          WHERE u.role <> 'admin'
+          GROUP BY 1
+       ),
+       -- OJO: un usuario puede tener VARIAS filas en subscriptions a lo largo
+       -- del tiempo (WordPress creaba un Customer/Suscripción nuevo en cada
+       -- ciclo — ver MEMBER_SINCE_SQL más arriba). Contar cualquier fila con
+       -- status='cancelled' sin más infla brutalmente las bajas con
+       -- suscripciones antiguas ya abandonadas de gente que SIGUE siendo
+       -- suscriptora (con otra fila vigente aparte) — por eso aquí se usa la
+       -- misma fila "representativa" por usuario que SUB_LATERAL (prioriza una
+       -- fila vigente ahora si existe) y solo cuenta como baja si ESA fila,
+       -- la que de verdad decide su acceso hoy, es la cancelada.
+       bajas AS (
+         SELECT date_trunc('month', s.cancelled_at) AS month_start, COUNT(*)::int AS n
+           FROM users u
+           JOIN LATERAL (
+             SELECT status, cancelled_at FROM subscriptions
+              WHERE user_id = u.id
+              ORDER BY
+                (status IN ('active','trialing','past_due') AND (period_end IS NULL OR period_end > now())) DESC,
+                period_end DESC NULLS FIRST
+              LIMIT 1
+           ) s ON true
+          WHERE u.role <> 'admin' AND s.status = 'cancelled' AND s.cancelled_at IS NOT NULL
+          GROUP BY 1
+       )
+       SELECT to_char(m.month_start, 'YYYY-MM') AS month,
+              COALESCE(a.n, 0) AS new_count,
+              COALESCE(b.n, 0) AS cancelled_count
+         FROM months m
+         LEFT JOIN altas a ON a.month_start = m.month_start
+         LEFT JOIN bajas b ON b.month_start = m.month_start
+        ORDER BY m.month_start`,
+    );
+
+    // Mismo criterio exacto que "Suscriptores activos" de GET /admin/dashboard.
+    const activeToday = await queryOne(
+      `SELECT COUNT(*)::int AS n FROM users u ${SUB_LATERAL} WHERE u.role <> 'admin' AND s.status = 'active'`,
+    );
+
+    let net = 0;
+    const withNet = rows.map((r) => {
+      net += r.new_count - r.cancelled_count;
+      return { month: r.month, newCount: r.new_count, cancelledCount: r.cancelled_count, net };
+    });
+    const offset = activeToday.n - (withNet[withNet.length - 1]?.net ?? 0);
+
+    res.json({
+      months: withNet.map((r) => ({
+        month: r.month,
+        newCount: r.newCount,
+        cancelledCount: r.cancelledCount,
+        // El acumulado es una aproximación (ver comentario de arriba) — nunca
+        // tiene sentido mostrar un total negativo, así que se recorta a 0 por
+        // si el desfase de algún mes antiguo empuja la cuenta por debajo.
+        total: Math.max(0, r.net + offset),
+      })),
+    });
+  }),
+);
+
+// GET /admin/dashboard/revenue — ingresos reales por mes (últimos 12 meses),
+// directo de Stripe (facturas pagadas), no de nuestra BD: es la única fuente
+// que de verdad distingue cobro de alta nueva (`billing_reason:
+// 'subscription_create'`) de cobro de renovación (`'subscription_cycle'`) —
+// nuestra tabla `subscriptions` no lo puede dar (ver comentario de
+// subscriber-evolution más arriba). `newCount`/`renewalCount` quedan listos
+// para enlazarlos más adelante al portlet de evolución como tercera serie
+// apilada; de momento el frontend solo usa `revenueCents`.
+// OJO: `amount_paid` es lo cobrado en el momento de la factura — un reembolso
+// posterior no lo resta aquí (simplificación aceptada para una gráfica de
+// tendencia, no para contabilidad exacta). Solo cubre suscripciones de
+// Stripe: las de cortesía no generan factura.
+adminRouter.get(
+  '/dashboard/revenue',
+  asyncHandler(async (_req, res) => {
+    const sinceSec = Math.floor(Date.now() / 1000) - EVOLUTION_MONTHS * 31 * 86_400;
+    const byMonth = new Map();
+    for await (const invoice of stripe.invoices.list({ status: 'paid', created: { gte: sinceSec }, limit: 100 })) {
+      const month = new Date(invoice.created * 1000).toISOString().slice(0, 7);
+      const bucket = byMonth.get(month) ?? { revenueCents: 0, newCount: 0, renewalCount: 0 };
+      bucket.revenueCents += invoice.amount_paid;
+      if (invoice.billing_reason === 'subscription_create') bucket.newCount += 1;
+      else if (invoice.billing_reason === 'subscription_cycle') bucket.renewalCount += 1;
+      byMonth.set(month, bucket);
+    }
+
+    const months = [];
+    const cursor = new Date();
+    cursor.setUTCDate(1);
+    for (let i = EVOLUTION_MONTHS; i >= 0; i--) {
+      const d = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() - i, 1));
+      const month = d.toISOString().slice(0, 7);
+      const bucket = byMonth.get(month) ?? { revenueCents: 0, newCount: 0, renewalCount: 0 };
+      months.push({ month, ...bucket });
+    }
+
+    res.json({ months });
+  }),
+);
+
 // Ventana de ambos widgets "recientes" del dashboard — 1 mes.
 const RECENT_WINDOW_DAYS = 29;
 
@@ -253,46 +395,10 @@ adminRouter.get(
   }),
 );
 
-// GET /admin/dashboard/recent-payments — mismo criterio que arriba
-// (MEMBER_SINCE_SQL, no subscriptions.created_at, por la misma razón: una
-// renovación de WordPress no debe contar como alta nueva). En el original
-// de ARMember, la gráfica es una LÍNEA que acumula el total de altas del
-// Plan Estándar (los mismos suscriptores que el widget de "Miembros
-// recientes", vistos por el lado del pago) — no un desglose en barras.
-// Reproducimos eso: dos líneas acumuladas (mensual y anual, según el plan
-// ACTUAL de cada uno) sobre la misma ventana de 1 mes, con SUM() OVER.
-// Se añade la vista previa de los últimos cobros reales (reutiliza
-// fetchRecentPayments, misma fuente que /admin/payments).
-adminRouter.get(
-  '/dashboard/recent-payments',
-  asyncHandler(async (_req, res) => {
-    const { rows: series } = await query(
-      `WITH daily AS (
-         SELECT d::date AS date,
-                COUNT(u.id) FILTER (WHERE s.plan = 'monthly')::int AS monthly,
-                COUNT(u.id) FILTER (WHERE s.plan = 'annual')::int AS annual
-           FROM generate_series(current_date - interval '${RECENT_WINDOW_DAYS} days', current_date, interval '1 day') d
-           LEFT JOIN users u ON ${MEMBER_SINCE_SQL}::date = d::date AND u.role <> 'admin'
-           LEFT JOIN LATERAL (
-             SELECT plan FROM subscriptions WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1
-           ) s ON true
-          GROUP BY d
-       )
-       SELECT to_char(date, 'YYYY-MM-DD') AS date,
-              SUM(monthly) OVER (ORDER BY date)::int AS monthly,
-              SUM(annual) OVER (ORDER BY date)::int AS annual
-         FROM daily
-        ORDER BY date`,
-    );
-
-    const recent = await fetchRecentPayments(8);
-
-    res.json({
-      series: series.map((r) => ({ date: r.date, monthly: r.monthly, annual: r.annual })),
-      recent,
-    });
-  }),
-);
+// GET /admin/dashboard/recent-payments — RETIRADO, sustituido por
+// /admin/dashboard/revenue (ingresos reales por mes desde Stripe). La
+// lógica sigue en el historial de git si hace falta recuperarla.
+// `fetchRecentPayments` se mantiene: la sigue usando GET /admin/payments.
 
 // --- Métricas de lanzamiento -------------------------------------------
 // Embudo de activación de los suscriptores migrados desde WordPress/Stripe

@@ -227,17 +227,31 @@ export interface RecentMembers {
   recent: RecentMember[];
 }
 
-export interface RecentPaymentsDay {
-  date: string;
-  /** Acumulado (no diario) de altas del plan mensual hasta esta fecha. */
-  monthly: number;
-  /** Acumulado (no diario) de altas del plan anual hasta esta fecha. */
-  annual: number;
+export interface SubscriberEvolutionMonth {
+  /** "YYYY-MM" */
+  month: string;
+  newCount: number;
+  cancelledCount: number;
+  /** Acumulado aproximado, anclado al número real de hoy — ver comentario del endpoint. */
+  total: number;
 }
 
-export interface RecentPayments {
-  series: RecentPaymentsDay[];
-  recent: Payment[];
+export interface SubscriberEvolution {
+  months: SubscriberEvolutionMonth[];
+}
+
+export interface RevenueMonth {
+  /** "YYYY-MM" */
+  month: string;
+  revenueCents: number;
+  /** Facturas con billing_reason='subscription_create' — aún no usado en el frontend */
+  newCount: number;
+  /** Facturas con billing_reason='subscription_cycle' (renovación) — aún no usado en el frontend */
+  renewalCount: number;
+}
+
+export interface RevenueEvolution {
+  months: RevenueMonth[];
 }
 
 export interface LaunchMetrics {

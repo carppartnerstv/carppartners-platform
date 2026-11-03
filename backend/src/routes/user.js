@@ -13,6 +13,7 @@
 // =====================================================================
 import { Router } from 'express';
 import { z } from 'zod';
+import { UAParser } from 'ua-parser-js';
 import { query, queryOne } from '../config/db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { asyncHandler, badRequest } from '../utils/errors.js';
@@ -20,6 +21,18 @@ import { createPortalSession, getOrCreateStripeCustomer, resolvePriceIdForPlan, 
 import { config } from '../config/index.js';
 
 export const userRouter = Router();
+
+// Dispositivo derivado del header User-Agent, que el navegador ya manda en
+// cada petición — no es un dato nuevo que pedir al cliente, solo uno que
+// antes no se guardaba. ua-parser-js deja `device.type` vacío para
+// ordenador de escritorio (su convención, no un caso sin detectar aquí), de
+// ahí el '?? desktop'. Pensado para el futuro desglose "vistas por
+// dispositivo" del dashboard admin — ver auditoría de métricas.
+function detectDeviceType(userAgent) {
+  if (!userAgent) return null;
+  const { type } = new UAParser(userAgent).getResult().device;
+  return type ?? 'desktop';
+}
 
 // --- Watch history: UPSERT de progreso -------------------------------
 userRouter.post(
@@ -34,15 +47,17 @@ userRouter.post(
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) throw badRequest('Datos inválidos', 'VALIDATION');
     const { videoId, progressSec, completed } = parsed.data;
+    const deviceType = detectDeviceType(req.headers['user-agent']);
 
     await query(
-      `INSERT INTO watch_history (user_id, video_id, progress_sec, completed, last_watched_at)
-       VALUES ($1, $2, $3, $4, now())
+      `INSERT INTO watch_history (user_id, video_id, progress_sec, completed, last_watched_at, device_type)
+       VALUES ($1, $2, $3, $4, now(), $5)
        ON CONFLICT (user_id, video_id) DO UPDATE SET
           progress_sec    = EXCLUDED.progress_sec,
           completed       = EXCLUDED.completed,
-          last_watched_at = now()`,
-      [req.user.id, videoId, progressSec, completed ?? false],
+          last_watched_at = now(),
+          device_type     = EXCLUDED.device_type`,
+      [req.user.id, videoId, progressSec, completed ?? false, deviceType],
     );
     res.status(204).end();
   }),

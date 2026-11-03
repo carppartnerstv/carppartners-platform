@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { DashboardStats, RecentMembers, RecentPayments, PlaysToday, LoginHistoryResponse } from '@carp-partners/api-client';
+import type { DashboardStats, RecentMembers, PlaysToday, LoginHistoryResponse, SubscriberEvolution, RevenueEvolution } from '@carp-partners/api-client';
 
 // ─── Tarjeta de métrica ───────────────────────────────────────────────────────
 
@@ -64,10 +64,6 @@ const PLAN_LABELS: Record<string, string> = { monthly: 'Mensual', annual: 'Anual
 
 function fmtShortDate(iso: string) {
   return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-}
-
-function fmtAmount(amount: number, currency: string) {
-  return (amount / 100).toLocaleString('es-ES', { style: 'currency', currency: currency.toUpperCase() });
 }
 
 // Redondea el máximo del eje Y a un número "bonito" (1/2/5 × potencia de
@@ -297,60 +293,98 @@ function RecentMembersWidget() {
   );
 }
 
-function RecentPaymentsWidget() {
-  const [data, setData] = useState<RecentPayments | null>(null);
+// Barras mensuales de un único valor (ingresos) — mismo patrón que
+// HourlyBarChart, con etiquetas de mes en vez de hora.
+function MonthlyRevenueChart({ months }: { months: { month: string; revenueCents: number }[] }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const w = 640, h = 160;
+  const padLeft = 40, padRight = 8, padTop = 8, padBottom = 22;
+  const plotW = w - padLeft - padRight;
+  const plotH = h - padTop - padBottom;
+
+  const yMax = niceMax(Math.max(1, ...months.map((m) => m.revenueCents / 100)));
+  const yTicks = [0, 1, 2, 3, 4].map((i) => Math.round((yMax / 4) * i));
+
+  const n = months.length;
+  const slotW = n > 0 ? plotW / n : plotW;
+  const barW = Math.min(28, slotW - 6);
+  const xFor = (i: number) => padLeft + i * slotW + slotW / 2;
+  const yFor = (v: number) => padTop + plotH - (v / yMax) * plotH;
+  const baseY = padTop + plotH;
+  const xTickEvery = Math.max(1, Math.round(n / 8));
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: h }} onMouseLeave={() => setHover(null)}>
+      {yTicks.map((v) => (
+        <g key={v}>
+          <line x1={padLeft} x2={w - padRight} y1={yFor(v)} y2={yFor(v)} stroke="#eef0f2" strokeWidth={1} />
+          <text x={padLeft - 6} y={yFor(v)} textAnchor="end" dominantBaseline="middle" fontSize={9} fill="#9aa0a6">
+            {v.toLocaleString('es-ES')}€
+          </text>
+        </g>
+      ))}
+      <line x1={padLeft} x2={w - padRight} y1={baseY} y2={baseY} stroke="#e7e9ec" strokeWidth={1} />
+      {months.map((m, i) => i % xTickEvery === 0 && (
+        <text key={m.month} x={xFor(i)} y={h - padBottom + 13} textAnchor="middle" fontSize={8.5} fill="#9aa0a6">
+          {fmtMonthLabel(m.month)}
+        </text>
+      ))}
+      {months.map((m, i) => {
+        const v = m.revenueCents / 100;
+        return (
+          <g key={m.month}>
+            <rect
+              x={xFor(i) - barW / 2} y={yFor(v)} width={barW} height={Math.max(0, baseY - yFor(v))} rx={3}
+              fill={hover === i ? '#9c2e1e' : EVOLUTION_COLORS.altas}
+            />
+            <rect
+              x={xFor(i) - slotW / 2} y={padTop} width={slotW} height={plotH}
+              fill="transparent" onMouseEnter={() => setHover(i)}
+            />
+          </g>
+        );
+      })}
+      {hover !== null && (
+        <ChartTooltip
+          x={xFor(hover)}
+          chartWidth={w}
+          label={fmtMonthLabel(months[hover].month)}
+          lines={[{ label: 'Ingresos', color: EVOLUTION_COLORS.altas, value: Math.round(months[hover].revenueCents / 100) }]}
+        />
+      )}
+    </svg>
+  );
+}
+
+function RevenueWidget() {
+  const [data, setData] = useState<RevenueEvolution | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    apiClient.getAdminRecentPayments()
+    apiClient.getAdminRevenue()
       .then(setData)
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Error al cargar'))
       .finally(() => setLoading(false));
   }, []);
 
-  const legendSeries = [
-    { label: 'Mensual', color: '#cf4a35' },
-    { label: 'Anual', color: '#2f6f76' },
-  ];
+  const totalLast12 = data ? data.months.reduce((sum, m) => sum + m.revenueCents, 0) : 0;
 
   return (
-    <WidgetCard title="Pagos recientes" sub="Personas nuevas acumuladas por plan (1 mes) y últimos cobros de Stripe" href="/admin/pagos">
+    <WidgetCard title="Ingresos" sub="Cobros reales por mes, directo de Stripe (no incluye reembolsos posteriores)" href="/admin/pagos">
       {loading ? (
-        <div className="h-32 animate-pulse bg-admin-border-soft rounded" />
+        <div className="h-40 animate-pulse bg-admin-border-soft rounded" />
       ) : error || !data ? (
         <p className="text-admin-text-tertiary text-sm py-6 text-center">{error || 'Sin datos'}</p>
       ) : (
         <>
-          <ChartLegend series={legendSeries} />
-          <AxisLineChart
-            dates={data.series.map((d) => d.date)}
-            series={[
-              { label: 'Mensual', color: '#cf4a35', values: data.series.map((d) => d.monthly) },
-              { label: 'Anual', color: '#2f6f76', values: data.series.map((d) => d.annual) },
-            ]}
-          />
-          <ul className="mt-4 space-y-2.5 max-h-80 overflow-y-auto">
-            {data.recent.length === 0 && (
-              <li className="text-admin-text-tertiary text-sm text-center py-4">Todavía no hay cobros.</li>
-            )}
-            {data.recent.map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-3 text-sm">
-                <div className="min-w-0">
-                  <p className="text-admin-text-secondary truncate">{p.email}</p>
-                  <p className="text-admin-text-tertiary text-[11px]">{fmtShortDate(p.created)}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className={['font-semibold tabular-nums', p.status === 'succeeded' ? 'text-admin-text' : 'text-admin-text-muted'].join(' ')}>
-                    {fmtAmount(p.amount, p.currency)}
-                  </p>
-                  {p.status !== 'succeeded' && (
-                    <p className="text-[11px] text-[#c0392b]">{p.status === 'failed' ? 'Fallido' : p.status}</p>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+          <p className="text-admin-text-tertiary text-xs mb-2">
+            Últimos 12 meses:{' '}
+            <span className="text-admin-text font-semibold">
+              {(totalLast12 / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+            </span>
+          </p>
+          <MonthlyRevenueChart months={data.months} />
         </>
       )}
     </WidgetCard>
@@ -541,6 +575,169 @@ function PlaysTodayWidget() {
   );
 }
 
+// ─── Evolución de suscriptores: altas/bajas por mes + total acumulado ───────
+
+function fmtMonthLabel(month: string): string {
+  const d = new Date(`${month}-01T00:00:00`);
+  return d.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
+}
+
+// Par divergente validado (contraste CVD/visión normal, ver skill de dataviz):
+// rojo de marca para altas (cálido, coherente con el resto del panel) y azul
+// para bajas (frío, opuesto) — nunca el mismo verde/rojo de "bueno/malo" del
+// resto de la UI, para no mezclar esta identidad de serie con los colores de
+// estado (status) reservados.
+// Renovaciones viene de Stripe (billing_reason='subscription_cycle', ver GET
+// /admin/dashboard/revenue) — "altas" y "bajas" siguen siendo de nuestra
+// propia BD. Amarillo para renovaciones (no naranja: con el rojo de altas
+// quedaban demasiado parecidos, ver validate_palette.js — par rojo/amarillo
+// sí pasa todos los checks, con aviso de contraste mitigado por los
+// tooltips/leyenda, que ya son obligatorios con 3 series).
+const EVOLUTION_COLORS = { altas: '#cf4a35', renovaciones: '#eda100', bajas: '#2a78d6' };
+
+interface FlowMonth {
+  month: string;
+  newCount: number;
+  renewalCount: number;
+  cancelledCount: number;
+}
+
+// Barras divergentes desde una línea base central: altas+renovaciones
+// apiladas hacia arriba, bajas hacia abajo (mismo mes, mismo eje X) — así se
+// lee de un vistazo el signo neto de cada mes, tal como se pidió ("mostrar
+// en negativo los datos de baja"). Mismo patrón de tooltip/hover que
+// HourlyBarChart.
+function SubscriberFlowChart({ months }: { months: FlowMonth[] }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const w = 640, h = 160;
+  const padLeft = 30, padRight = 8, padTop = 8, padBottom = 22;
+  const plotW = w - padLeft - padRight;
+  const plotH = h - padTop - padBottom;
+
+  const rawMax = Math.max(1, ...months.flatMap((m) => [m.newCount + m.renewalCount, m.cancelledCount]));
+  const yMax = niceMax(rawMax);
+  const midY = padTop + plotH / 2;
+  const scale = (plotH / 2) / yMax;
+
+  const n = months.length;
+  const slotW = n > 0 ? plotW / n : plotW;
+  const barW = Math.min(24, slotW - 6);
+  const xFor = (i: number) => padLeft + i * slotW + slotW / 2;
+  const xTickEvery = Math.max(1, Math.round(n / 8));
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: h }} onMouseLeave={() => setHover(null)}>
+      <line x1={padLeft} x2={w - padRight} y1={midY} y2={midY} stroke="#e7e9ec" strokeWidth={1} />
+      {months.map((m, i) => i % xTickEvery === 0 && (
+        <text key={m.month} x={xFor(i)} y={h - padBottom + 13} textAnchor="middle" fontSize={8.5} fill="#9aa0a6">
+          {fmtMonthLabel(m.month)}
+        </text>
+      ))}
+      {months.map((m, i) => {
+        const altasH = m.newCount * scale;
+        const renovacionesH = m.renewalCount * scale;
+        const bajasH = m.cancelledCount * scale;
+        const x = xFor(i) - barW / 2;
+        return (
+          <g key={m.month}>
+            {altasH > 0 && (
+              <rect x={x} y={midY - altasH} width={barW} height={altasH} rx={3}
+                fill={hover === i ? '#9c2e1e' : EVOLUTION_COLORS.altas} />
+            )}
+            {renovacionesH > 0 && (
+              // Apilado justo encima de altas — 2px de hueco (surface gap)
+              // para que se distingan aunque el color fallase.
+              <rect x={x} y={midY - altasH - renovacionesH - (altasH > 0 ? 2 : 0)} width={barW}
+                height={renovacionesH} rx={3}
+                fill={hover === i ? '#b57f00' : EVOLUTION_COLORS.renovaciones} />
+            )}
+            {bajasH > 0 && (
+              <rect x={x} y={midY} width={barW} height={bajasH} rx={3}
+                fill={hover === i ? '#1b4e8f' : EVOLUTION_COLORS.bajas} />
+            )}
+            <rect
+              x={xFor(i) - slotW / 2} y={padTop} width={slotW} height={plotH}
+              fill="transparent" onMouseEnter={() => setHover(i)}
+            />
+          </g>
+        );
+      })}
+      {hover !== null && (
+        <ChartTooltip
+          x={xFor(hover)}
+          chartWidth={w}
+          label={fmtMonthLabel(months[hover].month)}
+          lines={[
+            { label: 'Altas', color: EVOLUTION_COLORS.altas, value: months[hover].newCount },
+            { label: 'Renovaciones', color: EVOLUTION_COLORS.renovaciones, value: months[hover].renewalCount },
+            { label: 'Bajas', color: EVOLUTION_COLORS.bajas, value: -months[hover].cancelledCount },
+          ]}
+        />
+      )}
+    </svg>
+  );
+}
+
+function SubscriberEvolutionWidget() {
+  const [data, setData] = useState<SubscriberEvolution | null>(null);
+  const [revenue, setRevenue] = useState<RevenueEvolution | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    Promise.all([apiClient.getAdminSubscriberEvolution(), apiClient.getAdminRevenue()])
+      .then(([evo, rev]) => { setData(evo); setRevenue(rev); })
+      .catch((e) => setError(e instanceof ApiError ? e.message : 'Error al cargar'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Altas/bajas (nuestra BD) + renovaciones (Stripe, otra fuente) se unen
+  // por mes aquí — cada endpoint puede llegar en cualquier orden/ventana,
+  // por eso por clave "YYYY-MM" y no por índice de array.
+  const renewalsByMonth = new Map((revenue?.months ?? []).map((m) => [m.month, m.renewalCount]));
+  const flowMonths: FlowMonth[] = (data?.months ?? []).map((m) => ({
+    month: m.month,
+    newCount: m.newCount,
+    renewalCount: renewalsByMonth.get(m.month) ?? 0,
+    cancelledCount: m.cancelledCount,
+  }));
+
+  return (
+    <WidgetCard
+      title="Evolución de suscriptores"
+      sub="Altas, renovaciones y bajas por mes, y total acumulado (aproximado en los meses más antiguos — ver detalle en el endpoint)"
+    >
+      {loading ? (
+        <div className="h-64 animate-pulse bg-admin-border-soft rounded" />
+      ) : error || !data ? (
+        <p className="text-admin-text-tertiary text-sm py-6 text-center">{error || 'Sin datos'}</p>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div>
+            <p className="text-[11px] font-semibold text-admin-text-muted uppercase tracking-wide mb-2">Total acumulado</p>
+            <AxisLineChart
+              dates={data.months.map((m) => `${m.month}-01`)}
+              series={[{ label: 'Total', color: EVOLUTION_COLORS.altas, values: data.months.map((m) => m.total) }]}
+              height={110}
+            />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] font-semibold text-admin-text-muted uppercase tracking-wide">Altas, renovaciones y bajas por mes</p>
+              <ChartLegend series={[
+                { label: 'Altas', color: EVOLUTION_COLORS.altas },
+                { label: 'Renovaciones', color: EVOLUTION_COLORS.renovaciones },
+                { label: 'Bajas', color: EVOLUTION_COLORS.bajas },
+              ]} />
+            </div>
+            <SubscriberFlowChart months={flowMonths} />
+          </div>
+        </div>
+      )}
+    </WidgetCard>
+  );
+}
+
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
@@ -582,7 +779,6 @@ export default function AdminDashboardPage() {
             <MetricCard
               label="Suscriptores activos"
               value={stats.activeSubscribers.toLocaleString('es-ES')}
-              sub="Igual que la pestaña «Activos» de Suscriptores"
               accent
               href="/admin/suscriptores?tab=active"
               icon={
@@ -595,7 +791,6 @@ export default function AdminDashboardPage() {
             <MetricCard
               label="Vídeos publicados"
               value={stats.publishedVideos.toLocaleString('es-ES')}
-              sub="Visibles para suscriptores"
               href="/admin/videos?published=publicado"
               icon={
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -607,7 +802,6 @@ export default function AdminDashboardPage() {
             <MetricCard
               label="Vídeos programados"
               value={stats.scheduledVideos.toLocaleString('es-ES')}
-              sub="Publicación programada a futuro"
               href="/admin/videos?published=programado"
               icon={
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -619,7 +813,6 @@ export default function AdminDashboardPage() {
             <MetricCard
               label="Mensajes sin leer"
               value={stats.unreadMessages.toLocaleString('es-ES')}
-              sub="Bandeja de contacto"
               accent={stats.unreadMessages > 0}
               href="/admin/mensajes?tab=unread"
               icon={
@@ -642,8 +835,11 @@ export default function AdminDashboardPage() {
       {/* Miembros y pagos recientes — 2 por fila, mismas dimensiones que la fila de arriba */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <RecentMembersWidget />
-        <RecentPaymentsWidget />
+        <RevenueWidget />
       </div>
+
+      {/* Evolución de suscriptores — ancho completo, tiene dos gráficos propios */}
+      <SubscriberEvolutionWidget />
     </div>
   );
 }
