@@ -231,6 +231,35 @@ adminRouter.get(
 // mostrarlo con datos reales.
 const EVOLUTION_MONTHS = 11; // + el mes actual = 12 puntos
 
+// Facturas pagadas de Stripe por mes (ingresos + billing_reason), compartido
+// entre /dashboard/revenue y /dashboard/subscriber-evolution (esta última
+// necesita `renewalCount` para apilarlo junto a altas/bajas). Paginar
+// facturas vía `for await` es una serie de round-trips secuenciales a la
+// API de Stripe — antes cada endpoint tiraba de Stripe por su cuenta, así
+// que cargar el dashboard (los dos widgets casi a la vez) lo pedía DOS
+// veces seguidas, duplicando la espera. Una caché corta en memoria (60s)
+// evita repetir la llamada si los dos widgets piden casi a la vez, sin
+// tener que inventar un endpoint combinado nuevo.
+let billingCache = null; // { expiresAt: number, byMonth: Map<string, {...}> }
+async function fetchMonthlyBilling() {
+  const now = Date.now();
+  if (billingCache && billingCache.expiresAt > now) return billingCache.byMonth;
+
+  const sinceSec = Math.floor(now / 1000) - EVOLUTION_MONTHS * 31 * 86_400;
+  const byMonth = new Map();
+  for await (const invoice of stripe.invoices.list({ status: 'paid', created: { gte: sinceSec }, limit: 100 })) {
+    const month = new Date(invoice.created * 1000).toISOString().slice(0, 7);
+    const bucket = byMonth.get(month) ?? { revenueCents: 0, newCount: 0, renewalCount: 0 };
+    bucket.revenueCents += invoice.amount_paid;
+    if (invoice.billing_reason === 'subscription_create') bucket.newCount += 1;
+    else if (invoice.billing_reason === 'subscription_cycle') bucket.renewalCount += 1;
+    byMonth.set(month, bucket);
+  }
+
+  billingCache = { expiresAt: now + 60_000, byMonth };
+  return byMonth;
+}
+
 adminRouter.get(
   '/dashboard/subscriber-evolution',
   asyncHandler(async (_req, res) => {
@@ -285,10 +314,21 @@ adminRouter.get(
       `SELECT COUNT(*)::int AS n FROM users u ${SUB_LATERAL} WHERE u.role <> 'admin' AND s.status = 'active'`,
     );
 
+    // Renovaciones: de Stripe (billing_reason), no de nuestra BD — ver
+    // fetchMonthlyBilling. Llamada en proceso (no HTTP), así no duplica la
+    // espera de Stripe que ya paga /dashboard/revenue.
+    const billingByMonth = await fetchMonthlyBilling();
+
     let net = 0;
     const withNet = rows.map((r) => {
       net += r.new_count - r.cancelled_count;
-      return { month: r.month, newCount: r.new_count, cancelledCount: r.cancelled_count, net };
+      return {
+        month: r.month,
+        newCount: r.new_count,
+        cancelledCount: r.cancelled_count,
+        renewalCount: billingByMonth.get(r.month)?.renewalCount ?? 0,
+        net,
+      };
     });
     const offset = activeToday.n - (withNet[withNet.length - 1]?.net ?? 0);
 
@@ -297,6 +337,7 @@ adminRouter.get(
         month: r.month,
         newCount: r.newCount,
         cancelledCount: r.cancelledCount,
+        renewalCount: r.renewalCount,
         // El acumulado es una aproximación (ver comentario de arriba) — nunca
         // tiene sentido mostrar un total negativo, así que se recorta a 0 por
         // si el desfase de algún mes antiguo empuja la cuenta por debajo.
@@ -321,16 +362,7 @@ adminRouter.get(
 adminRouter.get(
   '/dashboard/revenue',
   asyncHandler(async (_req, res) => {
-    const sinceSec = Math.floor(Date.now() / 1000) - EVOLUTION_MONTHS * 31 * 86_400;
-    const byMonth = new Map();
-    for await (const invoice of stripe.invoices.list({ status: 'paid', created: { gte: sinceSec }, limit: 100 })) {
-      const month = new Date(invoice.created * 1000).toISOString().slice(0, 7);
-      const bucket = byMonth.get(month) ?? { revenueCents: 0, newCount: 0, renewalCount: 0 };
-      bucket.revenueCents += invoice.amount_paid;
-      if (invoice.billing_reason === 'subscription_create') bucket.newCount += 1;
-      else if (invoice.billing_reason === 'subscription_cycle') bucket.renewalCount += 1;
-      byMonth.set(month, bucket);
-    }
+    const byMonth = await fetchMonthlyBilling();
 
     const months = [];
     const cursor = new Date();

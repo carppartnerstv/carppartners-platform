@@ -232,6 +232,8 @@ export interface SubscriberEvolutionMonth {
   month: string;
   newCount: number;
   cancelledCount: number;
+  /** De Stripe (billing_reason='subscription_cycle'), no de nuestra BD */
+  renewalCount: number;
   /** Acumulado aproximado, anclado al número real de hoy — ver comentario del endpoint. */
   total: number;
 }

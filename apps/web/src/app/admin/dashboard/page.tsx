@@ -142,7 +142,7 @@ function AxisLineChart({
   const xTickEvery = Math.max(1, Math.round(n / 10));
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height }} onMouseLeave={() => setHover(null)}>
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" onMouseLeave={() => setHover(null)}>
       {yTicks.map((v) => (
         <g key={v}>
           <line x1={padLeft} x2={w - padRight} y1={yFor(v)} y2={yFor(v)} stroke="#eef0f2" strokeWidth={1} />
@@ -314,7 +314,7 @@ function MonthlyRevenueChart({ months }: { months: { month: string; revenueCents
   const xTickEvery = Math.max(1, Math.round(n / 8));
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: h }} onMouseLeave={() => setHover(null)}>
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" onMouseLeave={() => setHover(null)}>
       {yTicks.map((v) => (
         <g key={v}>
           <line x1={padLeft} x2={w - padRight} y1={yFor(v)} y2={yFor(v)} stroke="#eef0f2" strokeWidth={1} />
@@ -477,7 +477,7 @@ function HourlyBarChart({ hourly }: { hourly: PlaysToday['hourly'] }) {
   const baseY = padTop + plotH;
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: h }} onMouseLeave={() => setHover(null)}>
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" onMouseLeave={() => setHover(null)}>
       {yTicks.map((v) => (
         <g key={v}>
           <line x1={padLeft} x2={w - padRight} y1={yFor(v)} y2={yFor(v)} stroke="#eef0f2" strokeWidth={1} />
@@ -626,7 +626,7 @@ function SubscriberFlowChart({ months }: { months: FlowMonth[] }) {
   const xTickEvery = Math.max(1, Math.round(n / 8));
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: h }} onMouseLeave={() => setHover(null)}>
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" onMouseLeave={() => setHover(null)}>
       <line x1={padLeft} x2={w - padRight} y1={midY} y2={midY} stroke="#e7e9ec" strokeWidth={1} />
       {months.map((m, i) => i % xTickEvery === 0 && (
         <text key={m.month} x={xFor(i)} y={h - padBottom + 13} textAnchor="middle" fontSize={8.5} fill="#9aa0a6">
@@ -680,25 +680,24 @@ function SubscriberFlowChart({ months }: { months: FlowMonth[] }) {
 
 function SubscriberEvolutionWidget() {
   const [data, setData] = useState<SubscriberEvolution | null>(null);
-  const [revenue, setRevenue] = useState<RevenueEvolution | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    Promise.all([apiClient.getAdminSubscriberEvolution(), apiClient.getAdminRevenue()])
-      .then(([evo, rev]) => { setData(evo); setRevenue(rev); })
+    // renewalCount ya viene incluido aquí (el backend reutiliza, en proceso,
+    // la misma consulta a Stripe que /dashboard/revenue, con una caché corta
+    // de 60s) — pedirlo también aparte duplicaba la espera a Stripe en cada
+    // carga del dashboard.
+    apiClient.getAdminSubscriberEvolution()
+      .then(setData)
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Error al cargar'))
       .finally(() => setLoading(false));
   }, []);
 
-  // Altas/bajas (nuestra BD) + renovaciones (Stripe, otra fuente) se unen
-  // por mes aquí — cada endpoint puede llegar en cualquier orden/ventana,
-  // por eso por clave "YYYY-MM" y no por índice de array.
-  const renewalsByMonth = new Map((revenue?.months ?? []).map((m) => [m.month, m.renewalCount]));
   const flowMonths: FlowMonth[] = (data?.months ?? []).map((m) => ({
     month: m.month,
     newCount: m.newCount,
-    renewalCount: renewalsByMonth.get(m.month) ?? 0,
+    renewalCount: m.renewalCount,
     cancelledCount: m.cancelledCount,
   }));
 
