@@ -130,14 +130,21 @@ function AxisLineChart({
   const plotW = w - padLeft - padRight;
   const plotH = h - padTop - padBottom;
 
-  const rawMax = Math.max(1, ...series.flatMap((s) => s.values));
+  // yMin solo baja de 0 si hay valores negativos (p. ej. bajas en el
+  // gráfico de evolución) — con series siempre positivas (Miembros
+  // recientes, Total acumulado) se comporta exactamente igual que antes.
+  const allValues = series.flatMap((s) => s.values);
+  const rawMax = Math.max(1, ...allValues);
+  const rawMin = Math.min(0, ...allValues);
   const yMax = niceMax(rawMax);
-  const yTicks = [0, 1, 2, 3, 4].map((i) => Math.round((yMax / 4) * i));
+  const yMin = rawMin < 0 ? -niceMax(-rawMin) : 0;
+  const yRange = yMax - yMin;
+  const yTicks = [0, 1, 2, 3, 4].map((i) => Math.round(yMin + (yRange / 4) * i));
 
   const n = dates.length;
   const stepX = n > 1 ? plotW / (n - 1) : 0;
   const xFor = (i: number) => padLeft + i * stepX;
-  const yFor = (v: number) => padTop + plotH - (v / yMax) * plotH;
+  const yFor = (v: number) => padTop + plotH - ((v - yMin) / yRange) * plotH;
   // No amontonar las fechas del eje X: una etiqueta cada ~3 puntos (1 mes ≈ 10 etiquetas).
   const xTickEvery = Math.max(1, Math.round(n / 10));
 
@@ -151,6 +158,12 @@ function AxisLineChart({
           </text>
         </g>
       ))}
+      {/* Línea base en 0 — más marcada que las demás líneas de rejilla,
+          solo tiene sentido dibujarla aparte cuando no coincide con el
+          borde inferior del gráfico (series con valores negativos). */}
+      {yMin < 0 && (
+        <line x1={padLeft} x2={w - padRight} y1={yFor(0)} y2={yFor(0)} stroke="#d7dbdf" strokeWidth={1} />
+      )}
       <line x1={padLeft} x2={padLeft} y1={padTop} y2={h - padBottom} stroke="#e7e9ec" strokeWidth={1} />
       <line x1={padLeft} x2={w - padRight} y1={h - padBottom} y2={h - padBottom} stroke="#e7e9ec" strokeWidth={1} />
       {dates.map((d, i) => i % xTickEvery === 0 && (
@@ -595,89 +608,6 @@ function fmtMonthLabel(month: string): string {
 // tooltips/leyenda, que ya son obligatorios con 3 series).
 const EVOLUTION_COLORS = { altas: '#cf4a35', renovaciones: '#eda100', bajas: '#2a78d6' };
 
-interface FlowMonth {
-  month: string;
-  newCount: number;
-  renewalCount: number;
-  cancelledCount: number;
-}
-
-// Barras divergentes desde una línea base central: altas+renovaciones
-// apiladas hacia arriba, bajas hacia abajo (mismo mes, mismo eje X) — así se
-// lee de un vistazo el signo neto de cada mes, tal como se pidió ("mostrar
-// en negativo los datos de baja"). Mismo patrón de tooltip/hover que
-// HourlyBarChart.
-function SubscriberFlowChart({ months }: { months: FlowMonth[] }) {
-  const [hover, setHover] = useState<number | null>(null);
-  const w = 640, h = 160;
-  const padLeft = 30, padRight = 8, padTop = 8, padBottom = 22;
-  const plotW = w - padLeft - padRight;
-  const plotH = h - padTop - padBottom;
-
-  const rawMax = Math.max(1, ...months.flatMap((m) => [m.newCount + m.renewalCount, m.cancelledCount]));
-  const yMax = niceMax(rawMax);
-  const midY = padTop + plotH / 2;
-  const scale = (plotH / 2) / yMax;
-
-  const n = months.length;
-  const slotW = n > 0 ? plotW / n : plotW;
-  const barW = Math.min(24, slotW - 6);
-  const xFor = (i: number) => padLeft + i * slotW + slotW / 2;
-  const xTickEvery = Math.max(1, Math.round(n / 8));
-
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" onMouseLeave={() => setHover(null)}>
-      <line x1={padLeft} x2={w - padRight} y1={midY} y2={midY} stroke="#e7e9ec" strokeWidth={1} />
-      {months.map((m, i) => i % xTickEvery === 0 && (
-        <text key={m.month} x={xFor(i)} y={h - padBottom + 13} textAnchor="middle" fontSize={8.5} fill="#9aa0a6">
-          {fmtMonthLabel(m.month)}
-        </text>
-      ))}
-      {months.map((m, i) => {
-        const altasH = m.newCount * scale;
-        const renovacionesH = m.renewalCount * scale;
-        const bajasH = m.cancelledCount * scale;
-        const x = xFor(i) - barW / 2;
-        return (
-          <g key={m.month}>
-            {altasH > 0 && (
-              <rect x={x} y={midY - altasH} width={barW} height={altasH} rx={3}
-                fill={hover === i ? '#9c2e1e' : EVOLUTION_COLORS.altas} />
-            )}
-            {renovacionesH > 0 && (
-              // Apilado justo encima de altas — 2px de hueco (surface gap)
-              // para que se distingan aunque el color fallase.
-              <rect x={x} y={midY - altasH - renovacionesH - (altasH > 0 ? 2 : 0)} width={barW}
-                height={renovacionesH} rx={3}
-                fill={hover === i ? '#b57f00' : EVOLUTION_COLORS.renovaciones} />
-            )}
-            {bajasH > 0 && (
-              <rect x={x} y={midY} width={barW} height={bajasH} rx={3}
-                fill={hover === i ? '#1b4e8f' : EVOLUTION_COLORS.bajas} />
-            )}
-            <rect
-              x={xFor(i) - slotW / 2} y={padTop} width={slotW} height={plotH}
-              fill="transparent" onMouseEnter={() => setHover(i)}
-            />
-          </g>
-        );
-      })}
-      {hover !== null && (
-        <ChartTooltip
-          x={xFor(hover)}
-          chartWidth={w}
-          label={fmtMonthLabel(months[hover].month)}
-          lines={[
-            { label: 'Altas', color: EVOLUTION_COLORS.altas, value: months[hover].newCount },
-            { label: 'Renovaciones', color: EVOLUTION_COLORS.renovaciones, value: months[hover].renewalCount },
-            { label: 'Bajas', color: EVOLUTION_COLORS.bajas, value: -months[hover].cancelledCount },
-          ]}
-        />
-      )}
-    </svg>
-  );
-}
-
 function SubscriberEvolutionWidget() {
   const [data, setData] = useState<SubscriberEvolution | null>(null);
   const [loading, setLoading] = useState(true);
@@ -693,13 +623,6 @@ function SubscriberEvolutionWidget() {
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Error al cargar'))
       .finally(() => setLoading(false));
   }, []);
-
-  const flowMonths: FlowMonth[] = (data?.months ?? []).map((m) => ({
-    month: m.month,
-    newCount: m.newCount,
-    renewalCount: m.renewalCount,
-    cancelledCount: m.cancelledCount,
-  }));
 
   return (
     <WidgetCard
@@ -729,7 +652,14 @@ function SubscriberEvolutionWidget() {
                 { label: 'Bajas', color: EVOLUTION_COLORS.bajas },
               ]} />
             </div>
-            <SubscriberFlowChart months={flowMonths} />
+            <AxisLineChart
+              dates={data.months.map((m) => `${m.month}-01`)}
+              series={[
+                { label: 'Altas', color: EVOLUTION_COLORS.altas, values: data.months.map((m) => m.newCount) },
+                { label: 'Renovaciones', color: EVOLUTION_COLORS.renovaciones, values: data.months.map((m) => m.renewalCount) },
+                { label: 'Bajas', color: EVOLUTION_COLORS.bajas, values: data.months.map((m) => -m.cancelledCount) },
+              ]}
+            />
           </div>
         </div>
       )}
@@ -831,17 +761,17 @@ export default function AdminDashboardPage() {
         <LoginHistoryWidget />
       </div>
 
-      {/* Miembros y pagos recientes — 2 por fila, mismas dimensiones que la fila de arriba */}
+      {/* Miembros recientes y evolución de suscriptores — 2 por fila */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <RecentMembersWidget />
-        <RevenueWidget />
+        <SubscriberEvolutionWidget />
       </div>
 
-      {/* Evolución de suscriptores — 50% como el resto; el otro 50% queda
-          libre hasta que lleguen el reparto de planes y el top de series
-          (ahí se reorganiza esta fila entera). */}
+      {/* Ingresos — 50% como el resto; el otro 50% queda libre hasta que
+          lleguen el reparto de planes y el top de series (ahí se reorganiza
+          esta fila entera). */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <SubscriberEvolutionWidget />
+        <RevenueWidget />
       </div>
     </div>
   );
