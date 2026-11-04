@@ -264,12 +264,37 @@ function RecentMembersWidget() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Bajas superpuestas: opcional, se piden solo la primera vez que se activa
+  // el interruptor (no hace falta cargarlas si nadie las pide) — el
+  // resultado se queda en caché en este mismo estado, así que
+  // activar/desactivar después no vuelve a pedir nada.
+  const [showCancellations, setShowCancellations] = useState(false);
+  const [cancelSeries, setCancelSeries] = useState<RecentCancellations['series'] | null>(null);
+  const [loadingCancel, setLoadingCancel] = useState(false);
+
   useEffect(() => {
     apiClient.getAdminRecentMembers()
       .then(setData)
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Error al cargar'))
       .finally(() => setLoading(false));
   }, []);
+
+  const toggleCancellations = () => {
+    const next = !showCancellations;
+    setShowCancellations(next);
+    if (next && !cancelSeries && !loadingCancel) {
+      setLoadingCancel(true);
+      apiClient.getAdminRecentCancellations()
+        .then((d) => setCancelSeries(d.series))
+        .catch(() => setShowCancellations(false)) // si falla, no deja el interruptor "encendido" sin datos
+        .finally(() => setLoadingCancel(false));
+    }
+  };
+
+  const chartSeries = [{ label: 'Altas', color: '#cf4a35', values: data?.series.map((d) => d.count) ?? [] }];
+  if (showCancellations && cancelSeries) {
+    chartSeries.push({ label: 'Bajas', color: '#2a78d6', values: cancelSeries.map((d) => -d.count) });
+  }
 
   return (
     <WidgetCard title="Miembros recientes" sub="Personas nuevas en el último mes (no cuenta renovaciones)" href="/admin/suscriptores">
@@ -279,9 +304,24 @@ function RecentMembersWidget() {
         <p className="text-admin-text-tertiary text-sm py-6 text-center">{error || 'Sin datos'}</p>
       ) : (
         <>
+          <div className="flex items-center justify-between mb-2">
+            {showCancellations && cancelSeries ? (
+              <ChartLegend series={[{ label: 'Altas', color: '#cf4a35' }, { label: 'Bajas', color: '#2a78d6' }]} />
+            ) : <span />}
+            <label className="flex items-center gap-1.5 text-[11px] text-admin-text-secondary cursor-pointer shrink-0">
+              <input
+                type="checkbox"
+                checked={showCancellations}
+                onChange={toggleCancellations}
+                disabled={loadingCancel}
+                className="accent-brand-bright"
+              />
+              {loadingCancel ? 'Cargando bajas…' : 'Mostrar bajas'}
+            </label>
+          </div>
           <AxisLineChart
             dates={data.series.map((d) => d.date)}
-            series={[{ label: 'Miembros', color: '#cf4a35', values: data.series.map((d) => d.count) }]}
+            series={chartSeries}
           />
           <ul className="mt-4 space-y-2.5 max-h-80 overflow-y-auto">
             {data.recent.length === 0 && (
