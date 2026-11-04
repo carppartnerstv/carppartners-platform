@@ -11,8 +11,6 @@ export interface HeroBannerProps {
   seriesTitle?: string;
   /** Nº total de episodios de la serie, si aplica */
   episodeCount?: number;
-  /** Texto del badge superior */
-  badgeLabel?: string;
   onPlay?: (video: Video) => void;
   onMoreInfo?: (video: Video) => void;
 }
@@ -22,7 +20,6 @@ export function HeroBanner({
   categoryName,
   seriesTitle,
   episodeCount,
-  badgeLabel = 'Nueva temporada',
   onPlay,
   onMoreInfo,
 }: HeroBannerProps) {
@@ -62,16 +59,6 @@ export function HeroBanner({
 
       {/* Contenido */}
       <div className="absolute flex flex-col left-5 right-5 bottom-[6vh] max-w-[520px] md:left-12 md:right-6 md:bottom-[8vh] md:max-w-[560px]">
-        {/* Badge temporada */}
-        <div
-          className="inline-flex items-center gap-[7px] self-start px-[11px] py-[5px] rounded-[6px] mb-[18px]
-                     bg-gold-dim border border-gold/35 text-gold text-[11px] font-semibold
-                     tracking-[0.08em] uppercase"
-        >
-          <i className="ti ti-sparkles text-[14px]" />
-          {badgeLabel}
-        </div>
-
         {/* Título principal */}
         <h1
           className="font-display font-extrabold text-white leading-[1.02] tracking-[-0.02em] mb-4
