@@ -19,7 +19,6 @@ import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import multer from 'multer';
 import { z } from 'zod';
 import { query, queryOne } from '../config/db.js';
 import { config } from '../config/index.js';
@@ -33,11 +32,12 @@ import {
   signRefreshToken,
   verifyRefreshToken,
 } from '../utils/tokens.js';
-import { asyncHandler, badRequest, unauthorized, HttpError } from '../utils/errors.js';
+import { asyncHandler, badRequest, unauthorized } from '../utils/errors.js';
 import { requireAuth } from '../middleware/auth.js';
 import { authSensitiveLimiter } from '../middleware/rateLimit.js';
 import { sendMail } from '../services/mail.js';
 import { welcomeEmail, passwordResetEmail, setPasswordEmail } from '../services/mailTemplates.js';
+import { makeImageUpload } from '../utils/imageUpload.js';
 
 const FORGOT_PASSWORD_TTL_MS = 30 * 60 * 1000; // 30 minutos
 // Mismo TTL que usa migrate-stripe.js / admin.js para el enlace de
@@ -45,42 +45,12 @@ const FORGOT_PASSWORD_TTL_MS = 30 * 60 * 1000; // 30 minutos
 // en login (ver más abajo).
 const SET_PASSWORD_TTL_DAYS = 14;
 
-// ─── Subida de la foto de perfil propia (mismo patrón que el avatar de crew,
-// pero en su propia carpeta: backend/uploads/avatars/) ───────────────────────
+// ─── Subida de la foto de perfil propia — misma fábrica compartida que usa
+// admin.js (avatar de crew, portadas, etc.), antes duplicada aquí entera.
+// Siempre se ve pequeña y redonda, igual que el avatar de crew.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const USER_AVATAR_DIR = path.resolve(__dirname, '../../uploads/avatars');
-fs.mkdirSync(USER_AVATAR_DIR, { recursive: true });
-
-const ALLOWED_AVATAR_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
-
-const avatarStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, USER_AVATAR_DIR),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}${ext}`;
-    cb(null, unique);
-  },
-});
-
-const avatarMulter = multer({
-  storage: avatarStorage,
-  limits: { fileSize: AVATAR_MAX_BYTES },
-  fileFilter: (_req, file, cb) => {
-    if (ALLOWED_AVATAR_MIME.has(file.mimetype)) return cb(null, true);
-    cb(new HttpError(400, 'Tipo no válido. Usa JPG, PNG o WebP.', 'INVALID_TYPE'));
-  },
-});
-
-function avatarUpload(req, res, next) {
-  avatarMulter.single('avatar')(req, res, (err) => {
-    if (!err) return next();
-    if (err.code === 'LIMIT_FILE_SIZE') {
-      return next(new HttpError(413, 'Imagen demasiado grande. Máximo 5 MB.', 'FILE_TOO_LARGE'));
-    }
-    return next(err instanceof HttpError ? err : new HttpError(400, err.message ?? 'Error de subida', 'UPLOAD_ERROR'));
-  });
-}
+const avatarUpload = makeImageUpload(USER_AVATAR_DIR, 'avatar', { maxWidth: 512, maxHeight: 512 });
 
 function deleteFileIfExists(filePath) {
   fs.unlink(filePath, () => {}); // fire-and-forget; si no existe, sin error

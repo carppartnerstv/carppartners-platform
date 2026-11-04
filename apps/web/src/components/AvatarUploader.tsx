@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef } from 'react';
+import Image from 'next/image';
 
 interface AvatarUploaderProps {
   /** URL actual almacenada en la BD (puede ser null si no tiene imagen) */
@@ -59,7 +60,17 @@ export function AvatarUploader({
           ].join(' ')}
         >
           {displayUrl ? (
-            <img src={displayUrl} alt="" className="w-full h-full object-cover" />
+            // pendingPreview es un data: URL local (antes de subir) — el
+            // optimizador de next/image no aplica (ni hace falta) ahí, solo
+            // para la imagen real ya guardada (currentUrl).
+            <Image
+              src={displayUrl}
+              alt=""
+              fill
+              sizes={isPoster ? '160px' : isCover ? '320px' : '64px'}
+              unoptimized={!!pendingPreview}
+              className="object-cover"
+            />
           ) : isCover ? (
             <svg className={`w-8 h-8 ${light ? 'text-admin-text-tertiary' : 'text-white/20'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}

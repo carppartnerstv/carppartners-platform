@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import type { Video } from '@carp-partners/api-client';
 import { Button } from './Button';
 
@@ -37,12 +38,7 @@ export function HeroBanner({
     <div className="relative w-full h-[58vh] min-h-[420px] max-h-[640px] md:h-[84vh] md:min-h-[520px] md:max-h-[860px]">
       {/* Imagen de fondo */}
       {video.thumbnail_url ? (
-        <img
-          src={video.thumbnail_url}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover"
-          aria-hidden
-        />
+        <Image src={video.thumbnail_url} alt="" fill sizes="100vw" priority className="object-cover" aria-hidden />
       ) : (
         <div className="absolute inset-0 bg-surface-raised" />
       )}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import type { Video, Category, SeriesDetail as SeriesDetailType, WatchHistoryItem } from '@carp-partners/api-client';
@@ -130,7 +131,7 @@ export default function SerieDetailPage() {
           (horizontal), un término medio. ── */}
       <section className="relative w-full h-[42vh] min-h-[320px] max-h-[420px] md:h-[54vh] md:min-h-[380px] md:max-h-[600px]">
         {series.cover_url ? (
-          <img src={series.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden />
+          <Image src={series.cover_url} alt="" fill sizes="100vw" priority className="object-cover" aria-hidden />
         ) : (
           <div className="absolute inset-0 bg-surface-raised" />
         )}
@@ -276,7 +277,7 @@ function EpisodeRow({ episode, num, progress, onClick }: {
       </div>
       <div className="relative shrink-0 rounded-[9px] overflow-hidden bg-surface-raised w-[104px] h-[58px] sm:w-[168px] sm:h-[94px]">
         {episode.thumbnail_url ? (
-          <img src={episode.thumbnail_url} alt="" className="w-full h-full object-cover" />
+          <Image src={episode.thumbnail_url} alt="" fill sizes="(min-width: 640px) 168px, 104px" className="object-cover" />
         ) : (
           <div className="w-full h-full bg-surface-2" />
         )}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import type { Video, RelatedVideo, Category, Series } from '@carp-partners/api-client';
@@ -211,7 +212,7 @@ function DetailContent() {
           (horizontal), un término medio. ── */}
       <section className="relative w-full h-[42vh] min-h-[320px] max-h-[420px] md:h-[54vh] md:min-h-[380px] md:max-h-[600px]">
         {video.thumbnail_url ? (
-          <img src={video.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden />
+          <Image src={video.thumbnail_url} alt="" fill sizes="100vw" priority className="object-cover" aria-hidden />
         ) : (
           <div className="absolute inset-0 bg-surface-raised" />
         )}

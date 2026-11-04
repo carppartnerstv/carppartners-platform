@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import type { Video } from '@carp-partners/api-client';
 
 function formatDuration(secs: number): string {
@@ -36,19 +37,19 @@ export function VideoCard({ video, progress, rank, isNew, showPlayButton, onClic
                    group-hover:-translate-y-[5px]"
       >
         {video.thumbnail_url || video.cover_vertical_url ? (
-          <picture>
-            {/* Por debajo de 640px, si hay portada vertical subida, se usa
-                esa — si no, el navegador cae solo a la horizontal de abajo. */}
-            {video.cover_vertical_url && (
-              <source media="(max-width: 639px)" srcSet={video.cover_vertical_url} />
-            )}
-            <img
-              src={video.thumbnail_url ?? video.cover_vertical_url ?? ''}
-              alt={video.title}
-              loading="lazy"
-              className="w-full h-full object-cover"
-            />
-          </picture>
+          <>
+            {/* Por debajo de 640px: portada vertical si existe, si no la
+                horizontal. Desde 640px: al revés. Dos <Image> (no un único
+                <picture>, que next/image no soporta) alternados por CSS —
+                un elemento con display:none no llega a descargarse, así
+                que el navegador solo pide la que toca en cada tamaño. */}
+            <div className="absolute inset-0 sm:hidden">
+              <Image src={video.cover_vertical_url ?? video.thumbnail_url ?? ''} alt={video.title} fill sizes="35vw" className="object-cover" />
+            </div>
+            <div className="absolute inset-0 hidden sm:block">
+              <Image src={video.thumbnail_url ?? video.cover_vertical_url ?? ''} alt={video.title} fill sizes="260px" className="object-cover" />
+            </div>
+          </>
         ) : (
           <div className="w-full h-full bg-surface-2 flex items-center justify-center">
             <PlayIcon className="w-10 h-10 text-white/20" />

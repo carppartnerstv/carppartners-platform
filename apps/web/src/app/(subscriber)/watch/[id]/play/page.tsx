@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { apiClient, ApiError } from '@carp-partners/api-client';
 import type { Video, RelatedVideo, Category, Series, NextEpisode } from '@carp-partners/api-client';
@@ -928,7 +929,7 @@ export default function PlayPage() {
             >
               <div className="flex-none w-[92px] h-[52px] rounded-[7px] bg-surface-raised overflow-hidden relative">
                 {nextVideo.thumbnail_url && (
-                  <img src={nextVideo.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                  <Image src={nextVideo.thumbnail_url} alt="" fill sizes="92px" className="object-cover" />
                 )}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <i className="ti ti-player-play-filled text-[18px] text-white" />

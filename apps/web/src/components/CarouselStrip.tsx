@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { usePublicCarousel } from '@/components/Carousel';
 
 // Tira de fotos a sangre completa (100% del ancho de la pantalla), cada una
@@ -17,7 +18,13 @@ export function CarouselStrip({ slug }: { slug: string }) {
       <div className="flex gap-[2px]">
         {images.map((img) => (
           <div key={img.id} className="relative flex-shrink-0 w-[46%] sm:w-[32%] md:w-[24%] lg:w-[19%] aspect-[2/3]">
-            <img src={img.image_url} alt={img.alt_text ?? ''} className="absolute inset-0 w-full h-full object-cover" />
+            <Image
+              src={img.image_url}
+              alt={img.alt_text ?? ''}
+              fill
+              sizes="(min-width: 1024px) 19vw, (min-width: 768px) 24vw, (min-width: 640px) 32vw, 46vw"
+              className="object-cover"
+            />
           </div>
         ))}
       </div>

@@ -18,7 +18,6 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
-import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import { query, queryOne, withTransaction } from '../config/db.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
@@ -31,6 +30,7 @@ import { config } from '../config/index.js';
 import sanitizeHtml from 'sanitize-html';
 import { UAParser } from 'ua-parser-js';
 import geoip from 'geoip-lite';
+import { makeImageUpload } from '../utils/imageUpload.js';
 
 // Nombre de país en español a partir del código ISO de geoip-lite (p. ej.
 // "ES" -> "España") — Intl.DisplayNames es nativo de Node, no hace falta
@@ -52,53 +52,27 @@ fs.mkdirSync(VIDEOS_UPLOADS_DIR, { recursive: true });
 fs.mkdirSync(PAGES_UPLOADS_DIR, { recursive: true });
 fs.mkdirSync(CAROUSELS_UPLOADS_DIR, { recursive: true });
 
-const ALLOWED_IMAGE_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const IMAGE_MAX_BYTES    = 5 * 1024 * 1024;
-
-// Crea un middleware de subida de una sola imagen a `uploadsDir`, bajo el
-// campo `fieldName` del formulario. Mismas reglas para cualquier imagen del
-// panel (avatar de crew, portada de serie/película): JPG/PNG/WebP, máx 5 MB.
-function makeImageUpload(uploadsDir, fieldName) {
-  const storage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, uploadsDir),
-    filename:    (_req,  file, cb) => {
-      const ext    = path.extname(file.originalname).toLowerCase() || '.jpg';
-      const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}${ext}`;
-      cb(null, unique);
-    },
-  });
-
-  const instance = multer({
-    storage,
-    limits:  { fileSize: IMAGE_MAX_BYTES },
-    fileFilter: (_req, file, cb) => {
-      if (ALLOWED_IMAGE_MIME.has(file.mimetype)) return cb(null, true);
-      cb(new HttpError(400, 'Tipo no válido. Usa JPG, PNG o WebP.', 'INVALID_TYPE'));
-    },
-  });
-
-  // Convierte errores de multer al formato estándar de la API
-  return function upload(req, res, next) {
-    instance.single(fieldName)(req, res, (err) => {
-      if (!err) return next();
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return next(new HttpError(413, 'Imagen demasiado grande. Máximo 5 MB.', 'FILE_TOO_LARGE'));
-      }
-      return next(err instanceof HttpError ? err : new HttpError(400, err.message ?? 'Error de subida', 'UPLOAD_ERROR'));
-    });
-  };
-}
-
-const avatarUpload = makeImageUpload(CREW_UPLOADS_DIR, 'avatar');
-const seriesCoverUpload = makeImageUpload(SERIES_UPLOADS_DIR, 'cover');
+// makeImageUpload (JPG/PNG/WebP, máx 5 MB, redimensiona+comprime al vuelo)
+// vive en utils/imageUpload.js — compartida con auth.js (avatar propio del
+// usuario), antes duplicada entera en los dos sitios.
+//
+// Tamaños máximos por tipo: avatares siempre se ven pequeños y redondos;
+// las portadas horizontales están pensadas para 16:9 1920×1080 (briefing)
+// así que ese es también su tope; las verticales (2:3, carátula tipo
+// póster) necesitan menos ancho pero más alto.
+// El avatar de crew NO siempre se ve pequeño y redondo: en /crew/[slug] se
+// reutiliza como portada a pantalla completa (ver comentario en esa página)
+// — por eso lleva el mismo tope que las portadas, no el de un avatar normal.
+const avatarUpload = makeImageUpload(CREW_UPLOADS_DIR, 'avatar', { maxWidth: 1920, maxHeight: 1080 });
+const seriesCoverUpload = makeImageUpload(SERIES_UPLOADS_DIR, 'cover', { maxWidth: 1920, maxHeight: 1080 });
 // Portada vertical (2:3): misma carpeta que la horizontal en series (nombres
 // de archivo únicos, no colisionan); vídeos no tenían carpeta de subida
 // propia hasta ahora (la miniatura horizontal siempre fue una URL pegada/
 // autorellenada desde Vimeo, nunca un archivo subido).
-const seriesCoverVerticalUpload = makeImageUpload(SERIES_UPLOADS_DIR, 'coverVertical');
-const videoCoverVerticalUpload = makeImageUpload(VIDEOS_UPLOADS_DIR, 'coverVertical');
-const pageImageUpload = makeImageUpload(PAGES_UPLOADS_DIR, 'image');
-const carouselImageUpload = makeImageUpload(CAROUSELS_UPLOADS_DIR, 'image');
+const seriesCoverVerticalUpload = makeImageUpload(SERIES_UPLOADS_DIR, 'coverVertical', { maxWidth: 1200, maxHeight: 1800 });
+const videoCoverVerticalUpload = makeImageUpload(VIDEOS_UPLOADS_DIR, 'coverVertical', { maxWidth: 1200, maxHeight: 1800 });
+const pageImageUpload = makeImageUpload(PAGES_UPLOADS_DIR, 'image', { maxWidth: 1920, maxHeight: 1080 });
+const carouselImageUpload = makeImageUpload(CAROUSELS_UPLOADS_DIR, 'image', { maxWidth: 1920, maxHeight: 1080 });
 
 function deleteFileIfExists(filePath) {
   fs.unlink(filePath, () => {}); // fire-and-forget; si no existe, sin error

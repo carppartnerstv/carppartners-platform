@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 
 export interface CrewCardMember {
   id: string;
@@ -28,12 +29,7 @@ export function CrewCard({ member, onClick }: CrewCardProps) {
                    group-hover:-translate-y-[5px]"
       >
         {member.avatar_url ? (
-          <img
-            src={member.avatar_url}
-            alt={member.name}
-            loading="lazy"
-            className="w-full h-full object-cover"
-          />
+          <Image src={member.avatar_url} alt={member.name} fill sizes="260px" className="object-cover" />
         ) : (
           <div className="w-full h-full bg-surface-2 flex items-center justify-center">
             <PersonIcon className="w-10 h-10 text-white/20" />

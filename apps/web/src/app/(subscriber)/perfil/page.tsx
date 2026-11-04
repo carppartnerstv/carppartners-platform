@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/context/SessionContext';
@@ -146,9 +147,11 @@ function PerfilContent() {
           <div className="hidden md:block rounded-[16px] border border-cp-border bg-white/[0.03] p-[28px_26px] mb-5">
             <div className="flex items-center gap-3.5 mb-5">
               {user?.avatar_url ? (
-                <img
+                <Image
                   src={user.avatar_url}
                   alt=""
+                  width={56}
+                  height={56}
                   className="w-14 h-14 rounded-full object-cover border border-white/14 shrink-0"
                 />
               ) : (
@@ -181,9 +184,11 @@ function PerfilContent() {
               con borde ni botón a ancho completo). */}
           <div className="flex md:hidden items-center gap-3.5 mb-5">
             {user?.avatar_url ? (
-              <img
+              <Image
                 src={user.avatar_url}
                 alt=""
+                width={60}
+                height={60}
                 className="w-[60px] h-[60px] rounded-full object-cover border border-white/14 shrink-0"
               />
             ) : (
@@ -385,7 +390,7 @@ function PerfilContent() {
                     >
                       <div className="flex-none w-[84px] h-12 rounded-[7px] bg-surface-raised overflow-hidden relative">
                         {item.thumbnail_url && (
-                          <img src={item.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                          <Image src={item.thumbnail_url} alt="" fill sizes="84px" className="object-cover" />
                         )}
                         <div className="absolute inset-0 flex items-center justify-center">
                           <i className="ti ti-player-play-filled text-[15px] text-white" />

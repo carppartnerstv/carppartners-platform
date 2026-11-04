@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { apiClient, type SeriesCoverSummary } from '@carp-partners/api-client';
 import { PublicHeader } from '@/components/PublicHeader';
@@ -178,12 +179,15 @@ export function LandingView() {
         <div ref={heroBgRef} className="absolute -inset-y-[10%] inset-x-0 will-change-transform">
           {heroImages.length > 0 ? (
             heroImages.map((img, i) => (
-              <img
+              <Image
                 key={img.id}
                 src={img.image_url}
                 alt={img.alt_text ?? ''}
                 aria-hidden
-                className="absolute inset-0 w-full h-full object-cover"
+                fill
+                sizes="100vw"
+                priority={i === 0}
+                className="object-cover"
                 style={{ opacity: heroSlide === i ? 1 : 0, transition: 'opacity 1.4s ease' }}
               />
             ))
@@ -288,7 +292,13 @@ export function LandingView() {
                       style={{ width: '78%', aspectRatio: '4/3', scrollSnapAlign: 'start', background: item.bg, border: '1px solid rgba(255,255,255,0.06)' }}
                     >
                       {item.cover_url && (
-                        <img src={item.cover_url} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                        <Image
+                          src={item.cover_url}
+                          alt=""
+                          fill
+                          sizes="78vw"
+                          className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
                       )}
                       <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg,rgba(0,0,0,0) 35%,rgba(4,8,10,0.9) 100%)' }} />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
@@ -327,12 +337,13 @@ export function LandingView() {
                   return (
                     <div key={ci} className="flex-none rounded-[11px] overflow-hidden relative" style={{ width: 260, aspectRatio: '16/9', background: PREVIEW_MOODS[mi], border: '1px solid rgba(255,255,255,0.06)' }}>
                       {cover && (
-                        <img
+                        <Image
                           src={cover.cover_url}
                           alt=""
                           aria-hidden
-                          loading="lazy"
-                          className="absolute inset-0 w-full h-full object-cover"
+                          fill
+                          sizes="260px"
+                          className="object-cover"
                           style={{ filter: 'blur(5px) saturate(1.05)', transform: 'scale(1.15)' }}
                         />
                       )}
@@ -497,7 +508,13 @@ export function LandingView() {
             <div className="flex h-full" style={{ transform: `translateX(-${aboutSlide * (100 / Math.max(aboutImages.length, 1))}%)`, transition: 'transform 600ms ease' }}>
               {aboutImages.map((img) => (
                 <div key={img.id} className="relative w-[40%] h-full flex-shrink-0 p-[3px]">
-                  <img src={img.image_url} alt={img.alt_text ?? ''} className="w-full h-full object-cover rounded-[16px]" />
+                  <Image
+                    src={img.image_url}
+                    alt={img.alt_text ?? ''}
+                    fill
+                    sizes="(max-width: 768px) 40vw, 300px"
+                    className="object-cover rounded-[16px]"
+                  />
                 </div>
               ))}
             </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import type { Series, Category } from '@carp-partners/api-client';
 
 export interface TopTenCarouselProps {
@@ -213,17 +214,24 @@ export function TopTenCarousel({ title, items, categories, onItemClick }: TopTen
                 dragging={dragging}
               >
                 {s.cover_url || s.cover_vertical_url ? (
-                  <picture>
-                    {s.cover_vertical_url && (
-                      <source media="(max-width: 639px)" srcSet={s.cover_vertical_url} />
-                    )}
-                    <img
-                      src={s.cover_url ?? s.cover_vertical_url ?? ''}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover"
-                      draggable={false}
-                    />
-                  </picture>
+                  <>
+                    {/* Mismo patrón que VideoCard/SeriesCard: dos <Image>
+                        alternadas por CSS en vez de <picture>. */}
+                    <div className="absolute inset-0 sm:hidden">
+                      <Image
+                        src={s.cover_vertical_url ?? s.cover_url ?? ''}
+                        alt="" fill sizes="200px" className="object-cover" draggable={false}
+                      />
+                    </div>
+                    <div className="absolute inset-0 hidden sm:block">
+                      <Image
+                        src={s.cover_url ?? s.cover_vertical_url ?? ''}
+                        alt="" fill
+                        sizes={featured ? '(min-width: 1024px) 620px, (min-width: 768px) 500px, 380px' : '(min-width: 1024px) 237px, (min-width: 768px) 192px, 147px'}
+                        className="object-cover" draggable={false}
+                      />
+                    </div>
+                  </>
                 ) : (
                   <div className="absolute inset-0 bg-surface-raised" />
                 )}

@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import type { Series } from '@carp-partners/api-client';
 
 export interface SeriesCardProps {
@@ -24,17 +25,16 @@ export function SeriesCard({ series, onClick }: SeriesCardProps) {
                    group-hover:-translate-y-[5px]"
       >
         {series.cover_url || series.cover_vertical_url ? (
-          <picture>
-            {series.cover_vertical_url && (
-              <source media="(max-width: 639px)" srcSet={series.cover_vertical_url} />
-            )}
-            <img
-              src={series.cover_url ?? series.cover_vertical_url ?? ''}
-              alt={series.title}
-              loading="lazy"
-              className="w-full h-full object-cover"
-            />
-          </picture>
+          <>
+            {/* Mismo patrón que VideoCard: dos <Image> alternadas por CSS en
+                vez de un <picture>, que next/image no soporta. */}
+            <div className="absolute inset-0 sm:hidden">
+              <Image src={series.cover_vertical_url ?? series.cover_url ?? ''} alt={series.title} fill sizes="35vw" className="object-cover" />
+            </div>
+            <div className="absolute inset-0 hidden sm:block">
+              <Image src={series.cover_url ?? series.cover_vertical_url ?? ''} alt={series.title} fill sizes="260px" className="object-cover" />
+            </div>
+          </>
         ) : (
           <div className="w-full h-full bg-surface-2 flex items-center justify-center">
             <PlayIcon className="w-10 h-10 text-white/20" />

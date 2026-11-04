@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { apiClient } from '@carp-partners/api-client';
 import type { CrewMember, Video } from '@carp-partners/api-client';
@@ -93,7 +94,7 @@ export default function CrewMemberPage() {
           se añadirá una portada independiente (ver comentario del usuario). */}
       <section className="relative w-full h-[42vh] min-h-[320px] max-h-[420px] md:h-[54vh] md:min-h-[380px] md:max-h-[600px]">
         {member.avatar_url ? (
-          <img src={member.avatar_url} alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden />
+          <Image src={member.avatar_url} alt="" fill sizes="100vw" priority className="object-cover" aria-hidden />
         ) : (
           <div className="absolute inset-0 bg-surface-raised" />
         )}

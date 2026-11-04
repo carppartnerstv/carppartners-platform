@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { PublicHeader } from '@/components/PublicHeader';
 import { PublicFooter } from '@/components/PublicFooter';
@@ -29,7 +30,7 @@ export function AboutView() {
       <section className="relative min-h-[64vh] flex items-center justify-center text-center px-6 pt-[110px] pb-[60px] overflow-hidden">
         <div className="absolute inset-0">
           {heroImage ? (
-            <img src={heroImage.image_url} alt={heroImage.alt_text ?? ''} aria-hidden className="absolute inset-0 w-full h-full object-cover" />
+            <Image src={heroImage.image_url} alt={heroImage.alt_text ?? ''} aria-hidden fill sizes="100vw" priority className="object-cover" />
           ) : (
             <div
               className="absolute inset-0"

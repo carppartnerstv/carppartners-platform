@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { apiClient } from '@carp-partners/api-client';
 import type { CarouselImage } from '@carp-partners/api-client';
 
@@ -40,11 +41,13 @@ export function Carousel({ slug }: { slug: string }) {
   return (
     <div className="relative w-full rounded-[14px] overflow-hidden my-6" style={{ aspectRatio: '16/9' }}>
       {images.map((img, i) => (
-        <img
+        <Image
           key={img.id}
           src={img.image_url}
           alt={img.alt_text ?? ''}
-          className="absolute inset-0 w-full h-full object-cover"
+          fill
+          sizes="100vw"
+          className="object-cover"
           style={{ opacity: active === i ? 1 : 0, transition: 'opacity 1.4s ease' }}
         />
       ))}

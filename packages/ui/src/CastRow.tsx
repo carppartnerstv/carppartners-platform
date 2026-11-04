@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 
 export interface CastMember {
   id: string;
@@ -48,9 +49,11 @@ export function CastRow({ crew, onSelect, title = 'Reparto' }: CastRowProps) {
               className="flex flex-col items-center gap-2.5 w-[88px] text-center group"
             >
               {member.avatar_url ? (
-                <img
+                <Image
                   src={member.avatar_url}
                   alt=""
+                  width={64}
+                  height={64}
                   className="w-16 h-16 rounded-full object-cover border border-white/14 transition-transform duration-200 group-hover:scale-105"
                 />
               ) : (

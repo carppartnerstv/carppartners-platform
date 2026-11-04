@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Logo } from '@carp-partners/ui';
@@ -96,9 +97,11 @@ export function Navbar() {
                 className="hidden md:flex items-center gap-1.5 group"
               >
                 {user.avatar_url ? (
-                  <img
+                  <Image
                     src={user.avatar_url}
                     alt=""
+                    width={36}
+                    height={36}
                     className="w-9 h-9 rounded-full object-cover border border-white/20 shadow-sm"
                   />
                 ) : (
