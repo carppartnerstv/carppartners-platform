@@ -18,6 +18,8 @@ export type {
   AuthResponse,
   DashboardStats,
   RecentMembers,
+  RecentCancellation,
+  RecentCancellations,
   SubscriberEvolution,
   SubscriberEvolutionMonth,
   RevenueEvolution,

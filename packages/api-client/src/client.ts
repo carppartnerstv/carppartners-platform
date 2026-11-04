@@ -15,6 +15,7 @@ import type {
   AuthResponse,
   DashboardStats,
   RecentMembers,
+  RecentCancellations,
   SubscriberEvolution,
   RevenueEvolution,
   PlaysToday,
@@ -467,6 +468,10 @@ export class ApiClient {
 
   async getAdminRecentMembers(): Promise<RecentMembers> {
     return this.request('GET', '/admin/dashboard/recent-members');
+  }
+
+  async getAdminRecentCancellations(): Promise<RecentCancellations> {
+    return this.request('GET', '/admin/dashboard/recent-cancellations');
   }
 
   async getAdminPlaysToday(): Promise<PlaysToday> {

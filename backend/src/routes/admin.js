@@ -237,27 +237,41 @@ const EVOLUTION_MONTHS = 11; // + el mes actual = 12 puntos
 // facturas vía `for await` es una serie de round-trips secuenciales a la
 // API de Stripe — antes cada endpoint tiraba de Stripe por su cuenta, así
 // que cargar el dashboard (los dos widgets casi a la vez) lo pedía DOS
-// veces seguidas, duplicando la espera. Una caché corta en memoria (60s)
-// evita repetir la llamada si los dos widgets piden casi a la vez, sin
-// tener que inventar un endpoint combinado nuevo.
-let billingCache = null; // { expiresAt: number, byMonth: Map<string, {...}> }
+// veces seguidas, duplicando la espera.
+//
+// OJO: cachear solo el RESULTADO ya resuelto no basta — si las dos
+// peticiones llegan antes de que la primera termine (justo lo que pasa al
+// cargar el dashboard, los dos widgets casi a la vez), ambas ven la caché
+// vacía y lanzan su propia paginación completa igualmente. Por eso se
+// cachea la PROMESA en curso (no el valor), asignada de forma síncrona
+// antes del primer `await` — así la segunda petición, aunque llegue
+// milisegundos después, reutiliza la misma promesa en vez de arrancar una
+// paginación nueva.
+let billingCache = null; // { expiresAt: number, promise: Promise<Map> }
 async function fetchMonthlyBilling() {
   const now = Date.now();
-  if (billingCache && billingCache.expiresAt > now) return billingCache.byMonth;
+  if (billingCache && billingCache.expiresAt > now) return billingCache.promise;
 
-  const sinceSec = Math.floor(now / 1000) - EVOLUTION_MONTHS * 31 * 86_400;
-  const byMonth = new Map();
-  for await (const invoice of stripe.invoices.list({ status: 'paid', created: { gte: sinceSec }, limit: 100 })) {
-    const month = new Date(invoice.created * 1000).toISOString().slice(0, 7);
-    const bucket = byMonth.get(month) ?? { revenueCents: 0, newCount: 0, renewalCount: 0 };
-    bucket.revenueCents += invoice.amount_paid;
-    if (invoice.billing_reason === 'subscription_create') bucket.newCount += 1;
-    else if (invoice.billing_reason === 'subscription_cycle') bucket.renewalCount += 1;
-    byMonth.set(month, bucket);
-  }
+  const promise = (async () => {
+    const sinceSec = Math.floor(now / 1000) - EVOLUTION_MONTHS * 31 * 86_400;
+    const byMonth = new Map();
+    for await (const invoice of stripe.invoices.list({ status: 'paid', created: { gte: sinceSec }, limit: 100 })) {
+      const month = new Date(invoice.created * 1000).toISOString().slice(0, 7);
+      const bucket = byMonth.get(month) ?? { revenueCents: 0, newCount: 0, renewalCount: 0 };
+      bucket.revenueCents += invoice.amount_paid;
+      if (invoice.billing_reason === 'subscription_create') bucket.newCount += 1;
+      else if (invoice.billing_reason === 'subscription_cycle') bucket.renewalCount += 1;
+      byMonth.set(month, bucket);
+    }
+    return byMonth;
+  })();
 
-  billingCache = { expiresAt: now + 60_000, byMonth };
-  return byMonth;
+  // Si Stripe falla, no queremos quedarnos devolviendo ese mismo error
+  // durante 60s — se limpia la caché para que la siguiente petición reintente.
+  promise.catch(() => { billingCache = null; });
+
+  billingCache = { expiresAt: now + 60_000, promise };
+  return promise;
 }
 
 adminRouter.get(
@@ -423,6 +437,78 @@ adminRouter.get(
     res.json({
       series: series.map((r) => ({ date: r.date, count: r.count })),
       recent: recent.map((r) => ({ email: r.email, name: r.name, plan: r.plan, createdAt: r.member_since })),
+    });
+  }),
+);
+
+// GET /admin/dashboard/recent-cancellations — espejo de "Miembros
+// recientes" pero de bajas: serie diaria (misma ventana de 29 días) +
+// listado de las últimas bajas reales. Mismo cuidado que en
+// subscriber-evolution: se usa la suscripción "representativa" de cada
+// usuario (prioriza una vigente si existe) y solo cuenta como baja si ESA
+// fila es la cancelada — evita contar restos de Customers duplicados de
+// WordPress de gente que en realidad sigue siendo suscriptora.
+//
+// "Cuotas pagadas": nº de facturas pagadas en Stripe de ese cliente — para
+// cortesías (sin stripe_customer_id, nunca facturan) queda null, el
+// frontend lo muestra como "Cortesía" en vez de un número.
+adminRouter.get(
+  '/dashboard/recent-cancellations',
+  asyncHandler(async (_req, res) => {
+    const CANCELLED_LATERAL = `JOIN LATERAL (
+      SELECT plan, status, cancelled_at, source FROM subscriptions
+       WHERE user_id = u.id
+       ORDER BY
+         (status IN ('active','trialing','past_due') AND (period_end IS NULL OR period_end > now())) DESC,
+         period_end DESC NULLS FIRST
+       LIMIT 1
+    ) s ON true`;
+
+    const { rows: series } = await query(
+      `SELECT to_char(d::date, 'YYYY-MM-DD') AS date, COUNT(c.id)::int AS count
+         FROM generate_series(current_date - interval '${RECENT_WINDOW_DAYS} days', current_date, interval '1 day') d
+         LEFT JOIN (
+           SELECT u.id, s.cancelled_at
+             FROM users u ${CANCELLED_LATERAL}
+            WHERE u.role <> 'admin' AND s.status = 'cancelled' AND s.cancelled_at IS NOT NULL
+         ) c ON c.cancelled_at::date = d::date
+        GROUP BY d
+        ORDER BY d`,
+    );
+
+    const { rows: recent } = await query(
+      `SELECT u.email, u.name, u.stripe_customer_id, s.plan, s.source, s.cancelled_at
+         FROM users u ${CANCELLED_LATERAL}
+        WHERE u.role <> 'admin' AND s.status = 'cancelled' AND s.cancelled_at IS NOT NULL
+        ORDER BY s.cancelled_at DESC
+        LIMIT 10`,
+    );
+
+    // Una llamada a Stripe por persona de la lista (como mucho 10, en
+    // paralelo) — no se guarda en nuestra BD cuántas cuotas pagó, así que
+    // no hay forma de sacarlo sin preguntarle a Stripe directamente.
+    const paidInstalments = await Promise.all(
+      recent.map(async (r) => {
+        if (r.source !== 'stripe' || !r.stripe_customer_id) return null;
+        try {
+          const invoices = await stripe.invoices.list({ customer: r.stripe_customer_id, status: 'paid', limit: 100 });
+          return invoices.data.length;
+        } catch {
+          return null; // no bloquea el listado si Stripe falla puntualmente para una fila
+        }
+      }),
+    );
+
+    res.json({
+      series: series.map((r) => ({ date: r.date, count: r.count })),
+      recent: recent.map((r, i) => ({
+        email: r.email,
+        name: r.name,
+        plan: r.plan,
+        source: r.source,
+        cancelledAt: r.cancelled_at,
+        paidInstalments: paidInstalments[i],
+      })),
     });
   }),
 );

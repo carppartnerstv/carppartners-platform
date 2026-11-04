@@ -227,6 +227,21 @@ export interface RecentMembers {
   recent: RecentMember[];
 }
 
+export interface RecentCancellation {
+  email: string;
+  name: string | null;
+  plan: string | null;
+  source: 'stripe' | 'courtesy';
+  cancelledAt: string;
+  /** Nº de facturas pagadas en Stripe — null si no se pudo determinar (cortesía, o fallo puntual de Stripe) */
+  paidInstalments: number | null;
+}
+
+export interface RecentCancellations {
+  series: RecentMembersDay[];
+  recent: RecentCancellation[];
+}
+
 export interface SubscriberEvolutionMonth {
   /** "YYYY-MM" */
   month: string;

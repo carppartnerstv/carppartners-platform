@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiClient, ApiError } from '@carp-partners/api-client';
-import type { DashboardStats, RecentMembers, PlaysToday, LoginHistoryResponse, SubscriberEvolution, RevenueEvolution } from '@carp-partners/api-client';
+import type { DashboardStats, RecentMembers, RecentCancellations, PlaysToday, LoginHistoryResponse, SubscriberEvolution, RevenueEvolution } from '@carp-partners/api-client';
 
 // ─── Tarjeta de métrica ───────────────────────────────────────────────────────
 
@@ -296,6 +296,57 @@ function RecentMembersWidget() {
                 <div className="text-right shrink-0">
                   <p className="text-admin-text-secondary text-xs">{PLAN_LABELS[m.plan ?? ''] ?? m.plan ?? '—'}</p>
                   <p className="text-admin-text-tertiary text-[11px]">{fmtShortDate(m.createdAt)}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </WidgetCard>
+  );
+}
+
+function RecentCancellationsWidget() {
+  const [data, setData] = useState<RecentCancellations | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    apiClient.getAdminRecentCancellations()
+      .then(setData)
+      .catch((e) => setError(e instanceof ApiError ? e.message : 'Error al cargar'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <WidgetCard title="Bajas recientes" sub="Cancelaciones efectivas en el último mes" href="/admin/suscriptores?tab=cancelled">
+      {loading ? (
+        <div className="h-32 animate-pulse bg-admin-border-soft rounded" />
+      ) : error || !data ? (
+        <p className="text-admin-text-tertiary text-sm py-6 text-center">{error || 'Sin datos'}</p>
+      ) : (
+        <>
+          <AxisLineChart
+            dates={data.series.map((d) => d.date)}
+            series={[{ label: 'Bajas', color: '#2a78d6', values: data.series.map((d) => -d.count) }]}
+          />
+          <ul className="mt-4 space-y-2.5 max-h-80 overflow-y-auto">
+            {data.recent.length === 0 && (
+              <li className="text-admin-text-tertiary text-sm text-center py-4">Todavía no hay bajas.</li>
+            )}
+            {data.recent.map((c, i) => (
+              <li key={`${c.email}-${i}`} className="flex items-center justify-between gap-3 text-sm">
+                <div className="min-w-0">
+                  <p className="text-admin-text font-medium truncate">{c.name || c.email}</p>
+                  <p className="text-admin-text-tertiary text-xs truncate">{c.email}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-admin-text-secondary text-xs">
+                    {c.plan ? (PLAN_LABELS[c.plan] ?? c.plan) : '—'}
+                    {' · '}
+                    {c.source === 'courtesy' ? 'Cortesía' : c.paidInstalments != null ? `${c.paidInstalments} cuota${c.paidInstalments === 1 ? '' : 's'}` : '—'}
+                  </p>
+                  <p className="text-admin-text-tertiary text-[11px]">{fmtShortDate(c.cancelledAt)}</p>
                 </div>
               </li>
             ))}
@@ -761,16 +812,16 @@ export default function AdminDashboardPage() {
         <LoginHistoryWidget />
       </div>
 
-      {/* Miembros recientes y evolución de suscriptores — 2 por fila */}
+      {/* Miembros recientes y bajas recientes — espejo positivo/negativo,
+          misma ventana de 1 mes */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <RecentMembersWidget />
-        <SubscriberEvolutionWidget />
+        <RecentCancellationsWidget />
       </div>
 
-      {/* Ingresos — 50% como el resto; el otro 50% queda libre hasta que
-          lleguen el reparto de planes y el top de series (ahí se reorganiza
-          esta fila entera). */}
+      {/* Evolución de suscriptores e ingresos — las dos vistas mensuales (12 meses) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <SubscriberEvolutionWidget />
         <RevenueWidget />
       </div>
     </div>
