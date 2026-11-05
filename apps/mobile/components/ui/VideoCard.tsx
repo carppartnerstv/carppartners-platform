@@ -8,12 +8,16 @@ import {
   Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Text as SvgText } from 'react-native-svg';
 import { IconPlayerPlayFilled } from '@tabler/icons-react-native';
 import { colors, radii, textStyles, spacing } from '../../theme';
 
-// Póster vertical 2:3 (estilo Netflix), igual proporción que el w-[23vw] de
-// la web — pensado para que se vean 3 tarjetas enteras y un trozo de la 4ª.
-const CARD_WIDTH = Math.round(Dimensions.get('window').width * 0.23);
+// Póster vertical 2:3 (estilo Netflix) — pensado para que en cada fila se
+// vean 3 tarjetas enteras y justo la mitad de la 4ª (no casi una 4ª entera,
+// que es lo que salía con el 23vw literal de la web): con el gap fijo de
+// spacing.rowGap (8) y el margen de página (16), 0.256 del ancho de
+// pantalla deja esa cuarta tarjeta cortada aprox. a la mitad.
+const CARD_WIDTH = Math.round(Dimensions.get('window').width * 0.256);
 const CARD_HEIGHT = Math.round(CARD_WIDTH * 1.5);
 
 type CardVariant = 'default' | 'rank' | 'continue' | 'full';
@@ -38,11 +42,14 @@ export interface VideoCardItem {
 interface VideoCardProps {
   item: VideoCardItem;
   variant?: CardVariant;
+  /** Oculta el título y la línea de episodios bajo la miniatura (petición
+   *  2026-11-05: ocultos "por ahora" en Home, no borrar el bloque). */
+  hideInfo?: boolean;
   onPress?: (item: VideoCardItem) => void;
   onLongPress?: (item: VideoCardItem) => void;
 }
 
-export function VideoCard({ item, variant = 'default', onPress, onLongPress }: VideoCardProps) {
+export function VideoCard({ item, variant = 'default', hideInfo = false, onPress, onLongPress }: VideoCardProps) {
   const screenWidth = Dimensions.get('window').width;
 
   let cardWidth = CARD_WIDTH;
@@ -115,25 +122,44 @@ export function VideoCard({ item, variant = 'default', onPress, onLongPress }: V
           )}
         </View>
 
-        {/* Numeral de rank — fuera del thumb a propósito, para que sangre por el borde */}
+        {/* Numeral de rank — fuera del thumb a propósito, para que sangre por el
+            borde (igual que en VideoCard.tsx web). Contorno hueco (sin
+            relleno), igual que el WebkitTextStroke de la web: no un número
+            sólido translúcido. */}
         {variant === 'rank' && item.rank != null && (
-          <View style={styles.rankOverlay}>
-            <Text style={styles.rankText}>{item.rank}</Text>
+          <View style={styles.rankOverlay} pointerEvents="none">
+            <Svg width={130} height={100}>
+              <SvgText
+                x={0}
+                y={82}
+                fontSize={96}
+                fontFamily="Sora_800ExtraBold"
+                fontWeight="800"
+                fill="none"
+                stroke="rgba(255,255,255,0.5)"
+                strokeWidth={2}
+              >
+                {item.rank}
+              </SvgText>
+            </Svg>
           </View>
         )}
       </View>
 
-      {/* Info */}
-      <View style={styles.info}>
-        <Text style={styles.title} numberOfLines={1}>
-          {item.title}
-        </Text>
-        {item.episodeLabel && (
-          <Text style={styles.episode} numberOfLines={1}>
-            {item.episodeLabel}
+      {/* Info — oculta "por ahora" en Home vía hideInfo (2026-11-05),
+          sin borrar el bloque en sí para poder reactivarlo luego. */}
+      {!hideInfo && (
+        <View style={styles.info}>
+          <Text style={styles.title} numberOfLines={1}>
+            {item.title}
           </Text>
-        )}
-      </View>
+          {item.episodeLabel && (
+            <Text style={styles.episode} numberOfLines={1}>
+              {item.episodeLabel}
+            </Text>
+          )}
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -179,15 +205,8 @@ const styles = StyleSheet.create({
   },
   rankOverlay: {
     position: 'absolute',
-    bottom: -14,
-    left: 4,
-  },
-  rankText: {
-    fontFamily: 'Sora_800ExtraBold',
-    fontSize: 84,
-    lineHeight: 88,
-    color: colors.textPrimary,
-    opacity: 0.4,
+    bottom: -12,
+    left: 8,
   },
   playCircle: {
     position: 'absolute',

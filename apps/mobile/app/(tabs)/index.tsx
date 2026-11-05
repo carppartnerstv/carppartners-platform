@@ -251,6 +251,7 @@ export default function HomeScreen() {
               key={category.id}
               title={category.name}
               items={seriesToCards(series)}
+              hideCardInfo
               onItemPress={(item) => router.push(`/serie/${item.id}`)}
             />
           ))}

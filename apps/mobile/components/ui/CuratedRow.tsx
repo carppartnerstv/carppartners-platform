@@ -1,5 +1,14 @@
-import React from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing } from '../../theme';
 
@@ -15,19 +24,49 @@ interface CuratedRowProps {
   onItemPress?: (item: CuratedItem) => void;
 }
 
-// Fila deliberadamente distinta del resto — réplica de TopTenCarousel.tsx
-// (web) en su breakpoint `base` (<640px): sin autoplay ni arrastre (están
-// ocultos/son irrelevantes en un viewport de móvil real), todas las
-// tarjetas al mismo tamaño fijo 200x300 (CONTAINER_HEIGHT/POSTER_WIDTH.base
-// de ese componente), y solo la primera (la "protagonista" con
-// activeIndex=0, ya que aquí no hay autoplay que la mueva) con borde
-// resaltado y overlay de degradado+título — las demás solo muestran la
-// portada limpia, igual que en la web (ahí el resto solo se revela al
-// pasar el ratón, que no existe en touch).
+// Réplica de TopTenCarousel.tsx (web) en su breakpoint `base` (<640px):
+// todas las tarjetas al mismo tamaño fijo 200x300 (CONTAINER_HEIGHT/
+// POSTER_WIDTH.base de ese componente), pero con el mismo movimiento que
+// la web SÍ tiene también en móvil — el autoplay (useEffect de
+// setInterval, sin comprobación de breakpoint) avanza sola cada
+// AUTOPLAY_MS, desplazando la fila para que la tarjeta "activa" quede
+// siempre a la izquierda con borde resaltado + degradado/título; el resto
+// solo muestra la portada limpia (en la web se revelan al pasar el ratón,
+// que no existe en touch). Arrastrar pausa el autoplay y, al soltar, el
+// snap dejará la tarjeta más cercana como nueva activa.
 const CARD_WIDTH = 200;
 const CARD_HEIGHT = 300;
+const CARD_GAP = 14;
+const STEP = CARD_WIDTH + CARD_GAP;
+const AUTOPLAY_MS = 6000;
 
 export function CuratedRow({ title, items, onItemPress }: CuratedRowProps) {
+  const scrollRef = useRef<ScrollView>(null);
+  const pausedRef = useRef(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    if (items.length <= 1) return;
+    const id = setInterval(() => {
+      if (pausedRef.current) return;
+      setActiveIndex((i) => {
+        const next = (i + 1) % items.length;
+        scrollRef.current?.scrollTo({ x: next * STEP, animated: true });
+        return next;
+      });
+    }, AUTOPLAY_MS);
+    return () => clearInterval(id);
+  }, [items.length]);
+
+  const settleOnNearestCard = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      pausedRef.current = false;
+      const index = Math.round(e.nativeEvent.contentOffset.x / STEP);
+      setActiveIndex(Math.max(0, Math.min(items.length - 1, index)));
+    },
+    [items.length],
+  );
+
   if (items.length === 0) return null;
 
   return (
@@ -37,15 +76,21 @@ export function CuratedRow({ title, items, onItemPress }: CuratedRowProps) {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
+        snapToInterval={STEP}
+        decelerationRate="fast"
         contentContainerStyle={styles.list}
+        onScrollBeginDrag={() => { pausedRef.current = true; }}
+        onScrollEndDrag={settleOnNearestCard}
+        onMomentumScrollEnd={settleOnNearestCard}
       >
         {items.map((item, index) => {
-          const featured = index === 0;
+          const featured = index === activeIndex;
           return (
             <React.Fragment key={item.id}>
-              {index > 0 && <View style={{ width: 14 }} />}
+              {index > 0 && <View style={{ width: CARD_GAP }} />}
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={() => onItemPress?.(item)}

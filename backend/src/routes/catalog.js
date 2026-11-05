@@ -196,8 +196,8 @@ catalogRouter.get(
     if (!video) throw notFound('Vídeo no encontrado', 'VIDEO_NOT_FOUND');
 
     // Las credenciales de Vimeo nunca salen del servidor.
-    const { hlsUrl, expiresInSec } = await getPlaybackUrl(video.vimeo_id);
-    res.json({ hlsUrl, expiresInSec });
+    const { hlsUrl, qualities, expiresInSec } = await getPlaybackUrl(video.vimeo_id);
+    res.json({ hlsUrl, qualities, expiresInSec });
   }),
 );
 

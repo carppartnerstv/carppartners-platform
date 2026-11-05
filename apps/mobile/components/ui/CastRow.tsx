@@ -1,9 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import type { CrewMember } from '@carp-partners/api-client';
-import { colors, textStyles, spacing } from '../../theme';
+import { colors, spacing } from '../../theme';
 import { Avatar } from './Avatar';
-import { Badge } from './Badge';
 import { ROLE_LABELS } from '../../lib/constants';
 
 type CastMember = Pick<CrewMember, 'id' | 'name' | 'slug' | 'role' | 'avatar_url'>;
@@ -31,8 +30,8 @@ export function CastRow({ crew, onPressMember }: CastRowProps) {
               style={styles.item}
             >
               <Avatar uri={member.avatar_url} name={member.name} size="lg" />
-              <Text style={styles.name} numberOfLines={1}>{member.name}</Text>
-              <Badge label={ROLE_LABELS[member.role]} variant={member.role === 'socio' ? 'gold' : 'muted'} />
+              <Text style={styles.name}>{member.name}</Text>
+              <Text style={styles.role} numberOfLines={1}>{ROLE_LABELS[member.role]}</Text>
             </TouchableOpacity>
           </React.Fragment>
         ))}
@@ -42,17 +41,29 @@ export function CastRow({ crew, onPressMember }: CastRowProps) {
 }
 
 const styles = StyleSheet.create({
-  section: { gap: 10 },
+  section: { gap: 14 },
   title: {
-    ...textStyles.sectionTitle,
-    color: colors.textPrimary,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12.5,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    color: colors.textFaint,
     paddingHorizontal: spacing.pagePaddingH,
   },
   list: { paddingHorizontal: spacing.pagePaddingH },
-  item: { width: 84, alignItems: 'center', gap: 6 },
+  item: { width: 88, alignItems: 'center', gap: 6 },
   name: {
-    ...textStyles.labelSm,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12.5,
+    lineHeight: 16,
     color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  role: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.brandBright,
     textAlign: 'center',
   },
 });

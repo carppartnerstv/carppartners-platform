@@ -4,6 +4,7 @@ import type {
   Subscription,
   PaymentMethodSummary,
   Video,
+  VideoQuality,
   RelatedVideo,
   NextEpisode,
   Category,
@@ -379,7 +380,7 @@ export class ApiClient {
     return this.request('GET', '/videos/featured');
   }
 
-  async getVideoStream(id: string): Promise<{ hlsUrl: string; expiresInSec: number }> {
+  async getVideoStream(id: string): Promise<{ hlsUrl: string; qualities: VideoQuality[]; expiresInSec: number }> {
     return this.request('GET', `/videos/${id}/stream`);
   }
 

@@ -9,11 +9,13 @@ interface RowProps {
   title: string;
   items: VideoCardItem[];
   variant?: RowVariant;
+  /** Oculta el título/episodios bajo cada tarjeta — ver VideoCard.hideInfo. */
+  hideCardInfo?: boolean;
   onItemPress?: (item: VideoCardItem) => void;
   onSeeAll?: () => void;
 }
 
-export function Row({ title, items, variant = 'default', onItemPress, onSeeAll }: RowProps) {
+export function Row({ title, items, variant = 'default', hideCardInfo = false, onItemPress, onSeeAll }: RowProps) {
   if (items.length === 0) return null;
 
   const cardVariant = variant === 'rank' ? 'rank' : variant === 'continue' ? 'continue' : 'default';
@@ -40,7 +42,7 @@ export function Row({ title, items, variant = 'default', onItemPress, onSeeAll }
         {items.map((item, index) => (
           <React.Fragment key={item.id}>
             {index > 0 && <View style={{ width: itemGap }} />}
-            <VideoCard item={item} variant={cardVariant} onPress={onItemPress} />
+            <VideoCard item={item} variant={cardVariant} hideInfo={hideCardInfo} onPress={onItemPress} />
           </React.Fragment>
         ))}
       </ScrollView>

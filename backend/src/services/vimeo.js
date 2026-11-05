@@ -69,9 +69,14 @@ async function vimeoHeaders() {
 }
 
 /**
- * Obtiene el enlace de reproducción HLS de un vídeo de Vimeo.
+ * Obtiene el enlace de reproducción HLS de un vídeo de Vimeo, más la lista
+ * de archivos "progressive" (MP4 de calidad fija: 360p/540p/720p/1080p…)
+ * para el selector manual de calidad de la app móvil — expo-video no puede
+ * forzar una pista concreta dentro del HLS adaptativo (eso solo lo permite
+ * hls.js en navegador, vía MediaSource Extensions, que no existe fuera del
+ * DOM), así que ahí la selección de calidad cambia directamente de URL.
  * @param {string} vimeoId  ID numérico del vídeo en Vimeo
- * @returns {Promise<{ hlsUrl: string, expiresInSec: number }>}
+ * @returns {Promise<{ hlsUrl: string, qualities: Array<{label: string, height: number, width: number|null, url: string}>, expiresInSec: number }>}
  */
 export async function getPlaybackUrl(vimeoId) {
   // Pedimos los archivos de reproducción. El campo `play` requiere que la
@@ -93,8 +98,25 @@ export async function getPlaybackUrl(vimeoId) {
     throw new Error('Vimeo no devolvió enlace HLS (¿plan sin API de reproducción o vídeo aún procesándose?)');
   }
 
+  // Archivos progressive — ya son enlaces CDN firmados directos (a
+  // diferencia de play.hls.link no son un redirector), así que no pasan por
+  // resolvePlaybackRedirect. Deduplicados por altura (Vimeo a veces repite
+  // la misma resolución con distinto bitrate) y ordenados de mayor a menor.
+  const progressive = Array.isArray(data?.play?.progressive) ? data.play.progressive : [];
+  const seenHeights = new Set();
+  const qualities = progressive
+    .filter((f) => f.link && f.height)
+    .sort((a, b) => b.height - a.height)
+    .filter((f) => {
+      if (seenHeights.has(f.height)) return false;
+      seenHeights.add(f.height);
+      return true;
+    })
+    .map((f) => ({ label: `${f.height}p`, height: f.height, width: f.width ?? null, url: f.link }));
+
   return {
     hlsUrl: await resolvePlaybackRedirect(hls),
+    qualities,
     // Los enlaces de reproducción de Vimeo caducan ~1h (Briefing 4.3)
     expiresInSec: 3600,
   };

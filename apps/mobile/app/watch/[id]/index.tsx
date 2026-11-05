@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,11 +10,13 @@ import {
   IconPlus,
   IconThumbUp,
   IconThumbUpFilled,
+  IconShare2,
 } from '@tabler/icons-react-native';
-import type { Video, RelatedVideo } from '@carp-partners/api-client';
+import type { Video, RelatedVideo, Category, Series } from '@carp-partners/api-client';
 import { ApiError } from '@carp-partners/api-client';
-import { colors, textStyles, spacing, radii } from '../../../theme';
-import { Spinner, CardGrid, CastRow, RatingSheet } from '../../../components/ui';
+import { colors, textStyles, spacing } from '../../../theme';
+import { Spinner, CastRow, RatingSheet, ReadMoreText } from '../../../components/ui';
+import { Row } from '../../../components/ui/Row';
 import type { VideoCardItem, RatingValue } from '../../../components/ui';
 import { apiClient } from '../../../lib/apiClient';
 import { useSession } from '../../../context/SessionContext';
@@ -30,7 +32,8 @@ export default function VideoDetailScreen() {
 
   const [video, setVideo] = useState<Video | null>(null);
   const [related, setRelated] = useState<RelatedVideo[]>([]);
-  const [seasonEpisodes, setSeasonEpisodes] = useState<Video[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [allSeries, setAllSeries] = useState<Series[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [inList, setInList] = useState(false);
@@ -46,26 +49,24 @@ export default function VideoDetailScreen() {
 
     async function load() {
       try {
-        const [{ video, related }, { items: watchlist }, { rating: myRating }, { items: continueItems }] =
-          await Promise.all([
-            apiClient.getVideo(id),
-            apiClient.getWatchlist(),
-            apiClient.getVideoRating(id),
-            apiClient.getContinueWatching(),
-          ]);
+        const [
+          { video, related }, { categories }, { series }, { items: watchlist }, { rating: myRating }, { items: continueItems },
+        ] = await Promise.all([
+          apiClient.getVideo(id),
+          apiClient.getCategories(),
+          apiClient.getSeries(),
+          apiClient.getWatchlist(),
+          apiClient.getVideoRating(id),
+          apiClient.getContinueWatching(),
+        ]);
         if (cancelled) return;
         setVideo(video);
         setRelated(related);
+        setCategories(categories);
+        setAllSeries(series);
         setInList(watchlist.some((i) => i.id === id));
         setRating(myRating != null ? RATING_TO_VALUE[myRating] : null);
         setResumeProgress(continueItems.find((i) => i.id === id)?.progress_sec ?? null);
-
-        if (video.series_id) {
-          const { videos } = await apiClient.getVideos({ series: video.series_id, limit: 100 });
-          if (!cancelled) setSeasonEpisodes(videos);
-        } else {
-          setSeasonEpisodes([]);
-        }
       } catch (err) {
         // El guardián de rutas (_layout) lleva a no-subscription al ver que
         // la sesión ya no tiene suscripción vigente.
@@ -109,6 +110,16 @@ export default function VideoDetailScreen() {
     }
   }, [video, rating]);
 
+  const handleShare = useCallback(async () => {
+    if (!video) return;
+    const webBase = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/api\/?$/, '');
+    try {
+      await Share.share({ title: video.title, message: `${video.title} — ${webBase}/watch/${video.id}` });
+    } catch {
+      /* el usuario canceló el diálogo de compartir */
+    }
+  }, [video]);
+
   if (loading || !video) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -124,6 +135,14 @@ export default function VideoDetailScreen() {
     metaLabel: r.duration_sec > 0 ? formatDurationLong(r.duration_sec) : undefined,
     episodeLabel: r.episode_num != null ? `EP. ${r.episode_num}` : undefined,
   }));
+
+  const videoCategory = categories.find((c) => c.id === video.category_id);
+  const videoSeries = allSeries.find((s) => s.id === video.series_id);
+  const year = new Date(video.created_at).getFullYear();
+  const kicker = videoSeries
+    ? `${videoSeries.title}${video.episode_num != null ? ` · Ep ${video.episode_num}` : ''}`
+    : videoCategory?.name ?? '';
+  const chips = [videoCategory?.name, videoSeries?.title].filter(Boolean) as string[];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -152,11 +171,22 @@ export default function VideoDetailScreen() {
         </View>
 
         <View style={styles.content}>
-          {video.episode_num != null && (
-            <Text style={styles.kicker}>EPISODIO {video.episode_num}</Text>
-          )}
+          {!!kicker && <Text style={styles.kicker}>{kicker}</Text>}
           <Text style={styles.title}>{video.title}</Text>
-          <Text style={styles.duration}>{formatDurationLong(video.duration_sec)}</Text>
+          <View style={styles.metaRow}>
+            <Text style={styles.metaline}>{year}</Text>
+            {videoCategory && (
+              <>
+                <View style={styles.metaDot} />
+                <Text style={styles.metaline}>{videoCategory.name}</Text>
+              </>
+            )}
+            <View style={styles.metaDot} />
+            <Text style={styles.metaline}>{formatDurationLong(video.duration_sec)}</Text>
+            <View style={styles.uhdPill}>
+              <Text style={styles.uhdPillText}>4K UHD</Text>
+            </View>
+          </View>
 
           <View style={styles.actions}>
             <TouchableOpacity
@@ -177,57 +207,38 @@ export default function VideoDetailScreen() {
                 ? <IconThumbUpFilled size={18} color={colors.brandBright} />
                 : <IconThumbUp size={18} color={colors.textSecondary} />}
             </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={handleShare} activeOpacity={0.8}>
+              <IconShare2 size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
 
-          {video.description && <Text style={styles.synopsis}>{video.description}</Text>}
-
-          {seasonEpisodes.length > 1 && (
-            <View style={styles.episodesSection}>
-              <Text style={styles.sectionTitle}>Episodios</Text>
-              <View style={{ gap: spacing.md }}>
-                {seasonEpisodes.map((ep) => {
-                  const isCurrent = ep.id === video.id;
-                  return (
-                    <TouchableOpacity
-                      key={ep.id}
-                      style={styles.episodeRow}
-                      activeOpacity={0.75}
-                      onPress={() => (isCurrent ? router.push(`/watch/${ep.id}/play`) : router.push(`/watch/${ep.id}`))}
-                    >
-                      <Text style={[styles.episodeNum, isCurrent && { color: colors.brandBright }]}>
-                        {ep.episode_num ?? '–'}
-                      </Text>
-                      <View style={[styles.episodeThumb, isCurrent && styles.episodeThumbActive]}>
-                        {ep.thumbnail_url && <Image source={{ uri: ep.thumbnail_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
-                        <View style={[styles.episodePlayIcon, isCurrent && { backgroundColor: colors.brandBright }]}>
-                          <IconPlayerPlayFilled size={11} color={colors.white} />
-                        </View>
-                      </View>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text
-                          style={[styles.episodeTitle, isCurrent && { color: colors.brandBright, fontFamily: 'Inter_700Bold' }]}
-                          numberOfLines={1}
-                        >
-                          {ep.title}
-                        </Text>
-                        <Text style={styles.episodeDur}>{formatDurationLong(ep.duration_sec)}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+          {video.description && (
+            <View style={{ marginBottom: spacing['2xl'] }}>
+              <ReadMoreText text={video.description} />
             </View>
           )}
 
-          <CastRow crew={video.crew ?? []} onPressMember={(m) => router.push({ pathname: '/crew/[slug]', params: { slug: m.slug } })} />
-
-          {relatedCards.length > 0 && (
-            <View style={styles.relatedSection}>
-              <Text style={styles.sectionTitle}>Más como esto</Text>
-              <CardGrid items={relatedCards} onPress={(v) => router.push(`/watch/${v.id}`)} />
+          {chips.length > 0 && (
+            <View style={styles.chipsRow}>
+              {chips.map((c) => (
+                <View key={c} style={styles.chip}>
+                  <Text style={styles.chipText}>{c}</Text>
+                </View>
+              ))}
             </View>
           )}
+
         </View>
+
+        <View style={styles.castSection}>
+          <CastRow crew={video.crew ?? []} onPressMember={(m) => router.push({ pathname: '/crew/[slug]', params: { slug: m.slug } })} />
+        </View>
+
+        {relatedCards.length > 0 && (
+          <View style={styles.relatedSection}>
+            <Row title="Más como esto" items={relatedCards} onItemPress={(v) => router.push(`/watch/${v.id}`)} />
+          </View>
+        )}
       </ScrollView>
 
       <RatingSheet
@@ -257,14 +268,21 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   content: { paddingHorizontal: spacing.pagePaddingH, paddingTop: spacing.lg, paddingBottom: spacing['4xl'] },
-  kicker: { ...textStyles.kicker, color: colors.brandBright, marginBottom: 6 },
+  kicker: { ...textStyles.kicker, color: colors.brandBright, textTransform: 'uppercase', marginBottom: 6 },
   title: {
     fontFamily: 'Sora_800ExtraBold',
     fontSize: 22, lineHeight: 27,
     color: colors.white,
     marginBottom: 10,
   },
-  duration: { ...textStyles.bodySm, color: colors.textMuted, marginBottom: spacing.lg },
+  metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: spacing.lg },
+  metaline: { ...textStyles.bodyXs, fontSize: 12.5, color: colors.textSecondary },
+  metaDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: colors.textFaint },
+  uhdPill: {
+    paddingHorizontal: 6, paddingVertical: 1,
+    borderRadius: 4, borderWidth: 1, borderColor: colors.borderStrong,
+  },
+  uhdPillText: { fontSize: 10.5, color: colors.textSecondary },
   actions: { flexDirection: 'row', gap: 10, marginBottom: spacing.lg },
   playButton: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
@@ -276,15 +294,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface2,
     alignItems: 'center', justifyContent: 'center',
   },
-  synopsis: { ...textStyles.body, color: colors.textSecondary, marginBottom: spacing['2xl'] },
   sectionTitle: { ...textStyles.sectionTitle, color: colors.textPrimary, marginBottom: spacing.md },
-  episodesSection: { marginBottom: spacing['2xl'] },
-  episodeRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  episodeNum: { fontFamily: 'Sora_700Bold', fontSize: 15, color: colors.textFaint, width: 18, textAlign: 'center' },
-  episodeThumb: { width: 88, height: 52, borderRadius: 7, backgroundColor: colors.surface, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
-  episodeThumbActive: { borderWidth: 1.5, borderColor: colors.brandBright },
-  episodePlayIcon: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.15)' },
-  episodeTitle: { ...textStyles.bodySm, color: colors.textPrimary, fontFamily: 'Inter_600SemiBold' },
-  episodeDur: { ...textStyles.bodyXs, color: colors.textFaint, marginTop: 2 },
-  relatedSection: { marginTop: spacing.sm },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: spacing['2xl'] },
+  chip: {
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 7, backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1, borderColor: colors.border,
+  },
+  chipText: { ...textStyles.bodyXs, fontSize: 12.5, color: colors.textSecondary },
+  castSection: { marginTop: spacing.sm },
+  relatedSection: { marginTop: spacing.sectionGap, paddingBottom: spacing['2xl'] },
 });

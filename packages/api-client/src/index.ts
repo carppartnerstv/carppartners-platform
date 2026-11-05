@@ -7,6 +7,7 @@ export type {
   PaymentMethodSummary,
   Video,
   RelatedVideo,
+  VideoQuality,
   NextEpisode,
   Category,
   Series,

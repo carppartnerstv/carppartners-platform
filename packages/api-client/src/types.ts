@@ -36,6 +36,15 @@ export interface PaymentMethodSummary {
   expYear: number;
 }
 
+/** Calidad fija (MP4 progressive) disponible para un vídeo, además del HLS
+ *  adaptativo por defecto — ver GET /videos/:id/stream. */
+export interface VideoQuality {
+  label: string;
+  height: number;
+  width: number | null;
+  url: string;
+}
+
 export interface Video {
   id: string;
   title: string;

@@ -3,7 +3,10 @@ import { View, Text, TouchableOpacity, StyleSheet, type TextStyle } from 'react-
 import { colors, textStyles, spacing } from '../../theme';
 
 interface ReadMoreTextProps {
+  /** Texto plano — usado para calcular el nº de palabras (umbral de "Leer más") y como contenido si no se pasa `children`. */
   text: string;
+  /** Contenido enriquecido a renderizar en vez de `text` plano (p. ej. nodos de renderRichText) — el umbral sigue calculándose sobre `text`. */
+  children?: React.ReactNode;
   /** Nº de líneas visibles cuando está colapsado */
   numberOfLines?: number;
   /** Por debajo de este nº de palabras, se muestra siempre entera (sin "Leer más") */
@@ -11,7 +14,7 @@ interface ReadMoreTextProps {
   style?: TextStyle;
 }
 
-export function ReadMoreText({ text, numberOfLines = 4, wordThreshold = 55, style }: ReadMoreTextProps) {
+export function ReadMoreText({ text, children, numberOfLines = 4, wordThreshold = 55, style }: ReadMoreTextProps) {
   const [expanded, setExpanded] = useState(false);
 
   const isLong = useMemo(
@@ -22,7 +25,7 @@ export function ReadMoreText({ text, numberOfLines = 4, wordThreshold = 55, styl
   return (
     <View>
       <Text style={[styles.text, style]} numberOfLines={isLong && !expanded ? numberOfLines : undefined}>
-        {text}
+        {children ?? text}
       </Text>
       {isLong && (
         <TouchableOpacity
