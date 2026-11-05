@@ -1,6 +1,13 @@
 // Tipos que reflejan exactamente lo que devuelve el backend (snake_case de PostgreSQL)
 // Excepción: accessToken/refreshToken vienen en camelCase desde el backend
 
+export interface NotificationPreferences {
+  estrenos: boolean;
+  recomendaciones: boolean;
+  promos: boolean;
+  push: boolean;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -8,6 +15,7 @@ export interface User {
   role: 'user' | 'admin';
   avatar_url: string | null;
   stripe_customer_id: string | null;
+  notification_preferences: NotificationPreferences;
 }
 
 export interface Subscription {

@@ -1,5 +1,6 @@
 import type {
   User,
+  NotificationPreferences,
   Subscription,
   PaymentMethodSummary,
   Video,
@@ -115,6 +116,16 @@ export class ApiClient {
   clearTokens(): void {
     this.accessToken = null;
     this.storage.clearRefreshToken();
+  }
+
+  /** Para llamadas nativas que no pueden pasar por `request`/`requestMultipart`
+   *  (p. ej. expo-file-system en mobile, ver uploadAvatar en el caller). */
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  getAccessToken(): string | null {
+    return this.accessToken;
   }
 
   hasSession(): boolean {
@@ -322,6 +333,10 @@ export class ApiClient {
 
   async updateProfile(name: string): Promise<{ user: User }> {
     return this.request('PUT', '/auth/me', { body: { name } });
+  }
+
+  async updateNotificationPreferences(prefs: NotificationPreferences): Promise<{ user: User }> {
+    return this.request('PUT', '/auth/me/notification-preferences', { body: prefs });
   }
 
   async uploadAvatar(file: File): Promise<{ user: User }> {

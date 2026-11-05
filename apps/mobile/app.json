@@ -15,14 +15,30 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "tv.carppartners.app"
+      "bundleIdentifier": "tv.carppartners.app",
+      "infoPlist": {
+        "UIApplicationSceneManifest": {
+          "UIApplicationSupportsMultipleScenes": false,
+          "UISceneConfigurations": {
+            "UIWindowSceneSessionRoleApplication": [
+              {
+                "UISceneConfigurationName": "Default Configuration",
+                "UISceneDelegateClassName": "SceneDelegate"
+              }
+            ]
+          }
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#06090c"
       },
-      "package": "tv.carppartners.app"
+      "package": "tv.carppartners.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -43,10 +59,18 @@
         {
           "photosPermission": "Carp Partners TV necesita acceso a tus fotos para que puedas cambiar tu foto de perfil."
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "bca86ce9-8777-49d7-b553-a959e6514d9b"
+      }
+    },
+    "owner": "carppartners"
   }
 }

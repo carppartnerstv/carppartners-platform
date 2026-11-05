@@ -83,7 +83,7 @@ function AppShell({ fontsReady }: { fontsReady: boolean }) {
 
   return (
     <>
-      <StatusBar style="light" backgroundColor={colors.bg} />
+      <StatusBar style="light" />
       <View style={styles.root}>
         {/* Cabecera nativa oculta: cada pantalla dibuja la suya propia,
             consistente con el resto del sistema de diseño (fully custom UI). */}

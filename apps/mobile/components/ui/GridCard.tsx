@@ -30,7 +30,7 @@ export function GridCard({ item, onPress }: GridCardProps) {
 const styles = StyleSheet.create({
   card: { flex: 1, gap: 5 },
   thumb: {
-    aspectRatio: 16 / 10,
+    aspectRatio: 2 / 3,
     borderRadius: radii.card - 2,
     overflow: 'hidden',
     backgroundColor: colors.surface,

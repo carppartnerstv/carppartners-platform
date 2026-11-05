@@ -1,18 +1,23 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Image, ScrollView, Animated, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { IconSearch, IconPlayerPlayFilled, IconInfoCircle } from '@tabler/icons-react-native';
+import { IconPlayerPlayFilled, IconInfoCircle } from '@tabler/icons-react-native';
 import type { Video, Category, Series, WatchHistoryItem } from '@carp-partners/api-client';
 import { ApiError } from '@carp-partners/api-client';
 import { colors, textStyles, spacing } from '../../theme';
 import { Spinner } from '../../components/ui';
 import { Row } from '../../components/ui/Row';
+import { AppHeader } from '../../components/ui/AppHeader';
+import { CuratedRow } from '../../components/ui/CuratedRow';
 import type { VideoCardItem } from '../../components/ui/VideoCard';
 import { apiClient } from '../../lib/apiClient';
 import { useSession } from '../../context/SessionContext';
 import { useResetScrollOnFocus } from '../../hooks/useResetScrollOnFocus';
+import { stripHtml } from '../../lib/format';
+
+const NEW_BADGE_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
 
 const CONTENT_BOTTOM_PADDING = 96;
 
@@ -27,8 +32,15 @@ export default function HomeScreen() {
   const scrollRef = useRef<ScrollView>(null);
   useResetScrollOnFocus(useCallback(() => scrollRef.current?.scrollTo({ y: 0, animated: false }), []));
 
+  const scrollY = useRef(new Animated.Value(0)).current;
+
   const [hero, setHero] = useState<Video | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [allSeries, setAllSeries] = useState<Series[]>([]);
   const [continueItems, setContinueItems] = useState<WatchHistoryItem[]>([]);
+  const [recentVideos, setRecentVideos] = useState<Video[]>([]);
+  const [trendingVideos, setTrendingVideos] = useState<Video[]>([]);
+  const [curatedSeries, setCuratedSeries] = useState<Series[]>([]);
   const [rows, setRows] = useState<CategoryRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,14 +49,26 @@ export default function HomeScreen() {
 
     async function load() {
       try {
-        const [{ categories }, { items: continueWatching }, { video: featured }] = await Promise.all([
+        const [
+          { categories }, { series: allSeries }, { items: continueWatching }, { video: featured },
+          { videos: recent }, { videos: trending }, { series: curated },
+        ] = await Promise.all([
           apiClient.getCategories(),
+          apiClient.getSeries(),
           apiClient.getContinueWatching(),
           apiClient.getFeaturedVideo(),
+          apiClient.getVideos({ sort: 'recent', limit: 20 }),
+          apiClient.getVideos({ trending: true, limit: 10 }),
+          apiClient.getSeries({ curated: true }),
         ]);
         if (cancelled) return;
+        setCategories(categories);
+        setAllSeries(allSeries);
         setContinueItems(continueWatching);
         setHero(featured);
+        setRecentVideos(recent);
+        setTrendingVideos(trending);
+        setCuratedSeries(curated);
 
         const rowsData = await Promise.all(
           categories.map(async (category) => {
@@ -67,20 +91,49 @@ export default function HomeScreen() {
     return () => { cancelled = true; };
   }, []);
 
+  const heroCategory = hero ? categories.find((c) => c.id === hero.category_id) : undefined;
+  const heroSeries = hero ? allSeries.find((s) => s.id === hero.series_id) : undefined;
+
   const continueCards: VideoCardItem[] = continueItems.map((item) => ({
     id: item.id,
     title: item.title,
-    thumbnail_url: item.thumbnail_url,
+    thumbnail_url: item.cover_vertical_url ?? item.thumbnail_url,
     progressPct: item.duration_sec > 0 ? Math.round((item.progress_sec / item.duration_sec) * 100) : 0,
   }));
+
+  const videosToCards = (videos: Video[], { rank, newBadge }: { rank?: boolean; newBadge?: boolean } = {}): VideoCardItem[] =>
+    videos.map((v, i) => ({
+      id: v.id,
+      title: v.title,
+      thumbnail_url: v.cover_vertical_url ?? v.thumbnail_url,
+      episodeLabel: v.series_title
+        ? `${v.season_num != null ? `T${v.season_num} · ` : ''}E${v.episode_num} · ${v.series_title}`
+        : v.episode_num != null ? `Ep. ${v.episode_num}` : undefined,
+      isNew: newBadge ? Date.now() - new Date(v.created_at).getTime() <= NEW_BADGE_MAX_AGE_MS : undefined,
+      rank: rank ? i + 1 : undefined,
+    }));
 
   const seriesToCards = (series: Series[]): VideoCardItem[] =>
     series.map((s) => ({
       id: s.id,
       title: s.title,
-      thumbnail_url: s.cover_url,
-      metaLabel: s.episode_count > 0 ? `${s.episode_count} ep.` : undefined,
+      thumbnail_url: s.cover_vertical_url ?? s.cover_url,
+      episodeLabel: s.season_count > 0
+        ? `${s.season_count} temporada${s.season_count === 1 ? '' : 's'}`
+        : s.episode_count > 0 ? `${s.episode_count} episodio${s.episode_count === 1 ? '' : 's'}` : undefined,
     }));
+
+  const heroMetaParts = hero
+    ? [
+        String(new Date(hero.created_at).getFullYear()),
+        heroCategory?.name,
+        heroSeries?.title,
+        heroSeries && heroSeries.episode_count > 0
+          ? `${heroSeries.episode_count} episodio${heroSeries.episode_count === 1 ? '' : 's'}`
+          : undefined,
+      ].filter(Boolean) as string[]
+    : [];
+  const heroDescription = hero?.description ? stripHtml(hero.description) : '';
 
   if (loading) {
     return (
@@ -92,24 +145,17 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.safe}>
-      {/* Barra superior transparente, flota sobre el hero */}
-      <SafeAreaView edges={['top']} style={styles.topBar}>
-        <Text style={styles.logo}>
-          CARP<Text style={{ color: colors.brandBright, fontSize: 13 }}>◆</Text>PARTNERS
-        </Text>
-        <TouchableOpacity
-          onPress={() => router.push('/(tabs)/explore')}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={styles.searchButton}
-        >
-          <IconSearch size={19} color={colors.textPrimary} />
-        </TouchableOpacity>
-      </SafeAreaView>
+      <AppHeader scrollY={scrollY} />
 
-      <ScrollView
+      <Animated.ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: CONTENT_BOTTOM_PADDING }}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
       >
         {hero && (
           <View style={styles.hero}>
@@ -128,13 +174,30 @@ export default function HomeScreen() {
                 <Text style={styles.heroBadgeText}>DESTACADO</Text>
               </View>
               <Text style={styles.heroTitle} numberOfLines={3}>{hero.title}</Text>
+
+              <View style={styles.heroMetaRow}>
+                {heroMetaParts.map((part, i) => (
+                  <React.Fragment key={i}>
+                    {i > 0 && <View style={styles.heroMetaDot} />}
+                    <Text style={[styles.heroMetaText, i === 0 && styles.heroMetaPrimary]}>{part}</Text>
+                  </React.Fragment>
+                ))}
+                <View style={styles.uhdPill}>
+                  <Text style={styles.uhdPillText}>4K UHD</Text>
+                </View>
+              </View>
+
+              {!!heroDescription && (
+                <Text style={styles.heroDescription} numberOfLines={3}>{heroDescription}</Text>
+              )}
+
               <View style={styles.heroActions}>
                 <TouchableOpacity
                   style={styles.playButton}
                   onPress={() => router.push(`/watch/${hero.id}/play`)}
                   activeOpacity={0.85}
                 >
-                  <IconPlayerPlayFilled size={17} color={colors.textInverse} />
+                  <IconPlayerPlayFilled size={17} color={colors.white} />
                   <Text style={styles.playButtonText}>Reproducir</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -150,6 +213,7 @@ export default function HomeScreen() {
         )}
 
         <View style={styles.rows}>
+          {/* 1. Continuar viendo */}
           {continueCards.length > 0 && (
             <Row
               title="Continuar viendo"
@@ -159,6 +223,29 @@ export default function HomeScreen() {
             />
           )}
 
+          {/* 2. Añadido recientemente */}
+          <Row
+            title="Añadido recientemente"
+            items={videosToCards(recentVideos, { newBadge: true })}
+            onItemPress={(item) => router.push(`/watch/${item.id}`)}
+          />
+
+          {/* 3. Tendencias en Carp Partners */}
+          <Row
+            title="Tendencias en Carp Partners"
+            items={videosToCards(trendingVideos, { rank: true })}
+            variant="rank"
+            onItemPress={(item) => router.push(`/watch/${item.id}`)}
+          />
+
+          {/* 4. Mejores seleccionados para ti — diseño distinto a las demás filas */}
+          <CuratedRow
+            title="Mejores seleccionados para ti"
+            items={curatedSeries.map((s) => ({ id: s.id, title: s.title, thumbnail_url: s.cover_vertical_url ?? s.cover_url }))}
+            onItemPress={(item) => router.push(`/serie/${item.id}`)}
+          />
+
+          {/* 5-6. Películas / Series — el orden real lo decide /admin/categorias */}
           {rows.map(({ category, series }) => (
             <Row
               key={category.id}
@@ -168,40 +255,17 @@ export default function HomeScreen() {
             />
           ))}
 
-          {rows.length === 0 && continueCards.length === 0 && (
+          {rows.length === 0 && continueCards.length === 0 && recentVideos.length === 0 && (
             <Text style={styles.emptyText}>No hay vídeos disponibles todavía.</Text>
           )}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  topBar: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0,
-    zIndex: 30,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: spacing.pagePaddingH + 2,
-    paddingTop: 10,
-  },
-  logo: {
-    flex: 1,
-    fontFamily: 'Sora_800ExtraBold',
-    fontSize: 15,
-    letterSpacing: -0.2,
-    color: colors.white,
-  },
-  searchButton: {
-    width: 34, height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   hero: {
     aspectRatio: 3 / 4,
     backgroundColor: colors.surface,
@@ -232,7 +296,45 @@ const styles = StyleSheet.create({
     fontSize: 25,
     lineHeight: 30,
     color: colors.white,
-    marginBottom: 14,
+    marginBottom: 10,
+  },
+  heroMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  heroMetaText: {
+    ...textStyles.bodyXs,
+    fontSize: 12.5,
+    color: colors.textSecondary,
+  },
+  heroMetaPrimary: {
+    fontFamily: 'Inter_700Bold',
+  },
+  heroMetaDot: {
+    width: 3, height: 3,
+    borderRadius: 1.5,
+    backgroundColor: colors.textFaint,
+  },
+  uhdPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+  },
+  uhdPillText: {
+    fontSize: 10.5,
+    color: colors.textSecondary,
+  },
+  heroDescription: {
+    ...textStyles.bodySm,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textSecondary,
+    marginBottom: 18,
   },
   heroActions: { flexDirection: 'row', gap: 10 },
   playButton: {
@@ -243,12 +345,12 @@ const styles = StyleSheet.create({
     gap: 7,
     height: 46,
     borderRadius: 9,
-    backgroundColor: colors.white,
+    backgroundColor: colors.brand,
   },
   playButtonText: {
     fontFamily: 'Inter_700Bold',
     fontSize: 14.5,
-    color: colors.textInverse,
+    color: colors.white,
   },
   infoButton: {
     width: 46, height: 46,

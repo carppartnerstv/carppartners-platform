@@ -86,10 +86,13 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    ...textStyles.body,
+    fontFamily: textStyles.body.fontFamily,
+    fontSize: textStyles.body.fontSize,
     color: colors.textPrimary,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   inputWithLeft: {
     paddingLeft: spacing.sm,

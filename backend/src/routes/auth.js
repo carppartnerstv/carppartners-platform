@@ -93,7 +93,7 @@ authRouter.post(
     const user = await queryOne(
       `INSERT INTO users (email, password_hash, name)
        VALUES ($1, $2, $3)
-       RETURNING id, email, name, role, avatar_url, stripe_customer_id`,
+       RETURNING id, email, name, role, avatar_url, stripe_customer_id, notification_preferences`,
       [email.toLowerCase(), passwordHash, name ?? null],
     );
 
@@ -112,7 +112,7 @@ authRouter.post(
     const { email, password } = parse(credsSchema.pick({ email: true, password: true }), req.body);
 
     const user = await queryOne(
-      `SELECT id, email, name, role, avatar_url, stripe_customer_id, password_hash,
+      `SELECT id, email, name, role, avatar_url, stripe_customer_id, notification_preferences, password_hash,
               password_set_token, password_set_expires
          FROM users WHERE email = $1`,
       [email.toLowerCase()],
@@ -188,7 +188,7 @@ authRouter.post(
     }
 
     const user = await queryOne(
-      'SELECT id, email, name, role, avatar_url, stripe_customer_id FROM users WHERE id = $1',
+      'SELECT id, email, name, role, avatar_url, stripe_customer_id, notification_preferences FROM users WHERE id = $1',
       [payload.sub],
     );
     if (!user) throw unauthorized('Usuario no existe', 'USER_NOT_FOUND');
@@ -337,8 +337,33 @@ authRouter.put(
 
     const user = await queryOne(
       `UPDATE users SET name = $1 WHERE id = $2
-       RETURNING id, email, name, role, avatar_url, stripe_customer_id`,
+       RETURNING id, email, name, role, avatar_url, stripe_customer_id, notification_preferences`,
       [name, req.user.id],
+    );
+    res.json({ user });
+  }),
+);
+
+// --- Preferencias de notificación ("Avisos" en Perfil) -----------------
+// Guarda el objeto completo de golpe (4 flags fijos) cada vez que el
+// usuario cambia un interruptor — sin PATCH parcial, no hace falta: el
+// cliente ya tiene el estado completo en memoria antes de llamar aquí.
+authRouter.put(
+  '/me/notification-preferences',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const schema = z.object({
+      estrenos: z.boolean(),
+      recomendaciones: z.boolean(),
+      promos: z.boolean(),
+      push: z.boolean(),
+    });
+    const prefs = parse(schema, req.body);
+
+    const user = await queryOne(
+      `UPDATE users SET notification_preferences = $1 WHERE id = $2
+       RETURNING id, email, name, role, avatar_url, stripe_customer_id, notification_preferences`,
+      [JSON.stringify(prefs), req.user.id],
     );
     res.json({ user });
   }),
@@ -360,7 +385,7 @@ authRouter.post(
     const avatarUrl = `${req.protocol}://${req.get('host')}/uploads/avatars/${req.file.filename}`;
     const user = await queryOne(
       `UPDATE users SET avatar_url = $1 WHERE id = $2
-       RETURNING id, email, name, role, avatar_url, stripe_customer_id`,
+       RETURNING id, email, name, role, avatar_url, stripe_customer_id, notification_preferences`,
       [avatarUrl, req.user.id],
     );
     res.json({ user });

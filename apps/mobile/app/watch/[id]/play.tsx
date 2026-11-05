@@ -10,7 +10,8 @@ import {
   StatusBar as RNStatusBar,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Video, ResizeMode, type AVPlaybackStatus } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useEventListener } from 'expo';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import {
   IconChevronLeft,
@@ -32,11 +33,14 @@ import { formatClock } from '../../../lib/format';
 const PROGRESS_INTERVAL_MS = 15_000;
 const SPEEDS = [1, 1.25, 1.5, 2, 0.5];
 const AUTOPLAY_THRESHOLD = 0.6; // aparece la tarjeta de "siguiente" a partir del 60% reproducido
+// expo-video no manda timeUpdate si este valor es 0 (por defecto) — cada
+// 0.25s es suficiente para que la barra de progreso se vea fluida sin
+// saturar de eventos.
+const TIME_UPDATE_INTERVAL_SEC = 0.25;
 
 export default function PlayerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const videoRef = useRef<Video>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const positionRef = useRef(0);
@@ -58,6 +62,15 @@ export default function PlayerScreen() {
   const [controlsVisible, setControlsVisible] = useState(true);
   const [progressBarWidth, setProgressBarWidth] = useState(0);
   const [autoplayDismissed, setAutoplayDismissed] = useState(false);
+
+  // Player de expo-video — se crea una sola vez (sin fuente todavía, se
+  // asigna con player.replace() en cuanto streamUrl esté listo, más abajo).
+  // No usamos el `source` del propio hook porque streamUrl llega async, y
+  // reemplazar explícitamente nos da control total sobre cuándo arrancar
+  // la reproducción y a qué posición.
+  const player = useVideoPlayer(null, (p) => {
+    p.timeUpdateEventInterval = TIME_UPDATE_INTERVAL_SEC;
+  });
 
   // Pantalla completa en horizontal mientras se reproduce.
   useEffect(() => {
@@ -102,6 +115,19 @@ export default function PlayerScreen() {
     return () => { cancelled = true; };
   }, [id]);
 
+  // En cuanto hay URL de streaming, se asigna al player ya creado y arranca
+  // desde donde se había quedado (si la había).
+  useEffect(() => {
+    if (!streamUrl) return;
+    player.replace({ uri: streamUrl, contentType: 'hls' });
+    if (startAtMs > 0) player.currentTime = startAtMs / 1000;
+    player.play();
+    // startAtMs no va en las dependencias a propósito: solo nos interesa en
+    // el momento en que streamUrl cambia (misma carga), no si por lo que
+    // sea se recalculase después sin cambiar de vídeo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streamUrl, player]);
+
   const saveProgress = useCallback((completed = false) => {
     if (!video) return;
     apiClient.saveProgress(video.id, Math.floor(positionRef.current / 1000), completed).catch(() => null);
@@ -126,64 +152,69 @@ export default function PlayerScreen() {
     else setControlsVisible(true);
   }, [playing, registerActivity]);
 
-  const onStatusUpdate = useCallback((status: AVPlaybackStatus) => {
-    if (!status.isLoaded) {
-      if (status.error) setError('Error al cargar el vídeo. Inténtalo de nuevo.');
+  // --- Eventos del player (expo-video) ----------------------------------
+  useEventListener(player, 'statusChange', ({ status, error: playerError }) => {
+    if (status === 'error') {
+      setError('Error al cargar el vídeo. Inténtalo de nuevo.');
       return;
     }
-    setPlayerReady(true);
-    setPlaying(status.isPlaying);
-    setPositionMs(status.positionMillis);
-    positionRef.current = status.positionMillis;
-    if (status.durationMillis) setDurationMs(status.durationMillis);
+    if (status === 'readyToPlay') setPlayerReady(true);
+    if (playerError) setError('Error al cargar el vídeo. Inténtalo de nuevo.');
+  });
 
-    if (status.didJustFinish) {
-      saveProgress(true);
-      if (nextEpisode && !autoplayDismissed) {
-        router.replace(`/watch/${nextEpisode.id}/play`);
-      }
+  useEventListener(player, 'playingChange', ({ isPlaying }) => {
+    setPlaying(isPlaying);
+  });
+
+  useEventListener(player, 'timeUpdate', ({ currentTime }) => {
+    const ms = currentTime * 1000;
+    setPositionMs(ms);
+    positionRef.current = ms;
+    if (player.duration) setDurationMs(player.duration * 1000);
+  });
+
+  useEventListener(player, 'playToEnd', () => {
+    saveProgress(true);
+    if (nextEpisode && !autoplayDismissed) {
+      router.replace(`/watch/${nextEpisode.id}/play`);
     }
-  }, [nextEpisode, autoplayDismissed, saveProgress, router]);
+  });
 
-  const togglePlay = async () => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (playing) await v.pauseAsync(); else await v.playAsync();
+  const togglePlay = () => {
+    if (playing) player.pause(); else player.play();
     registerActivity();
   };
 
-  const seekBy = async (deltaSec: number) => {
-    const v = videoRef.current;
-    if (!v || !durationMs) return;
-    const next = Math.min(Math.max(positionMs + deltaSec * 1000, 0), durationMs);
-    await v.setPositionAsync(next);
+  const seekBy = (deltaSec: number) => {
+    if (!durationMs) return;
+    const nextSec = Math.min(Math.max(positionMs / 1000 + deltaSec, 0), durationMs / 1000);
+    player.currentTime = nextSec;
     registerActivity();
   };
 
-  const seekToFraction = async (fraction: number) => {
-    const v = videoRef.current;
-    if (!v || !durationMs) return;
-    await v.setPositionAsync(fraction * durationMs);
+  const seekToFraction = (fraction: number) => {
+    if (!durationMs) return;
+    player.currentTime = fraction * (durationMs / 1000);
     registerActivity();
   };
 
-  const toggleMute = async () => {
-    const v = videoRef.current;
-    if (!v) return;
+  const toggleMute = () => {
     const next = !muted;
     setMuted(next);
-    await v.setIsMutedAsync(next);
+    player.muted = next;
     registerActivity();
   };
 
-  const cycleSpeed = async () => {
-    const v = videoRef.current;
-    if (!v) return;
+  const cycleSpeed = () => {
     const next = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
     setSpeed(next);
-    await v.setRateAsync(next, true);
+    player.playbackRate = next;
     registerActivity();
   };
+
+  // volume/muted iniciales del player, y cuando cambian desde fuera de los
+  // propios handlers (p. ej. si en el futuro se añade un slider de volumen).
+  useEffect(() => { player.volume = volume; }, [player, volume]);
 
   const backToDetail = () => router.replace(`/watch/${id}`);
 
@@ -195,18 +226,11 @@ export default function PlayerScreen() {
   return (
     <View style={styles.root}>
       {streamUrl && (
-        <Video
-          ref={videoRef}
-          source={{ uri: streamUrl }}
+        <VideoView
+          player={player}
           style={StyleSheet.absoluteFill}
-          resizeMode={ResizeMode.CONTAIN}
-          shouldPlay
-          positionMillis={startAtMs}
-          volume={volume}
-          isMuted={muted}
-          rate={speed}
-          useNativeControls={false}
-          onPlaybackStatusUpdate={onStatusUpdate}
+          contentFit="contain"
+          nativeControls={false}
         />
       )}
 
@@ -329,7 +353,7 @@ function ControlButton({ icon, label, onPress }: { icon: React.ReactNode; label:
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000' },
-  centerOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  centerOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   errorText: { ...textStyles.body, color: colors.error, textAlign: 'center', paddingHorizontal: spacing['2xl'] },
   errorLink: { ...textStyles.labelSm, color: colors.textSecondary, marginTop: spacing.sm },
   header: {
@@ -341,7 +365,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center', justifyContent: 'center',
   },
-  centerButtonWrap: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  centerButtonWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   centerButton: {
     width: 76, height: 76, borderRadius: 38,
     backgroundColor: 'rgba(0,0,0,0.35)',

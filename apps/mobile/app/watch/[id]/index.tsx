@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   episodeNum: { fontFamily: 'Sora_700Bold', fontSize: 15, color: colors.textFaint, width: 18, textAlign: 'center' },
   episodeThumb: { width: 88, height: 52, borderRadius: 7, backgroundColor: colors.surface, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
   episodeThumbActive: { borderWidth: 1.5, borderColor: colors.brandBright },
-  episodePlayIcon: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.15)' },
+  episodePlayIcon: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.15)' },
   episodeTitle: { ...textStyles.bodySm, color: colors.textPrimary, fontFamily: 'Inter_600SemiBold' },
   episodeDur: { ...textStyles.bodyXs, color: colors.textFaint, marginTop: 2 },
   relatedSection: { marginTop: spacing.sm },
