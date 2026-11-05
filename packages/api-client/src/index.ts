@@ -2,6 +2,7 @@ export { ApiClient, ApiError, apiClient } from './client';
 export type { TokenStorage } from './client';
 export type {
   User,
+  NotificationPreferences,
   Subscription,
   PaymentMethodSummary,
   Video,

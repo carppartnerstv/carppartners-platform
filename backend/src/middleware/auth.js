@@ -29,7 +29,7 @@ export async function requireAuth(req, _res, next) {
     }
 
     const user = await queryOne(
-      'SELECT id, email, name, role, avatar_url, stripe_customer_id FROM users WHERE id = $1',
+      'SELECT id, email, name, role, avatar_url, stripe_customer_id, notification_preferences FROM users WHERE id = $1',
       [payload.sub],
     );
     if (!user) throw unauthorized('Usuario no existe', 'USER_NOT_FOUND');
