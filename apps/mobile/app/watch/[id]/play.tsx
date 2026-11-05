@@ -9,10 +9,12 @@ import {
   Platform,
   StatusBar as RNStatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { useVideoPlayer, VideoView, VideoAirPlayButton } from 'expo-video';
 import { useEventListener } from 'expo';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import GoogleCast, { CastButton, CastState, useCastState, useRemoteMediaClient } from 'react-native-google-cast';
 import {
   IconChevronLeft,
   IconPlayerPlayFilled,
@@ -25,8 +27,9 @@ import {
   IconGauge,
   IconCheck,
   IconSettings,
+  IconCast,
 } from '@tabler/icons-react-native';
-import type { Video as VideoType, NextEpisode, VideoQuality } from '@carp-partners/api-client';
+import type { Video as VideoType, NextEpisode, VideoQuality, Series } from '@carp-partners/api-client';
 import { colors, textStyles, spacing } from '../../../theme';
 import { Spinner } from '../../../components/ui';
 import { apiClient } from '../../../lib/apiClient';
@@ -43,11 +46,13 @@ const TIME_UPDATE_INTERVAL_SEC = 0.25;
 export default function PlayerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const positionRef = useRef(0);
 
   const [video, setVideo] = useState<VideoType | null>(null);
+  const [allSeries, setAllSeries] = useState<Series[]>([]);
   const [nextEpisode, setNextEpisode] = useState<NextEpisode | null>(null);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [qualities, setQualities] = useState<VideoQuality[]>([]);
@@ -78,6 +83,34 @@ export default function PlayerScreen() {
     p.timeUpdateEventInterval = TIME_UPDATE_INTERVAL_SEC;
   });
 
+  // Chromecast — igual que en la web: el dispositivo de cast decodifica el
+  // HLS él solo, así que el player local se pausa mientras se está emitiendo.
+  const castClient = useRemoteMediaClient();
+  const castState = useCastState();
+  const casting = castState === CastState.CONNECTED;
+
+  useEffect(() => {
+    if (!castClient || !streamUrl || !video) return;
+    castClient.loadMedia({
+      mediaInfo: {
+        contentUrl: streamUrl,
+        contentType: 'application/x-mpegurl',
+        metadata: { type: 'movie', title: video.title },
+      },
+      startTime: positionRef.current / 1000,
+      autoplay: true,
+    }).catch(() => null);
+    player.pause();
+    // Solo nos interesa en el momento en que se conecta una sesión de cast
+    // (castClient pasa de null a un cliente real), no en cada cambio de
+    // streamUrl/video por separado.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [castClient]);
+
+  const stopCasting = () => {
+    GoogleCast.sessionManager.endCurrentSession(true).catch(() => null);
+  };
+
   // Pantalla completa en horizontal mientras se reproduce — forzada de
   // entrada (no es una opción: nadie ve un vídeo con el móvil en vertical),
   // sin depender de girar físicamente el teléfono ni del bloqueo de
@@ -101,8 +134,9 @@ export default function PlayerScreen() {
 
     async function load() {
       try {
-        const [{ video }, { items: history }, { hlsUrl, qualities }, { next }] = await Promise.all([
+        const [{ video }, { series }, { items: history }, { hlsUrl, qualities }, { next }] = await Promise.all([
           apiClient.getVideo(id),
+          apiClient.getSeries(),
           apiClient.getContinueWatching(),
           apiClient.getVideoStream(id),
           apiClient.getNextEpisode(id).catch(() => ({ next: null })),
@@ -110,6 +144,7 @@ export default function PlayerScreen() {
         if (cancelled) return;
         const resumeSec = history.find((i) => i.id === id)?.progress_sec ?? 0;
         setVideo(video);
+        setAllSeries(series);
         setNextEpisode(next);
         setStartAtMs(resumeSec * 1000);
         setStreamUrl(hlsUrl);
@@ -266,7 +301,8 @@ export default function PlayerScreen() {
 
   const backToDetail = () => router.replace(`/watch/${id}`);
 
-  const kicker = video?.series_id && video.episode_num != null ? `Episodio ${video.episode_num}` : '';
+  const videoSeries = allSeries.find((s) => s.id === video?.series_id);
+  const kicker = videoSeries && video?.episode_num != null ? `${videoSeries.title} · EP ${video.episode_num}` : '';
   const progressFraction = durationMs > 0 ? positionMs / durationMs : 0;
   const showNextCard = !!nextEpisode && !autoplayDismissed && durationMs > 0 && progressFraction >= AUTOPLAY_THRESHOLD;
   const volEff = muted ? 0 : volume;
@@ -297,16 +333,40 @@ export default function PlayerScreen() {
         </View>
       )}
 
-      {!error && (
+      {/* El Chromecast decodifica el HLS él solo — mientras está conectado
+          se sustituyen los controles normales por este aviso, igual que en
+          la web ("Reproduciendo en tu Chromecast"). */}
+      {casting && (
+        <View style={styles.castingOverlay}>
+          <TouchableOpacity
+            onPress={backToDetail}
+            style={[styles.backButton, { position: 'absolute', top: insets.top + 12, left: insets.left + spacing.lg }]}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <IconChevronLeft size={22} color={colors.white} />
+          </TouchableOpacity>
+          <IconCast size={48} color="rgba(255,255,255,0.7)" />
+          <Text style={styles.castingText}>Reproduciendo en tu Chromecast</Text>
+          <TouchableOpacity onPress={stopCasting} style={styles.castingStopButton}>
+            <Text style={styles.castingStopText}>Dejar de emitir</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {!error && !casting && (
         <TouchableWithoutFeedback onPress={() => (controlsVisible ? setControlsVisible(false) : registerActivity())}>
           <View style={StyleSheet.absoluteFill}>
             {controlsVisible && (
               <>
-                {/* Cabecera */}
-                <View style={styles.header}>
+                {/* Cabecera — botón Volver + título/capítulo al lado */}
+                <View style={[styles.header, { top: insets.top + 12, left: insets.left + spacing.lg, right: insets.right + spacing.lg }]}>
                   <TouchableOpacity onPress={backToDetail} style={styles.backButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <IconChevronLeft size={22} color={colors.white} />
                   </TouchableOpacity>
+                  <View style={styles.headerMeta}>
+                    {!!kicker && <Text style={styles.videoKicker} numberOfLines={1}>{kicker}</Text>}
+                    <Text style={styles.videoTitle} numberOfLines={1}>{video?.title}</Text>
+                  </View>
                 </View>
 
                 {/* Play/pausa central */}
@@ -344,7 +404,12 @@ export default function PlayerScreen() {
                 )}
 
                 {/* Controles inferiores */}
-                <View style={styles.bottomBar}>
+                <View
+                  style={[
+                    styles.bottomBar,
+                    { paddingBottom: insets.bottom + spacing.md, paddingLeft: spacing['2xl'] + insets.left, paddingRight: spacing['2xl'] + insets.right },
+                  ]}
+                >
                   <View style={styles.progressRow}>
                     <TouchableWithoutFeedback
                       onPress={(e) => {
@@ -361,60 +426,71 @@ export default function PlayerScreen() {
                         <View style={[styles.progressKnob, { left: `${progressFraction * 100}%` }]} />
                       </View>
                     </TouchableWithoutFeedback>
-                  </View>
-
-                  <View style={styles.metaRow}>
-                    <Text style={styles.videoTitle} numberOfLines={1}>{video?.title}</Text>
-                    {!!kicker && <Text style={styles.videoKicker}>{kicker}</Text>}
+                    <Text style={styles.clock}>{formatClock(positionMs / 1000)} / {formatClock(durationMs / 1000)}</Text>
                   </View>
 
                   <View style={styles.controlsRow}>
-                    <ControlButton icon={<IconRewindBackward10 size={22} color={colors.textSecondary} />} label="-10s" onPress={() => seekBy(-10)} />
-
-                    <View>
-                      {speedPopupOpen && (
-                        <View style={styles.speedPopup}>
-                          {SPEEDS_SORTED.map((s) => (
-                            <TouchableOpacity key={s} style={styles.speedOption} onPress={() => selectSpeed(s)}>
-                              <Text style={[styles.speedOptionText, s === speed && styles.speedOptionTextActive]}>{s}x</Text>
-                              {s === speed && <IconCheck size={14} color={colors.brandBright} />}
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      )}
-                      <ControlButton icon={<IconGauge size={22} color={colors.textSecondary} />} label={`${speed}x`} onPress={openSpeedPopup} />
+                    <View style={styles.controlsGroup}>
+                      <ControlButton icon={<IconRewindBackward10 size={22} color={colors.white} />} label="-10s" onPress={() => seekBy(-10)} />
+                      <ControlButton icon={<IconRewindForward10 size={22} color={colors.white} />} label="+10s" onPress={() => seekBy(10)} />
+                      <ControlButton
+                        icon={volEff === 0 ? <IconVolumeOff size={22} color={colors.white} /> : volEff < 0.5 ? <IconVolume2 size={22} color={colors.white} /> : <IconVolume size={22} color={colors.white} />}
+                        label="Volumen"
+                        onPress={toggleMute}
+                      />
                     </View>
 
-                    {qualities.length > 0 && (
+                    <View style={styles.controlsGroup}>
                       <View>
-                        {qualityPopupOpen && (
+                        {speedPopupOpen && (
                           <View style={styles.speedPopup}>
-                            <TouchableOpacity style={styles.speedOption} onPress={() => selectQuality(null)}>
-                              <Text style={[styles.speedOptionText, !selectedQuality && styles.speedOptionTextActive]}>Auto</Text>
-                              {!selectedQuality && <IconCheck size={14} color={colors.brandBright} />}
-                            </TouchableOpacity>
-                            {qualities.map((q) => (
-                              <TouchableOpacity key={q.label} style={styles.speedOption} onPress={() => selectQuality(q)}>
-                                <Text style={[styles.speedOptionText, selectedQuality?.label === q.label && styles.speedOptionTextActive]}>{q.label}</Text>
-                                {selectedQuality?.label === q.label && <IconCheck size={14} color={colors.brandBright} />}
+                            {SPEEDS_SORTED.map((s) => (
+                              <TouchableOpacity key={s} style={styles.speedOption} onPress={() => selectSpeed(s)}>
+                                <Text style={[styles.speedOptionText, s === speed && styles.speedOptionTextActive]}>{s}x</Text>
+                                {s === speed && <IconCheck size={14} color={colors.brandBright} />}
                               </TouchableOpacity>
                             ))}
                           </View>
                         )}
-                        <ControlButton icon={<IconSettings size={22} color={colors.textSecondary} />} label={selectedQuality?.label ?? 'Auto'} onPress={openQualityPopup} />
+                        <ControlButton icon={<IconGauge size={22} color={colors.white} />} label={`${speed}x`} onPress={openSpeedPopup} />
                       </View>
-                    )}
 
-                    <ControlButton
-                      icon={volEff === 0 ? <IconVolumeOff size={22} color={colors.textSecondary} /> : volEff < 0.5 ? <IconVolume2 size={22} color={colors.textSecondary} /> : <IconVolume size={22} color={colors.textSecondary} />}
-                      label="Volumen"
-                      onPress={toggleMute}
-                    />
+                      {qualities.length > 0 && (
+                        <View>
+                          {qualityPopupOpen && (
+                            <View style={styles.speedPopup}>
+                              <TouchableOpacity style={styles.speedOption} onPress={() => selectQuality(null)}>
+                                <Text style={[styles.speedOptionText, !selectedQuality && styles.speedOptionTextActive]}>Auto</Text>
+                                {!selectedQuality && <IconCheck size={14} color={colors.brandBright} />}
+                              </TouchableOpacity>
+                              {qualities.map((q) => (
+                                <TouchableOpacity key={q.label} style={styles.speedOption} onPress={() => selectQuality(q)}>
+                                  <Text style={[styles.speedOptionText, selectedQuality?.label === q.label && styles.speedOptionTextActive]}>{q.label}</Text>
+                                  {selectedQuality?.label === q.label && <IconCheck size={14} color={colors.brandBright} />}
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          )}
+                          <ControlButton icon={<IconSettings size={22} color={colors.white} />} label={selectedQuality?.label ?? 'Auto'} onPress={openQualityPopup} />
+                        </View>
+                      )}
 
-                    <ControlButton icon={<IconRewindForward10 size={22} color={colors.textSecondary} />} label="+10s" onPress={() => seekBy(10)} />
+                      {/* AirPlay — nativo de iOS (AVRoutePickerView vía expo-video), igual que en la web. */}
+                      {Platform.OS === 'ios' && (
+                        <VideoAirPlayButton
+                          style={styles.airplayButton}
+                          tint="white"
+                          activeTint={colors.brandBright}
+                        />
+                      )}
+
+                      {/* Chromecast — mismo "Default Media Receiver" que usa la web
+                          (CC1AD845), funciona tanto desde iPhone como desde Android. */}
+                      {castState != null && castState !== CastState.NO_DEVICES_AVAILABLE && (
+                        <CastButton style={styles.castButton} tintColor={casting ? colors.brandBright : colors.white} />
+                      )}
+                    </View>
                   </View>
-
-                  <Text style={styles.clock}>{formatClock(positionMs / 1000)} / {formatClock(durationMs / 1000)}</Text>
                 </View>
               </>
             )}
@@ -427,9 +503,13 @@ export default function PlayerScreen() {
 
 function ControlButton({ icon, label, onPress }: { icon: React.ReactNode; label: string; onPress: () => void }) {
   return (
-    <TouchableOpacity onPress={onPress} style={styles.controlButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+    <TouchableOpacity
+      onPress={onPress}
+      style={styles.controlButton}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      accessibilityLabel={label}
+    >
       {icon}
-      <Text style={styles.controlLabel}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -440,7 +520,8 @@ const styles = StyleSheet.create({
   errorText: { ...textStyles.body, color: colors.error, textAlign: 'center', paddingHorizontal: spacing['2xl'] },
   errorLink: { ...textStyles.labelSm, color: colors.textSecondary, marginTop: spacing.sm },
   header: {
-    position: 'absolute', top: Platform.OS === 'ios' ? 50 : 26, left: spacing.lg, zIndex: 10,
+    position: 'absolute', zIndex: 10,
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
   },
   backButton: {
     width: 40, height: 40, borderRadius: 20,
@@ -448,6 +529,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center', justifyContent: 'center',
   },
+  headerMeta: { flexShrink: 1, minWidth: 0 },
   centerButtonWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   centerButton: {
     width: 76, height: 76, borderRadius: 38,
@@ -469,22 +551,37 @@ const styles = StyleSheet.create({
   nextDismiss: { ...textStyles.bodyXs, color: colors.textFaint },
   bottomBar: {
     position: 'absolute', left: 0, right: 0, bottom: 0,
-    paddingHorizontal: spacing['2xl'], paddingBottom: spacing['2xl'],
   },
-  progressRow: { marginBottom: spacing.md },
-  progressTrack: { height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)' },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm },
+  progressTrack: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)' },
   progressFill: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 2, backgroundColor: colors.brandBright },
   progressKnob: {
     position: 'absolute', top: -5, width: 14, height: 14, borderRadius: 7,
     backgroundColor: colors.white, marginLeft: -7,
   },
-  metaRow: { marginBottom: spacing.md },
-  videoTitle: { fontFamily: 'Sora_700Bold', fontSize: 16, color: colors.white },
-  videoKicker: { ...textStyles.bodyXs, color: colors.textMuted, marginTop: 2 },
+  videoKicker: {
+    fontFamily: 'Inter_600SemiBold', fontSize: 11, letterSpacing: 0.6,
+    textTransform: 'uppercase', color: colors.brandBright,
+  },
+  videoTitle: { fontFamily: 'Sora_700Bold', fontSize: 15, color: colors.white, marginTop: 2 },
   controlsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  controlButton: { alignItems: 'center', gap: 4, minWidth: 44, minHeight: 44, justifyContent: 'center' },
-  controlLabel: { ...textStyles.bodyXs, color: colors.textSecondary },
-  clock: { ...textStyles.bodyXs, color: colors.textFaint, marginTop: spacing.sm, textAlign: 'right' },
+  controlsGroup: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
+  controlButton: { alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44 },
+  airplayButton: { width: 44, height: 44 },
+  castButton: { width: 44, height: 44 },
+  castingOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#000',
+    alignItems: 'center', justifyContent: 'center', gap: spacing.md,
+  },
+  castingText: { ...textStyles.body, color: colors.white, fontFamily: 'Inter_600SemiBold' },
+  castingStopButton: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.xl, paddingVertical: spacing.sm,
+    borderRadius: 9, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+  },
+  castingStopText: { ...textStyles.bodySm, color: colors.textSecondary },
+  clock: { ...textStyles.bodyXs, color: colors.textFaint },
   speedPopup: {
     position: 'absolute', bottom: '100%', left: '50%',
     marginLeft: -44, marginBottom: 10,

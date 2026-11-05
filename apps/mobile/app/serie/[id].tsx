@@ -340,6 +340,7 @@ export default function SeriesDetailScreen() {
       {isMovie && (
         <RatingSheet
           visible={ratingOpen}
+          videoTitle={movie?.title}
           value={rating}
           onChange={handleRatingChange}
           onClose={() => setRatingOpen(false)}

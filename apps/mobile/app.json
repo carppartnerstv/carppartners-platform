@@ -28,7 +28,9 @@
             ]
           }
         },
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": ["remote-notification"],
+        "NSBonjourServices": ["_airplay._tcp", "_raop._tcp", "_googlecast._tcp", "_CC1AD845._googlecast._tcp"],
+        "NSLocalNetworkUsageDescription": "Carp Partners TV necesita acceso a la red local para encontrar y emitir el vídeo a tu Apple TV (AirPlay) o Chromecast."
       },
       "entitlements": {
         "aps-environment": "development"
@@ -65,7 +67,8 @@
         }
       ],
       "expo-video",
-      "expo-notifications"
+      "expo-notifications",
+      ["react-native-google-cast", { "receiverAppId": "CC1AD845" }]
     ],
     "experiments": {
       "typedRoutes": true

@@ -107,10 +107,9 @@ export default function CrewMemberScreen() {
           <TouchableOpacity
             onPress={() => router.back()}
             style={[styles.backButton, { top: insets.top + APP_HEADER_CONTENT_HEIGHT + spacing.sm }]}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <IconArrowLeft size={16} color={colors.white} />
-            <Text style={styles.backButtonText}>Volver</Text>
+            <IconArrowLeft size={18} color={colors.white} />
           </TouchableOpacity>
 
           <View style={styles.heroContent}>
@@ -166,13 +165,9 @@ const styles = StyleSheet.create({
   hero: { aspectRatio: 1, backgroundColor: colors.surface },
   backButton: {
     position: 'absolute', left: spacing.pagePaddingH,
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    height: 36, paddingHorizontal: 14, borderRadius: 9,
+    width: 36, height: 36, borderRadius: 18,
     backgroundColor: 'rgba(6,9,12,0.55)',
-  },
-  backButtonText: {
-    ...textStyles.labelSm,
-    color: colors.textPrimary,
+    alignItems: 'center', justifyContent: 'center',
   },
   heroContent: {
     position: 'absolute',

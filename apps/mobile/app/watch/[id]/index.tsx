@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, Share } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, Image, Animated, TouchableOpacity, StyleSheet, Share } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -11,11 +11,16 @@ import {
   IconThumbUp,
   IconThumbUpFilled,
   IconShare2,
+  IconHome,
+  IconCompass,
+  IconBookmark,
+  IconUser,
 } from '@tabler/icons-react-native';
 import type { Video, RelatedVideo, Category, Series } from '@carp-partners/api-client';
 import { ApiError } from '@carp-partners/api-client';
 import { colors, textStyles, spacing } from '../../../theme';
 import { Spinner, CastRow, RatingSheet, ReadMoreText } from '../../../components/ui';
+import { AppHeader, APP_HEADER_CONTENT_HEIGHT } from '../../../components/ui/AppHeader';
 import { Row } from '../../../components/ui/Row';
 import type { VideoCardItem, RatingValue } from '../../../components/ui';
 import { apiClient } from '../../../lib/apiClient';
@@ -25,10 +30,19 @@ import { formatDurationLong } from '../../../lib/format';
 const RATING_TO_VALUE: Record<number, RatingValue> = { [-1]: 'down', 1: 'like', 2: 'love' };
 const VALUE_TO_RATING: Record<RatingValue, -1 | 1 | 2> = { down: -1, like: 1, love: 2 };
 
+const FOOTER_TABS = [
+  { href: '/(tabs)', label: 'Inicio', Icon: IconHome },
+  { href: '/(tabs)/explore', label: 'Explorar', Icon: IconCompass },
+  { href: '/(tabs)/list', label: 'Mi Lista', Icon: IconBookmark },
+  { href: '/(tabs)/profile', label: 'Perfil', Icon: IconUser },
+] as const;
+
 export default function VideoDetailScreen() {
   const { refresh } = useSession();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   const [video, setVideo] = useState<Video | null>(null);
   const [related, setRelated] = useState<RelatedVideo[]>([]);
@@ -122,9 +136,9 @@ export default function VideoDetailScreen() {
 
   if (loading || !video) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <View style={styles.safe}>
         <Spinner centered />
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -145,8 +159,18 @@ export default function VideoDetailScreen() {
   const chips = [videoCategory?.name, videoSeries?.title].filter(Boolean) as string[];
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <View style={styles.safe}>
+      <AppHeader scrollY={scrollY} />
+
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false },
+        )}
+        scrollEventThrottle={16}
+      >
         <View style={styles.hero}>
           {video.thumbnail_url ? (
             <Image source={{ uri: video.thumbnail_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
@@ -158,7 +182,11 @@ export default function VideoDetailScreen() {
             locations={[0.2, 0.6, 1]}
             style={StyleSheet.absoluteFill}
           />
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={[styles.backButton, { top: insets.top + APP_HEADER_CONTENT_HEIGHT + spacing.sm }]}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
             <IconArrowLeft size={18} color={colors.white} />
           </TouchableOpacity>
           <TouchableOpacity
@@ -239,20 +267,40 @@ export default function VideoDetailScreen() {
             <Row title="Más como esto" items={relatedCards} onItemPress={(v) => router.push(`/watch/${v.id}`)} />
           </View>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
+
+      {/* Barra inferior — esta pantalla vive fuera del Tab Navigator (stack
+          real para que "volver" funcione bien), así que no hay tab bar
+          nativa aquí; réplica visual que navega a la pestaña al tocarla
+          (mismo patrón que crew/[slug].tsx y serie/[id].tsx). */}
+      <View style={[styles.footer, { paddingBottom: Math.max(10, insets.bottom) }]}>
+        {FOOTER_TABS.map(({ href, label, Icon }) => (
+          <TouchableOpacity
+            key={href}
+            style={styles.footerTab}
+            onPress={() => router.push(href)}
+            activeOpacity={0.7}
+          >
+            <Icon size={22} color={colors.textFaint} />
+            <Text style={styles.footerLabel}>{label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       <RatingSheet
         visible={ratingOpen}
+        videoTitle={video.title}
         value={rating}
         onChange={handleRatingChange}
         onClose={() => setRatingOpen(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
+  scrollContent: { paddingBottom: spacing['4xl'] },
   hero: { aspectRatio: 4 / 3, backgroundColor: colors.surface },
   backButton: {
     position: 'absolute', top: spacing.lg, left: spacing.pagePaddingH,
@@ -304,4 +352,22 @@ const styles = StyleSheet.create({
   chipText: { ...textStyles.bodyXs, fontSize: 12.5, color: colors.textSecondary },
   castSection: { marginTop: spacing.sm },
   relatedSection: { marginTop: spacing.sectionGap, paddingBottom: spacing['2xl'] },
+  footer: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: 'rgba(10,14,17,0.96)',
+    paddingTop: 8,
+  },
+  footerTab: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 3,
+    paddingVertical: 4,
+  },
+  footerLabel: {
+    ...textStyles.tabLabel,
+    fontFamily: 'Inter_600SemiBold',
+    color: colors.textFaint,
+  },
 });
