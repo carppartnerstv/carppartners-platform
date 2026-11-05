@@ -51,10 +51,10 @@ export default function CrewMemberScreen() {
       if (found) {
         apiClient.getVideos({ crew: found.slug, limit: 24 }).then(({ videos }) => {
           if (!cancelled) setVideos(videos);
-        });
+        }).catch(() => null);
       }
       setLoading(false);
-    });
+    }).catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [slug]);
 

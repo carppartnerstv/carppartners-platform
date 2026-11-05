@@ -7,6 +7,9 @@ import { config } from './config/index.js';
 import { connectRedis, closeRedis } from './config/redis.js';
 import { closePool } from './config/db.js';
 import { verifyMailConnection } from './services/mail.js';
+import { checkAndNotifyNewVideos } from './services/push.js';
+
+const PUSH_SWEEP_INTERVAL_MS = 60_000;
 
 async function main() {
   await connectRedis();
@@ -20,6 +23,12 @@ async function main() {
   // bloqueado por firewall no debe retrasar ni impedir el arranque (nunca
   // lanza — ver mail.js — y ahora además tiene timeout corto).
   verifyMailConnection();
+
+  // Barrido de "nuevo vídeo publicado" → notificación push (ver push.js).
+  // Un solo proceso (ecosystem.config.cjs: instances: 1), así que no hay
+  // riesgo de duplicar envíos entre varias instancias.
+  checkAndNotifyNewVideos();
+  setInterval(checkAndNotifyNewVideos, PUSH_SWEEP_INTERVAL_MS);
 
   const shutdown = async (signal) => {
     console.log(`[server] ${signal} recibido, cerrando...`);

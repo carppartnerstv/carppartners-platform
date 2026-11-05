@@ -30,7 +30,7 @@ export default function SeriesDetailScreen() {
       setDetail(data);
       setSelectedSeason(data.seasons[0] ?? null);
       setLoading(false);
-    });
+    }).catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [id]);
 
@@ -43,7 +43,7 @@ export default function SeriesDetailScreen() {
       if (cancelled) return;
       setEpisodes(videos);
       setLoadingEpisodes(false);
-    });
+    }).catch(() => { if (!cancelled) setLoadingEpisodes(false); });
     return () => { cancelled = true; };
   }, [detail, selectedSeason]);
 

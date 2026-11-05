@@ -4,6 +4,7 @@ import { Stack, SplashScreen, useRouter, useSegments } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
+import * as Notifications from 'expo-notifications';
 import {
   useFonts,
   Sora_400Regular,
@@ -22,6 +23,17 @@ import { colors } from '../theme';
 import { SessionProvider, useSession } from '../context/SessionContext';
 
 SplashScreen.preventAutoHideAsync();
+
+// Muestra la notificación aunque la app esté en primer plano (por defecto
+// expo-notifications solo la entrega "silenciosa" en ese caso).
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({

@@ -34,6 +34,7 @@ import { Spinner, Input, Button, Toast, useToast } from '../../components/ui';
 import { AppHeader, APP_HEADER_CONTENT_HEIGHT } from '../../components/ui/AppHeader';
 import { useSession, ApiError } from '../../context/SessionContext';
 import { apiClient } from '../../lib/apiClient';
+import { registerForPushNotificationsAsync } from '../../lib/pushNotifications';
 import { formatDurationLong, formatRelativeDay } from '../../lib/format';
 import { useResetScrollOnFocus } from '../../hooks/useResetScrollOnFocus';
 
@@ -93,6 +94,7 @@ export default function ProfileScreen() {
       const { user: updated } = await apiClient.updateNotificationPreferences(next);
       setUser(updated);
       showToast('Preferencias de notificación actualizadas', 'success');
+      if (key === 'push' && next.push) registerForPushNotificationsAsync();
     } catch (err) {
       setNotifs(previous);
       showToast(err instanceof ApiError ? err.message : 'No se pudo actualizar la preferencia', 'error');

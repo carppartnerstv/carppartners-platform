@@ -27,7 +27,11 @@
               }
             ]
           }
-        }
+        },
+        "UIBackgroundModes": ["remote-notification"]
+      },
+      "entitlements": {
+        "aps-environment": "development"
       }
     },
     "android": {
@@ -60,7 +64,8 @@
           "photosPermission": "Carp Partners TV necesita acceso a tus fotos para que puedas cambiar tu foto de perfil."
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true

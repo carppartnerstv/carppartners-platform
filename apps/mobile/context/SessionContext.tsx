@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { ApiError } from '@carp-partners/api-client';
 import type { User, Subscription } from '@carp-partners/api-client';
 import { apiClient } from '../lib/apiClient';
+import { registerForPushNotificationsAsync } from '../lib/pushNotifications';
 
 type SessionStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
@@ -30,6 +31,17 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [status, setStatus] = useState<SessionStatus>('loading');
+  const pushRegisteredRef = useRef(false);
+
+  // Registra el token de push una sola vez por sesión en memoria, solo si
+  // el usuario tiene el toggle Push activado (ver pestaña Avisos de Perfil).
+  // El envío real además se filtra en el backend por esta misma preferencia.
+  useEffect(() => {
+    if (status !== 'authenticated' || pushRegisteredRef.current) return;
+    if (!user?.notification_preferences?.push) return;
+    pushRegisteredRef.current = true;
+    registerForPushNotificationsAsync();
+  }, [status, user]);
 
   // Intenta restaurar la sesión desde el refreshToken guardado en SecureStore
   useEffect(() => {
@@ -57,6 +69,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await apiClient.logout();
+    pushRegisteredRef.current = false;
     setUser(null);
     setSubscription(null);
     setStatus('unauthenticated');
