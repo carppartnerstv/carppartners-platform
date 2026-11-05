@@ -8,15 +8,13 @@ import {
   Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { IconPlayerPlayFilled } from '@tabler/icons-react-native';
 import { colors, radii, textStyles, spacing } from '../../theme';
 
-// Card dimensions — 16:9 ratio
-const CARD_WIDTH = 220;
-const CARD_HEIGHT = Math.round(CARD_WIDTH * (9 / 16));
-
-// Rank card is wider to show the large number
-const RANK_CARD_WIDTH = 260;
-const RANK_CARD_HEIGHT = Math.round(RANK_CARD_WIDTH * (9 / 16));
+// Póster vertical 2:3 (estilo Netflix), igual proporción que el w-[23vw] de
+// la web — pensado para que se vean 3 tarjetas enteras y un trozo de la 4ª.
+const CARD_WIDTH = Math.round(Dimensions.get('window').width * 0.23);
+const CARD_HEIGHT = Math.round(CARD_WIDTH * 1.5);
 
 type CardVariant = 'default' | 'rank' | 'continue' | 'full';
 
@@ -27,9 +25,9 @@ export interface VideoCardItem {
   id: string;
   title: string;
   thumbnail_url: string | null;
-  /** Etiqueta de la píldora inferior derecha (p. ej. "34 min" o "8 episodios"). Si no se pasa, no se muestra píldora. */
+  /** Etiqueta de la píldora superior derecha (duración/episodios). Solo se pinta en variant="continue" (la web la oculta en el resto en móvil). */
   metaLabel?: string | null;
-  /** Etiqueta pequeña sobre el título (p. ej. "EP. 3"). */
+  /** Línea bajo el título (p. ej. "T1 · E3 · Nombre de la serie" o "8 episodios"). */
   episodeLabel?: string | null;
   isNew?: boolean;
   rank?: number;
@@ -50,10 +48,7 @@ export function VideoCard({ item, variant = 'default', onPress, onLongPress }: V
   let cardWidth = CARD_WIDTH;
   let cardHeight = CARD_HEIGHT;
 
-  if (variant === 'rank') {
-    cardWidth = RANK_CARD_WIDTH;
-    cardHeight = RANK_CARD_HEIGHT;
-  } else if (variant === 'full') {
+  if (variant === 'full') {
     cardWidth = screenWidth - spacing.pagePaddingH * 2;
     cardHeight = Math.round(cardWidth * (9 / 16));
   }
@@ -68,40 +63,59 @@ export function VideoCard({ item, variant = 'default', onPress, onLongPress }: V
       onLongPress={() => onLongPress?.(item)}
       style={[styles.card, { width: cardWidth }]}
     >
-      {/* Thumbnail */}
-      <View style={[styles.thumb, { width: cardWidth, height: cardHeight }]}>
-        {item.thumbnail_url ? (
-          <Image
-            source={{ uri: item.thumbnail_url }}
+      {/* Envoltorio del mismo tamaño que la miniatura, SIN overflow:hidden —
+          así el numeral de rank puede sangrar por fuera del borde (igual
+          que en VideoCard.tsx web), cosa que el overflow:hidden del thumb
+          (necesario para las esquinas redondeadas) recortaría. */}
+      <View style={{ width: cardWidth, height: cardHeight }}>
+        <View style={[styles.thumb, { width: cardWidth, height: cardHeight }]}>
+          {item.thumbnail_url ? (
+            <Image
+              source={{ uri: item.thumbnail_url }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, styles.thumbFallback]} />
+          )}
+
+          {/* Bottom scrim */}
+          <LinearGradient
+            colors={[colors.scrimNone, colors.scrimHalf, colors.scrimFull]}
+            locations={[0.38, 0.72, 1]}
             style={StyleSheet.absoluteFill}
-            resizeMode="cover"
           />
-        ) : (
-          <View style={[StyleSheet.absoluteFill, styles.thumbFallback]} />
-        )}
 
-        {/* Bottom scrim */}
-        <LinearGradient
-          colors={[colors.scrimNone, colors.scrimHalf, colors.scrimFull]}
-          locations={[0.3, 0.7, 1]}
-          style={styles.scrim}
-        />
+          {/* NEW badge */}
+          {item.isNew && (
+            <View style={styles.newBadge}>
+              <Text style={styles.newBadgeText}>NUEVO</Text>
+            </View>
+          )}
 
-        {/* NEW badge */}
-        {item.isNew && (
-          <View style={styles.newBadge}>
-            <Text style={styles.newBadgeText}>NUEVO</Text>
-          </View>
-        )}
+          {/* Meta pill — solo en "Continuar viendo" */}
+          {variant === 'continue' && item.metaLabel && (
+            <View style={styles.durationPill}>
+              <Text style={styles.durationText}>{item.metaLabel}</Text>
+            </View>
+          )}
 
-        {/* Meta pill */}
-        {item.metaLabel && (
-          <View style={styles.durationPill}>
-            <Text style={styles.durationText}>{item.metaLabel}</Text>
-          </View>
-        )}
+          {/* Círculo de reproducción — solo "Continuar viendo" */}
+          {variant === 'continue' && (
+            <View style={styles.playCircle}>
+              <IconPlayerPlayFilled size={18} color={colors.white} style={{ marginLeft: 2 }} />
+            </View>
+          )}
 
-        {/* Rank number overlay */}
+          {/* Barra de progreso — pegada al borde inferior de la miniatura */}
+          {showProgress && (
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
+            </View>
+          )}
+        </View>
+
+        {/* Numeral de rank — fuera del thumb a propósito, para que sangre por el borde */}
         {variant === 'rank' && item.rank != null && (
           <View style={styles.rankOverlay}>
             <Text style={styles.rankText}>{item.rank}</Text>
@@ -109,23 +123,16 @@ export function VideoCard({ item, variant = 'default', onPress, onLongPress }: V
         )}
       </View>
 
-      {/* Progress bar */}
-      {showProgress && (
-        <View style={[styles.progressTrack, { width: cardWidth }]}>
-          <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
-        </View>
-      )}
-
       {/* Info */}
       <View style={styles.info}>
+        <Text style={styles.title} numberOfLines={1}>
+          {item.title}
+        </Text>
         {item.episodeLabel && (
           <Text style={styles.episode} numberOfLines={1}>
             {item.episodeLabel}
           </Text>
         )}
-        <Text style={styles.title} numberOfLines={2}>
-          {item.title}
-        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -143,28 +150,25 @@ const styles = StyleSheet.create({
   thumbFallback: {
     backgroundColor: colors.surface2,
   },
-  scrim: {
-    ...StyleSheet.absoluteFill,
-  },
   newBadge: {
     position: 'absolute',
     top: 8,
     left: 8,
-    backgroundColor: colors.brandBright,
+    backgroundColor: colors.goldFill,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: radii.badge,
   },
   newBadgeText: {
     ...textStyles.kicker,
-    fontSize: 9,
-    color: colors.white,
+    fontSize: 8.5,
+    color: '#1a1206',
   },
   durationPill: {
     position: 'absolute',
-    bottom: 8,
+    top: 8,
     right: 8,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: 'rgba(4,8,10,0.72)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: radii.sm,
@@ -175,38 +179,49 @@ const styles = StyleSheet.create({
   },
   rankOverlay: {
     position: 'absolute',
-    bottom: -6,
-    left: 6,
+    bottom: -14,
+    left: 4,
   },
   rankText: {
     fontFamily: 'Sora_800ExtraBold',
-    fontSize: 72,
-    lineHeight: 80,
+    fontSize: 84,
+    lineHeight: 88,
     color: colors.textPrimary,
-    opacity: 0.15,
+    opacity: 0.4,
+  },
+  playCircle: {
+    position: 'absolute',
+    left: '50%', top: '50%',
+    marginLeft: -18, marginTop: -18,
+    width: 36, height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.32)',
   },
   progressTrack: {
+    position: 'absolute',
+    left: 0, right: 0, bottom: 0,
     height: 3,
-    backgroundColor: colors.surface2,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginTop: -6, // sit just below the card
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   progressFill: {
     height: '100%',
     backgroundColor: colors.brandBright,
-    borderRadius: 2,
   },
   info: {
     gap: 2,
     paddingHorizontal: 2,
   },
-  episode: {
-    ...textStyles.kicker,
-    color: colors.brandBright,
-  },
   title: {
     ...textStyles.cardTitle,
+    fontSize: 12,
     color: colors.textPrimary,
+  },
+  episode: {
+    ...textStyles.bodyXs,
+    color: colors.textFaint,
   },
 });

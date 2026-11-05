@@ -28,7 +28,7 @@ interface VariantConfig {
 }
 
 const variants: Record<ButtonVariant, VariantConfig> = {
-  primary: { bg: colors.brandBright, text: colors.white },
+  primary: { bg: colors.brand, text: colors.white },
   secondary: { bg: colors.surface2, text: colors.textPrimary },
   ghost: { bg: colors.transparent, text: colors.textSecondary },
   outline: { bg: colors.transparent, text: colors.textPrimary, border: colors.borderMedium },

@@ -17,6 +17,9 @@ export function Row({ title, items, variant = 'default', onItemPress, onSeeAll }
   if (items.length === 0) return null;
 
   const cardVariant = variant === 'rank' ? 'rank' : variant === 'continue' ? 'continue' : 'default';
+  // El numeral grande de "rank" necesita más aire entre tarjetas (igual que
+  // gap-6/8 en vez de gap-3/4 en VideoRow.tsx web).
+  const itemGap = variant === 'rank' ? spacing.rowGap + 16 : spacing.rowGap;
 
   return (
     <View style={styles.section}>
@@ -32,11 +35,11 @@ export function Row({ title, items, variant = 'default', onItemPress, onSeeAll }
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, variant === 'rank' && styles.listRank]}
       >
         {items.map((item, index) => (
           <React.Fragment key={item.id}>
-            {index > 0 && <View style={{ width: spacing.rowGap }} />}
+            {index > 0 && <View style={{ width: itemGap }} />}
             <VideoCard item={item} variant={cardVariant} onPress={onItemPress} />
           </React.Fragment>
         ))}
@@ -65,5 +68,8 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingHorizontal: spacing.pagePaddingH,
+  },
+  listRank: {
+    paddingTop: 10,
   },
 });

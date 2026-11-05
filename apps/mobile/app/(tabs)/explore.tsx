@@ -3,22 +3,25 @@ import {
   View,
   Text,
   TextInput,
+  Animated,
   FlatList,
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { IconSearch, IconMoodEmpty } from '@tabler/icons-react-native';
 import type { Category, Series, CrewMember } from '@carp-partners/api-client';
 import { ApiError } from '@carp-partners/api-client';
 import { colors, textStyles, spacing, radii } from '../../theme';
-import { Spinner, GridCard, Avatar, Badge } from '../../components/ui';
+import { Spinner, GridCard } from '../../components/ui';
+import { AppHeader, APP_HEADER_CONTENT_HEIGHT } from '../../components/ui/AppHeader';
 import type { VideoCardItem } from '../../components/ui';
 import { apiClient } from '../../lib/apiClient';
 import { useSession } from '../../context/SessionContext';
-import { ROLE_LABELS } from '../../lib/constants';
 import { useResetScrollOnFocus } from '../../hooks/useResetScrollOnFocus';
+
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList<any>);
 
 const CONTENT_BOTTOM_PADDING = 96;
 
@@ -31,8 +34,15 @@ type Tab = 'all' | 'crew' | string;
 export default function ExploreScreen() {
   const { refresh } = useSession();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList>(null);
   useResetScrollOnFocus(useCallback(() => listRef.current?.scrollToOffset({ offset: 0, animated: false }), []));
+
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const onScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: false },
+  );
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [query, setQuery] = useState('');
@@ -84,13 +94,19 @@ export default function ExploreScreen() {
     id: s.id,
     title: s.title,
     thumbnail_url: s.cover_url,
-    metaLabel: s.episode_count > 0 ? `${s.episode_count} ep.` : undefined,
+    metaLabel: s.episode_count > 0 ? `${s.episode_count} episodio${s.episode_count === 1 ? '' : 's'}` : undefined,
+  }));
+
+  // Mismo formato de tarjeta que series/películas (4:3, sin avatar circular
+  // ni distinción socio/crew — no aporta nada en una rejilla densa).
+  const crewCards: VideoCardItem[] = filteredCrew.map((m) => ({
+    id: m.slug,
+    title: m.name,
+    thumbnail_url: m.avatar_url,
   }));
 
   const header = (
-    <View style={styles.header}>
-      <Text style={styles.pageTitle}>Explorar</Text>
-
+    <View style={[styles.header, { paddingTop: insets.top + APP_HEADER_CONTENT_HEIGHT + spacing.md }]}>
       <View style={styles.searchBox}>
         <IconSearch size={17} color={colors.textFaint} />
         <TextInput
@@ -128,16 +144,18 @@ export default function ExploreScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={styles.safe}>
+        <AppHeader scrollY={scrollY} />
         {header}
         <Spinner centered />
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (showEmpty) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={styles.safe}>
+        <AppHeader scrollY={scrollY} />
         {header}
         <View style={styles.empty}>
           <IconMoodEmpty size={38} color={colors.textFaint} />
@@ -146,55 +164,51 @@ export default function ExploreScreen() {
             {isCrewTab ? 'No encontramos a nadie con ese nombre.' : 'No encontramos nada para tu búsqueda. Prueba con otra palabra o cambia los filtros.'}
           </Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <View style={styles.safe}>
+      <AppHeader scrollY={scrollY} />
       {isCrewTab ? (
-        <FlatList
+        <AnimatedFlatList
           ref={listRef}
-          data={filteredCrew}
-          keyExtractor={(m) => m.id}
+          data={crewCards}
+          keyExtractor={(c: VideoCardItem) => c.id}
           numColumns={2}
           columnWrapperStyle={styles.column}
           contentContainerStyle={{ paddingHorizontal: spacing.pagePaddingH, paddingBottom: CONTENT_BOTTOM_PADDING, gap: spacing.lg }}
           ListHeaderComponent={header}
-          renderItem={({ item }: { item: CrewMember }) => (
-            <TouchableOpacity
-              style={styles.crewCard}
-              activeOpacity={0.8}
-              onPress={() => router.push({ pathname: '/crew/[slug]', params: { slug: item.slug } })}
-            >
-              <Avatar uri={item.avatar_url} name={item.name} size="lg" />
-              <Text style={styles.crewName} numberOfLines={1}>{item.name}</Text>
-              <Badge label={ROLE_LABELS[item.role]} variant={item.role === 'socio' ? 'gold' : 'muted'} />
-            </TouchableOpacity>
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          renderItem={({ item }: { item: VideoCardItem }) => (
+            <GridCard item={item} onPress={(m) => router.push({ pathname: '/crew/[slug]', params: { slug: m.id } })} />
           )}
         />
       ) : (
-        <FlatList
+        <AnimatedFlatList
           ref={listRef}
           data={seriesCards}
-          keyExtractor={(c) => c.id}
+          keyExtractor={(c: VideoCardItem) => c.id}
           numColumns={2}
           columnWrapperStyle={styles.column}
           contentContainerStyle={{ paddingHorizontal: spacing.pagePaddingH, paddingBottom: CONTENT_BOTTOM_PADDING, gap: spacing.lg }}
           ListHeaderComponent={header}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
           renderItem={({ item }: { item: VideoCardItem }) => (
             <GridCard item={item} onPress={(v) => router.push(`/serie/${v.id}`)} />
           )}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   header: { paddingHorizontal: spacing.pagePaddingH, paddingTop: spacing.sm, gap: spacing.md },
-  pageTitle: { ...textStyles.pageTitle, color: colors.textPrimary, marginBottom: 2 },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -215,7 +229,7 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: radii.full,
+    borderRadius: radii.chip,
     borderWidth: 1,
   },
   chipText: { ...textStyles.labelSm },
@@ -230,6 +244,4 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { ...textStyles.sectionTitle, color: colors.textSecondary, marginTop: spacing.sm },
   emptyBody: { ...textStyles.bodySm, color: colors.textFaint, textAlign: 'center' },
-  crewCard: { flex: 1, alignItems: 'center', gap: 8, paddingVertical: spacing.md },
-  crewName: { ...textStyles.label, color: colors.textPrimary },
 });

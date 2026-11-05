@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -49,11 +50,11 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>
-              CARP<Text style={{ color: colors.brandBright }}>◆</Text>PARTNERS
-            </Text>
-          </View>
+          <Image
+            source={require('../../assets/carp-partners-logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
 
           <Text style={styles.title}>Bienvenido de nuevo</Text>
           <Text style={styles.subtitle}>Inicia sesión para seguir viendo</Text>
@@ -106,13 +107,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing['2xl'],
     paddingBottom: spacing['3xl'],
   },
-  logo: { marginBottom: spacing['4xl'] },
-  logoText: {
-    fontFamily: 'Sora_800ExtraBold',
-    fontSize: 15,
-    letterSpacing: -0.2,
-    color: colors.white,
-  },
+  logo: { width: 160, height: 28, marginBottom: spacing['4xl'] },
   title: {
     ...textStyles.heroTitle,
     fontSize: 26,
