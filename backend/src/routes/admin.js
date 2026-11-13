@@ -773,7 +773,8 @@ adminRouter.get(
     // coincida con lo mostrado.
     const { rows } = await query(
       `SELECT u.id, u.email, u.name, COALESCE(u.stripe_created_at, u.created_at) AS created_at,
-              s.plan, s.status, s.period_end, s.source, ecl.sent_at AS reminder_sent_at
+              s.plan, s.status, s.period_end, s.source, ecl.sent_at AS reminder_sent_at,
+              u.stripe_duplicate_count
          FROM users u ${SUB_LATERAL}
          LEFT JOIN LATERAL (
            SELECT sent_at FROM email_campaign_log
@@ -830,22 +831,53 @@ adminRouter.get(
       [user.id],
     );
 
+    // Busca TODOS los Customer de Stripe con este email (no solo el enlazado
+    // en stripe_customer_id) — WordPress crea uno nuevo por ciclo/alta (ver
+    // scripts/find-stale-customer-links.js), así que alguien con varios
+    // Customer tenía su historial de pagos incompleto si solo mirábamos el
+    // enlazado. search() es insensible a mayúsculas, a diferencia de list().
     let payments = [];
-    if (user.stripe_customer_id) {
+    let stripeCustomerIds = [];
+    if (user.stripe_customer_id || user.email) {
       try {
-        const charges = await stripe.charges.list({ customer: user.stripe_customer_id, limit: 20 });
-        payments = charges.data.map((c) => ({
-          id: c.id,
-          amount: c.amount,
-          currency: c.currency,
-          status: c.status,
-          refunded: c.refunded,
-          created: new Date(c.created * 1000).toISOString(),
-        }));
+        const escaped = user.email.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const found = await stripe.customers.search({ query: `email:'${escaped}'`, limit: 10 });
+        stripeCustomerIds = found.data.map((c) => c.id);
+        // Por si el Customer enlazado no aparece en la búsqueda por email
+        // (p. ej. se le cambió el email en Stripe por separado) — no debe
+        // desaparecer de la lista ni perder sus cargos.
+        if (user.stripe_customer_id && !stripeCustomerIds.includes(user.stripe_customer_id)) {
+          stripeCustomerIds.push(user.stripe_customer_id);
+        }
+
+        const chargesByCustomer = await Promise.all(
+          stripeCustomerIds.map((customerId) =>
+            stripe.charges.list({ customer: customerId, limit: 20 })
+              .then((r) => r.data.map((c) => ({ ...c, _customerId: customerId })))
+              .catch((err) => {
+                console.error(`[admin] No se pudieron leer los cargos de ${customerId}:`, err.message);
+                return [];
+              }),
+          ),
+        );
+
+        payments = chargesByCustomer
+          .flat()
+          .sort((a, b) => b.created - a.created)
+          .slice(0, 30)
+          .map((c) => ({
+            id: c.id,
+            amount: c.amount,
+            currency: c.currency,
+            status: c.status,
+            refunded: c.refunded,
+            created: new Date(c.created * 1000).toISOString(),
+            stripeCustomerId: c._customerId,
+          }));
       } catch (err) {
         // No debe romper el popup si Stripe falla puntualmente — se
         // muestra el resto de la información igualmente.
-        console.error(`[admin] No se pudieron leer los cargos de ${user.stripe_customer_id}:`, err.message);
+        console.error(`[admin] No se pudo buscar Customers de Stripe para ${user.email}:`, err.message);
       }
     }
 
@@ -858,6 +890,10 @@ adminRouter.get(
         lastLoginAt: user.last_login_at,
         stripeCustomerId: user.stripe_customer_id,
         stripeCreatedAt: user.stripe_created_at,
+        // Todos los Customer de Stripe encontrados con este email — si hay
+        // más de uno, el frontend avisa (ver find-stale-customer-links.js:
+        // WordPress crea un Customer nuevo por ciclo/alta).
+        stripeCustomerIds,
       },
       subscriptions: subscriptions.map((s) => ({
         id: s.id,

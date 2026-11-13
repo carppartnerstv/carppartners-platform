@@ -699,6 +699,19 @@ function SubscriberDetailModal({ userId, onClose, onUpdated }: { userId: string 
               </div>
             )}
             {detail.user.name && <p className="text-admin-text-muted text-xs mt-0.5">{detail.user.name}</p>}
+            {detail.user.stripeCustomerIds.length > 1 && (
+              <div
+                className="mt-2.5 flex items-start gap-2 px-3 py-2 rounded-md text-xs"
+                style={{ background: '#fdecea', border: '1px solid #f7cfc9', color: '#c0392b' }}
+              >
+                <i className="ti ti-alert-triangle text-[14px] mt-[1px] shrink-0" />
+                <span>
+                  Tiene {detail.user.stripeCustomerIds.length} clientes distintos en Stripe con este email
+                  (WordPress suele crear uno nuevo por alta/ciclo) — el historial de pagos de abajo ya los junta todos,
+                  pero conviene revisarlo si algo no cuadra.
+                </span>
+              </div>
+            )}
           </div>
 
           <div>
@@ -730,7 +743,10 @@ function SubscriberDetailModal({ userId, onClose, onUpdated }: { userId: string 
             ) : detail.payments.length === 0 ? (
               <p className="text-admin-text-tertiary text-xs">Sin cargos registrados en Stripe.</p>
             ) : (
-              <DetailTable head={<><Th>Fecha</Th><Th right>Importe</Th><Th>Estado</Th></>}>
+              <DetailTable head={<>
+                <Th>Fecha</Th><Th right>Importe</Th><Th>Estado</Th>
+                {detail.user.stripeCustomerIds.length > 1 && <Th>Cliente Stripe</Th>}
+              </>}>
                 {detail.payments.map((p) => (
                   <tr key={p.id}>
                     <td className="px-3 py-2 text-admin-text-secondary tabular-nums whitespace-nowrap">{fmtDateTime(p.created)}</td>
@@ -740,6 +756,9 @@ function SubscriberDetailModal({ userId, onClose, onUpdated }: { userId: string 
                     <td className={`px-3 py-2 whitespace-nowrap ${!p.refunded && p.status === 'failed' ? 'text-[#c0392b]' : 'text-admin-text-secondary'}`}>
                       {p.refunded ? 'Reembolsado' : (PAYMENT_STATUS_LABELS[p.status] ?? p.status)}
                     </td>
+                    {detail.user.stripeCustomerIds.length > 1 && (
+                      <td className="px-3 py-2 text-admin-text-tertiary text-[11px] tabular-nums whitespace-nowrap">{p.stripeCustomerId}</td>
+                    )}
                   </tr>
                 ))}
               </DetailTable>
@@ -1003,7 +1022,16 @@ export default function AdminSuscriptoresPage() {
               <tr key={u.id} className="hover:bg-admin-hover transition-colors">
                 <td className="px-4 py-3">
                   <div>
-                    <p className="text-admin-text font-medium text-sm">{u.email}</p>
+                    <p className="text-admin-text font-medium text-sm flex items-center gap-1.5">
+                      {u.email}
+                      {u.stripe_duplicate_count != null && u.stripe_duplicate_count > 1 && (
+                        <i
+                          className="ti ti-alert-triangle text-[13px] shrink-0"
+                          style={{ color: '#c0392b' }}
+                          title={`${u.stripe_duplicate_count} clientes distintos en Stripe con este email`}
+                        />
+                      )}
+                    </p>
                     {u.name && <p className="text-admin-text-muted text-xs mt-0.5">{u.name}</p>}
                   </div>
                 </td>

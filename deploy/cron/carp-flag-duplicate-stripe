@@ -1,0 +1,21 @@
+# /etc/cron.d/carp-flag-duplicate-stripe
+#
+# scripts/flag-duplicate-stripe-customers.js: recalcula
+# users.stripe_duplicate_count (cuántos Customer de Stripe hay con el email
+# de cada usuario — WordPress crea uno nuevo por alta/ciclo, ver
+# find-stale-customer-links.js). Puramente informativo: enciende el aviso
+# en /admin/suscriptores (listado y detalle) para detectar el caso de un
+# vistazo, sin entrar a Stripe — no toca ninguna suscripción ni enlace.
+#
+# A las 4:20 (10 min después de los otros dos cron de este mismo bloque,
+# carp-bridge-schedule-subs) para no pisarse llamando a la API de Stripe a
+# la vez. Log en /var/log/carp/flag-duplicate-stripe.log.
+#
+# Instalación (no se aplica solo — copiar a /etc/cron.d/ tras cada cambio):
+#   cp deploy/cron/carp-flag-duplicate-stripe /etc/cron.d/carp-flag-duplicate-stripe
+#   chmod 644 /etc/cron.d/carp-flag-duplicate-stripe
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# min hora dia-mes mes dia-semana usuario   comando
+20   4    *        *   1           root     cd /var/www/carp-partners-tv/backend && npm run flag-duplicate-stripe-customers -- --send >> /var/log/carp/flag-duplicate-stripe.log 2>&1

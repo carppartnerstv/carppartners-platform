@@ -352,6 +352,8 @@ export interface AdminUser {
   source: 'stripe' | 'courtesy' | null;
   /** Último envío del recordatorio de "sin plan" (POST .../payment-reminder), null si nunca se envió. */
   reminder_sent_at: string | null;
+  /** Nº de Customer de Stripe con este email — null si aún no se ha comprobado (ver scripts/flag-duplicate-stripe-customers.js), >1 = WordPress creó duplicados */
+  stripe_duplicate_count: number | null;
 }
 
 export interface PaymentReminderEntry {
@@ -391,6 +393,8 @@ export interface AdminUserPaymentHistoryItem {
   status: string;
   refunded: boolean;
   created: string;
+  /** De qué Customer de Stripe viene — relevante solo si stripeCustomerIds tiene más de uno */
+  stripeCustomerId: string;
 }
 
 export interface AdminUserLoginHistoryItem {
@@ -423,6 +427,8 @@ export interface AdminUserDetail {
     lastLoginAt: string | null;
     stripeCustomerId: string | null;
     stripeCreatedAt: string | null;
+    /** Todos los Customer de Stripe encontrados con este email — más de uno = WordPress creó duplicados */
+    stripeCustomerIds: string[];
   };
   subscriptions: AdminUserSubscriptionHistoryItem[];
   payments: AdminUserPaymentHistoryItem[];
