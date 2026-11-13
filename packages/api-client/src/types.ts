@@ -667,3 +667,48 @@ export interface CarouselInput {
   name: string;
   slug: string;
 }
+
+// ─── Correo (pestaña "Correo" del admin — buzón real por IMAP) ──────────────
+
+export interface AdminMailFolder {
+  path: string;
+  name: string;
+  specialUse: string | null;
+}
+
+export interface AdminMailMessageSummary {
+  uid: number;
+  subject: string;
+  from: string | null;
+  fromAddress: string | null;
+  date: string | null;
+  seen: boolean;
+  size: number | null;
+}
+
+export interface AdminMailMessagesResponse {
+  messages: AdminMailMessageSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AdminMailAttachment {
+  filename: string | null;
+  contentType: string;
+  size: number;
+}
+
+export interface AdminMailMessage {
+  uid: number;
+  messageId: string | null;
+  subject: string;
+  from: string | null;
+  fromAddress: string | null;
+  to: string | null;
+  date: string | null;
+  /** Ya saneado en el backend — seguro para dangerouslySetInnerHTML */
+  html: string | null;
+  text: string | null;
+  attachments: AdminMailAttachment[];
+}

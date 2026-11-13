@@ -51,13 +51,17 @@ export async function verifyMailConnection() {
  * seguir adelante igualmente (p. ej. el registro no debe fallar si el email
  * de bienvenida no sale).
  */
-export async function sendMail({ to, subject, html, text }) {
+export async function sendMail({ to, subject, html, text, inReplyTo, references }) {
   if (!transporter) {
     console.warn(`[mail] SMTP no configurado; se omite envío a ${to} ("${subject}")`);
     return { sent: false };
   }
   try {
-    await transporter.sendMail({ from: config.mail.from, to, subject, html, text });
+    // inReplyTo/references: solo los usa la respuesta manual desde la
+    // pestaña "Correo" del panel — así el cliente de correo del
+    // destinatario la enlaza con el hilo original en vez de verla como un
+    // mensaje suelto. nodemailer los soporta de forma nativa.
+    await transporter.sendMail({ from: config.mail.from, to, subject, html, text, inReplyTo, references });
     return { sent: true };
   } catch (err) {
     console.error(`[mail] Error enviando a ${to} ("${subject}"):`, err.message);

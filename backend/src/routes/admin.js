@@ -25,12 +25,13 @@ import { asyncHandler, badRequest, notFound, HttpError } from '../utils/errors.j
 import { stripe } from '../services/stripe.js';
 import { getVideoMetadata } from '../services/vimeo.js';
 import { sendMail } from '../services/mail.js';
-import { setPasswordEmail, completeSignupReminderEmail, contactReplyEmail } from '../services/mailTemplates.js';
+import { setPasswordEmail, completeSignupReminderEmail, contactReplyEmail, inboxReplyEmail } from '../services/mailTemplates.js';
 import { config } from '../config/index.js';
 import sanitizeHtml from 'sanitize-html';
 import { UAParser } from 'ua-parser-js';
 import geoip from 'geoip-lite';
 import { makeImageUpload } from '../utils/imageUpload.js';
+import * as imap from '../services/imap.js';
 
 // Nombre de país en español a partir del código ISO de geoip-lite (p. ej.
 // "ES" -> "España") — Intl.DisplayNames es nativo de Node, no hace falta
@@ -2490,5 +2491,95 @@ adminRouter.delete(
     );
     if (!message) throw notFound('Mensaje no encontrado', 'MESSAGE_NOT_FOUND');
     res.status(204).end();
+  }),
+);
+
+// --- Correo (IMAP del buzón real, ver services/imap.js) ---------------
+// Pestaña "Correo" del panel: lista/lee/responde el buzón real por IMAP
+// (no una tabla propia — todo en vivo contra el servidor de correo). Si
+// IMAP_HOST/IMAP_USER/IMAP_PASS no están configurados, /status avisa y el
+// frontend oculta la pestaña en vez de fallar.
+
+adminRouter.get(
+  '/mail/status',
+  asyncHandler(async (_req, res) => {
+    res.json({ configured: imap.isImapConfigured() });
+  }),
+);
+
+adminRouter.get(
+  '/mail/folders',
+  asyncHandler(async (_req, res) => {
+    res.json({ folders: await imap.listFolders() });
+  }),
+);
+
+adminRouter.get(
+  '/mail/messages',
+  asyncHandler(async (req, res) => {
+    const limit = Math.min(parseInt(req.query.limit ?? '30', 10), 100);
+    const offset = Math.max(parseInt(req.query.offset ?? '0', 10), 0);
+    const folder = typeof req.query.folder === 'string' && req.query.folder ? req.query.folder : 'INBOX';
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const unreadOnly = req.query.unreadOnly === 'true';
+    const { messages, total } = await imap.listMessages({ folder, limit, offset, q, unreadOnly });
+    res.json({ messages, total, limit, offset });
+  }),
+);
+
+adminRouter.get(
+  '/mail/messages/:uid',
+  asyncHandler(async (req, res) => {
+    const folder = typeof req.query.folder === 'string' && req.query.folder ? req.query.folder : 'INBOX';
+    const message = await imap.getMessage({ folder, uid: req.params.uid });
+    res.json({ message });
+  }),
+);
+
+const setSeenSchema = z.object({ seen: z.boolean() });
+
+adminRouter.put(
+  '/mail/messages/:uid/seen',
+  asyncHandler(async (req, res) => {
+    const parsed = setSeenSchema.safeParse(req.body);
+    if (!parsed.success) throw badRequest('Datos inválidos', 'VALIDATION');
+    const folder = typeof req.query.folder === 'string' && req.query.folder ? req.query.folder : 'INBOX';
+    await imap.setMessageSeen({ folder, uid: req.params.uid, seen: parsed.data.seen });
+    res.status(204).end();
+  }),
+);
+
+const mailReplySchema = z.object({ text: z.string().trim().min(1).max(10_000) });
+
+adminRouter.post(
+  '/mail/messages/:uid/reply',
+  asyncHandler(async (req, res) => {
+    const parsed = mailReplySchema.safeParse(req.body);
+    if (!parsed.success) throw badRequest('Datos inválidos', 'VALIDATION');
+    const folder = typeof req.query.folder === 'string' && req.query.folder ? req.query.folder : 'INBOX';
+
+    const original = await imap.getMessage({ folder, uid: req.params.uid });
+    if (!original.fromAddress) throw badRequest('El mensaje original no tiene remitente', 'NO_SENDER');
+
+    const { subject, html, text } = inboxReplyEmail({
+      originalSubject: original.subject,
+      replyText: parsed.data.text,
+      quoteText: original.text || '(sin contenido en texto plano)',
+    });
+    const result = await sendMail({
+      to: original.fromAddress,
+      subject,
+      html,
+      text,
+      inReplyTo: original.messageId ?? undefined,
+      references: original.messageId ?? undefined,
+    });
+    if (!result.sent) throw new HttpError(502, 'No se pudo enviar la respuesta', 'SEND_FAILED');
+
+    // Se marca como leído/respondido (solo \Seen, IMAP estándar — no hay
+    // flag universal de "respondido" que todos los clientes respeten igual,
+    // \Answered si lo soporta el servidor).
+    await imap.setMessageSeen({ folder, uid: req.params.uid, seen: true }).catch(() => {});
+    res.json({ ok: true });
   }),
 );

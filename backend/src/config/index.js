@@ -85,6 +85,22 @@ export const config = {
     from: optional('MAIL_FROM', 'Carp Partners TV <info@carppartners.tv>'),
     admin: optional('MAIL_ADMIN', ''),
   },
+
+  // IMAP — lectura del buzón real para la pestaña "Correo" del panel admin
+  // (bandeja de hola@/info@carppartners.tv, visible sin salir del panel).
+  // Mismo servidor/cuenta que el SMTP de arriba en la mayoría de hostings
+  // (puerto distinto) — por eso cae por defecto en SMTP_HOST/USER/PASS si no
+  // se definen IMAP_* aparte; IMAP_PORT/IMAP_SECURE sí llevan su propio
+  // valor por defecto porque casi siempre son 993/true (IMAPS), distintos de
+  // los de SMTP. Opcional igual que el bloque de arriba: sin credenciales,
+  // la pestaña de correo simplemente se desactiva sola.
+  imap: {
+    host: optional('IMAP_HOST', optional('SMTP_HOST', '')),
+    port: parseInt(optional('IMAP_PORT', '993'), 10),
+    secure: optional('IMAP_SECURE', 'true') === 'true',
+    user: optional('IMAP_USER', optional('SMTP_USER', '')),
+    pass: optional('IMAP_PASS', optional('SMTP_PASS', '')),
+  },
 };
 
 // Vimeo necesita o un access token o el par client_id/secret.

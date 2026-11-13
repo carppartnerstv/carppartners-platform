@@ -47,6 +47,9 @@ import type {
   PublicCarousel,
   PublicPage,
   AdminPage,
+  AdminMailFolder,
+  AdminMailMessage,
+  AdminMailMessagesResponse,
   AdminPageSummary,
   PageInput,
   ContactInput,
@@ -722,6 +725,38 @@ export class ApiClient {
   /** Carrousel público por slug (sin sesión) — hero de la landing, shortcode [carrousel:slug]. */
   async getPublicCarousel(slug: string): Promise<{ carousel: PublicCarousel }> {
     return this.request('GET', `/carousels/${encodeURIComponent(slug)}`, { auth: false });
+  }
+
+  // ─── Correo (pestaña "Correo" del admin) ──────────────────────────────────
+
+  async getAdminMailStatus(): Promise<{ configured: boolean }> {
+    return this.request('GET', '/admin/mail/status');
+  }
+
+  async getAdminMailFolders(): Promise<{ folders: AdminMailFolder[] }> {
+    return this.request('GET', '/admin/mail/folders');
+  }
+
+  async getAdminMailMessages(params?: {
+    folder?: string;
+    limit?: number;
+    offset?: number;
+    q?: string;
+    unreadOnly?: boolean;
+  }): Promise<AdminMailMessagesResponse> {
+    return this.request('GET', '/admin/mail/messages', { query: params });
+  }
+
+  async getAdminMailMessage(uid: number | string, folder?: string): Promise<{ message: AdminMailMessage }> {
+    return this.request('GET', `/admin/mail/messages/${uid}`, { query: { folder } });
+  }
+
+  async setAdminMailSeen(uid: number | string, seen: boolean, folder?: string): Promise<void> {
+    return this.request('PUT', `/admin/mail/messages/${uid}/seen`, { query: { folder }, body: { seen } });
+  }
+
+  async replyAdminMail(uid: number | string, text: string, folder?: string): Promise<{ ok: boolean }> {
+    return this.request('POST', `/admin/mail/messages/${uid}/reply`, { query: { folder }, body: { text } });
   }
 
   async getVimeoMetadata(vimeoId: string): Promise<{

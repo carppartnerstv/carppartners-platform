@@ -63,5 +63,10 @@ export type {
   AdminPageSummary,
   PageInput,
   ContactInput,
+  AdminMailFolder,
+  AdminMailMessageSummary,
+  AdminMailMessagesResponse,
+  AdminMailAttachment,
+  AdminMailMessage,
   ContactMessage,
 } from './types';

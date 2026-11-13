@@ -130,6 +130,12 @@ cuelga de `/api/*` (Nginx reescribe quitando `/api`). En local es directo a
 | PUT | `/admin/contact-messages/:id` `{read: boolean}` | JWT + admin | `{message}` — marca leído/no leído (`read_at`) |
 | POST | `/admin/contact-messages/:id/reply` `{text}` | JWT + admin | `{message}` — responde por email desde el propio panel (`contactReplyEmail`, cita el mensaje original); guarda `replied_at`/`reply_text` (solo la última respuesta) y marca `read_at` de paso si no lo estaba |
 | DELETE | `/admin/contact-messages/:id` | JWT + admin | 204 |
+| GET | `/admin/mail/status` | JWT + admin | `{configured: boolean}` — false si faltan `IMAP_HOST`/`IMAP_USER`/`IMAP_PASS` (el frontend oculta la pestaña "Correo" en ese caso) |
+| GET | `/admin/mail/folders` | JWT + admin | `{folders}` — carpetas reales del buzón vía IMAP |
+| GET | `/admin/mail/messages?folder&limit&offset&q&unreadOnly` | JWT + admin | `{messages, total, limit, offset}` — en vivo contra IMAP (sin tabla propia), más recientes primero; `folder` por defecto `INBOX` |
+| GET | `/admin/mail/messages/:uid?folder` | JWT + admin | `{message}` — cuerpo completo (HTML ya saneado con una lista de etiquetas más permisiva que la del editor de texto enriquecido, pensada para HTML de email real) |
+| PUT | `/admin/mail/messages/:uid/seen?folder` `{seen: boolean}` | JWT + admin | 204 — marca/desmarca `\Seen` en el servidor IMAP |
+| POST | `/admin/mail/messages/:uid/reply?folder` `{text}` | JWT + admin | `{ok}` — responde por el SMTP ya configurado (`inboxReplyEmail`, asunto `Re: <original>`, cabeceras `In-Reply-To`/`References` para que quede enhebrado), cita el cuerpo en texto plano del mensaje original y lo marca como leído de paso |
 | GET | `/admin/crew` | JWT + admin | `{crew}` |
 | POST | `/admin/crew` `{name,slug,role?,bio?,avatarUrl?,orderIndex?}` | JWT + admin | `{member}` 201 |
 | PUT | `/admin/crew/:id` | JWT + admin | `{member}` |
@@ -443,6 +449,45 @@ manualmente desde `/admin/series` cuando el usuario lo decida, no por script.
   (no "mark as unpaid but keep active"), si no una suscripción impagada podría
   conservar el acceso indefinidamente al no llegar nunca el evento que la
   cancela de verdad.
+
+## Pestaña "Correo" del admin (lectura del buzón real por IMAP)
+
+- `/admin/correo` lee y responde el buzón real (p. ej. `hola@`/`info@carppartners.tv`)
+  directamente por IMAP — sin tabla propia, todo en vivo contra el servidor de
+  correo en cada petición. Pensada para ver de un vistazo cosas como los
+  rebotes de entrega ("Mail delivery failed") sin salir del panel ni abrir un
+  cliente de correo aparte.
+- `backend/src/services/imap.js`: una conexión `ImapFlow` nueva por operación
+  (no una persistente compartida entre requests) — más simple para un panel
+  de uso esporádico, a costa de un pequeño coste de reconexión en cada
+  llamada. El cuerpo se descarga y parsea con `mailparser` (`simpleParser`).
+- Variables de entorno `IMAP_HOST`/`IMAP_PORT`/`IMAP_SECURE`/`IMAP_USER`/`IMAP_PASS`
+  (ver `backend/.env.example`) — todas opcionales: sin ellas, `GET
+  /admin/mail/status` devuelve `configured:false` y el frontend oculta la
+  pestaña, el resto del backend no se ve afectado. Si `IMAP_HOST`/`IMAP_USER`/
+  `IMAP_PASS` no se definen aparte, caen por defecto en `SMTP_HOST`/`SMTP_USER`/
+  `SMTP_PASS` (mismo servidor/cuenta en la mayoría de hostings, solo cambia el
+  puerto) — en producción y en el `.env` local de este proyecto ya funciona
+  así de fábrica, sin tener que añadir nada nuevo.
+- El HTML de un email real necesita una lista de etiquetas/atributos bastante
+  más permisiva que `RICH_TEXT_SANITIZE_OPTIONS` (tablas, `style` inline,
+  `font`, `data:` en `<img>` para las imágenes incrustadas `cid:` que
+  `mailparser` ya convierte solo) — tiene su propia constante
+  `EMAIL_HTML_SANITIZE_OPTIONS` en `imap.js`, nunca confíes en HTML de email
+  sin sanearlo con esa lista si tocas este flujo.
+- El frontend pinta el cuerpo ya saneado dentro de un `<iframe sandbox="allow-same-origin allow-popups">`
+  (sin `allow-scripts`) en vez de un `div` con `dangerouslySetInnerHTML` — un
+  email trae su propia maquetación/CSS (a veces tablas con estilos inline
+  agresivos) que podría romper el resto del panel si se pintara directo en la
+  página; el iframe aísla ambos mundos y además es una capa extra de
+  seguridad aunque el saneado de arriba ya debería bastar.
+- Responder reutiliza el SMTP ya configurado (`services/mail.js: sendMail`,
+  ampliado con `inReplyTo`/`references` opcionales) — no hace falta SMTP
+  aparte. La plantilla es `inboxReplyEmail` (`mailTemplates.js`), distinta de
+  `contactReplyEmail`: aquí no hay un nombre conocido (puede escribir
+  cualquiera, no solo usuarios nuestros) y el asunto seguimos la convención
+  estándar `Re: <original>` en vez de uno fijo, para que el cliente de correo
+  del destinatario lo enlace bien con el hilo.
 
 ## Formulario de contacto y bandeja admin
 

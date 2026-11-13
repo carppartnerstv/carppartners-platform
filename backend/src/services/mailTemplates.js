@@ -242,6 +242,30 @@ export function contactReplyEmail({ name, originalMessage, replyText }) {
   };
 }
 
+// Respuesta manual desde la pestaña "Correo" del panel admin (buzón real
+// por IMAP, no el formulario de contacto — ver services/imap.js) — a
+// diferencia de contactReplyEmail, aquí no hay un nombre conocido (puede
+// ser cualquiera que nos haya escrito, no necesariamente un usuario
+// nuestro) y el asunto sí seguimos la convención estándar "Re: <original>"
+// para que el cliente de correo del destinatario lo enlace con el hilo.
+export function inboxReplyEmail({ originalSubject, replyText, quoteText }) {
+  const html = renderEmailLayout({
+    previewText: 'Respuesta de Carp Partners.',
+    eyebrow: 'Respuesta de Carp Partners',
+    heading: 'Hola',
+    bodyText1: replyText,
+    quoteLabel: 'Mensaje original',
+    quoteText,
+    signOffLine1: 'Un saludo,',
+    signOffLine2: 'El equipo de Carp Partners TV',
+  });
+  return {
+    subject: originalSubject && /^re:/i.test(originalSubject.trim()) ? originalSubject : `Re: ${originalSubject || ''}`.trim(),
+    html,
+    text: `Hola,\n\n${replyText}\n\n---\nMensaje original:\n${quoteText}\n\nUn saludo,\nEl equipo de Carp Partners TV`,
+  };
+}
+
 export function emailVerificationEmail({ name, verifyUrl }) {
   const greeting = greetingLine(name);
   const html = renderEmailLayout({
