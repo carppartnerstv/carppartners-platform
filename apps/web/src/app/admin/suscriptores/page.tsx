@@ -737,7 +737,7 @@ function SubscriberDetailModal({ userId, onClose, onUpdated }: { userId: string 
                     <td className="px-3 py-2 text-right text-admin-text tabular-nums whitespace-nowrap">
                       {(p.amount / 100).toLocaleString('es-ES', { style: 'currency', currency: p.currency.toUpperCase() })}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
+                    <td className={`px-3 py-2 whitespace-nowrap ${!p.refunded && p.status === 'failed' ? 'text-[#c0392b]' : 'text-admin-text-secondary'}`}>
                       {p.refunded ? 'Reembolsado' : (PAYMENT_STATUS_LABELS[p.status] ?? p.status)}
                     </td>
                   </tr>
